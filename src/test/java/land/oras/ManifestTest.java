@@ -52,10 +52,8 @@ public class ManifestTest {
 
     @Test
     void shouldHaveEmptyManifest() {
-        String json = emptyManifest();
-        LOG.debug("Empty manifest expected: {}", json);
-        LOG.debug("Empty manifest actual: {}", Manifest.empty().toJson());
-        assertEquals(Manifest.fromJson(json).toJson(), Manifest.empty().toJson());
+        assertEquals(
+                Manifest.fromJson(emptyManifest()).toJson(), Manifest.empty().toJson());
     }
 
     private String emptyManifest() {
@@ -66,7 +64,8 @@ public class ManifestTest {
               "config": {
                 "mediaType": "application/vnd.oci.empty.v1+json",
                 "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-                "size": 2
+                "size": 2,
+                "annotations": {}
               },
               "layers": [],
               "annotations": {}

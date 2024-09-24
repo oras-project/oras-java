@@ -1,7 +1,6 @@
 package land.oras;
 
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Map;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -20,6 +19,7 @@ public final class Config {
 
     /**
      * Annotations for the layer
+     * Can be nullable due to serialization
      */
     private final @Nullable Map<String, String> annotations;
 
@@ -35,17 +35,12 @@ public final class Config {
      * @param digest The digest
      * @param size The size
      */
-    private Config(
-            String mediaType,
-            String digest,
-            long size,
-            @Nullable String data,
-            @Nullable Map<String, String> annotations) {
+    private Config(String mediaType, String digest, long size, @Nullable String data, Annotations annotations) {
         this.mediaType = mediaType;
         this.digest = digest;
         this.size = size;
         this.data = data;
-        this.annotations = annotations;
+        this.annotations = Map.copyOf(annotations.configAnnotations());
     }
 
     /**
@@ -77,7 +72,7 @@ public final class Config {
      * @param annotations The annotations
      * @return The new config
      */
-    public Config withAnnotations(Map<String, String> annotations) {
+    public Config withAnnotations(Annotations annotations) {
         return new Config(mediaType, digest, size, data, annotations);
     }
 
@@ -100,7 +95,7 @@ public final class Config {
         if (annotations == null) {
             return Map.of();
         }
-        return Collections.unmodifiableMap(annotations);
+        return annotations;
     }
 
     /**
@@ -130,6 +125,6 @@ public final class Config {
                 "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
                 2,
                 "e30=",
-                null);
+                Annotations.empty());
     }
 }

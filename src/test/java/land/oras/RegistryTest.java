@@ -134,7 +134,7 @@ public class RegistryTest {
         Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
         String location = registry.pushManifest(containerRef, emptyManifest);
         assertEquals(
-                "http://%s/v2/library/empty-manifest/manifests/sha256:2efdddb3583a3c135a9b062baecc582bff1658290276b459321a9de8f2805622"
+                "http://%s/v2/library/empty-manifest/manifests/sha256:f570eb29564f04e73d15cc2a2bb4153d488b9e8428c7f5108b895baa379750bd"
                         .formatted(this.registry.getRegistry()),
                 location);
         Manifest manifest = registry.getManifest(containerRef);

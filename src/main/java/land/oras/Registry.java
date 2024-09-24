@@ -179,7 +179,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(ContainerRef containerRef, Path... paths) {
-        return pushArtifact(containerRef, null, Map.of(), Config.empty(), paths);
+        return pushArtifact(containerRef, null, Annotations.empty(), Config.empty(), paths);
     }
 
     /**
@@ -190,7 +190,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(ContainerRef containerRef, String artifactType, Path... paths) {
-        return pushArtifact(containerRef, artifactType, Map.of(), Config.empty(), paths);
+        return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
     }
 
     /**
@@ -202,7 +202,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(
-            ContainerRef containerRef, String artifactType, Map<String, String> annotations, Path... paths) {
+            ContainerRef containerRef, String artifactType, Annotations annotations, Path... paths) {
         return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
     }
 
@@ -240,7 +240,7 @@ public final class Registry {
      * Upload an ORAS artifact
      * @param containerRef The container
      * @param artifactType The artifact type. Can be null
-     * @param manifestAnnotations The annotations
+     * @param annotations The annotations
      * @param config The config
      * @param paths The paths
      * @return The manifest
@@ -248,17 +248,16 @@ public final class Registry {
     public Manifest pushArtifact(
             ContainerRef containerRef,
             @Nullable String artifactType,
-            @Nullable Map<String, String> manifestAnnotations,
+            Annotations annotations,
             @Nullable Config config,
             Path... paths) {
         Manifest manifest = Manifest.empty();
         if (artifactType != null) {
             manifest = manifest.withArtifactType(artifactType);
         }
-        if (manifestAnnotations != null) {
-            manifest = manifest.withAnnotations(manifestAnnotations);
-        }
+        manifest = manifest.withAnnotations(annotations.manifestAnnotations());
         if (config != null) {
+            config = config.withAnnotations(annotations);
             manifest = manifest.withConfig(config);
         }
         List<Layer> layers = new ArrayList<>();
@@ -269,7 +268,10 @@ public final class Registry {
             String fileName = path.getFileName().toString();
             boolean isDirectory = false;
 
-            Map<String, String> layerAnnotations = new HashMap<>();
+            // Add layer annotation for the specific file
+            Map<String, String> layerAnnotations = new HashMap<>(annotations.getFileAnnotations(fileName));
+
+            // Add title annotation
             layerAnnotations.put(Const.ANNOTATION_TITLE, fileName);
 
             // Compress directory to tar.gz

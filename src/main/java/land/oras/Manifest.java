@@ -34,13 +34,13 @@ public final class Manifest {
             String artifactType,
             Config config,
             List<Layer> layers,
-            Map<String, String> annotations) {
+            Annotations annotations) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
         this.artifactType = artifactType;
         this.config = config;
         this.layers = layers;
-        this.annotations = annotations;
+        this.annotations = Map.copyOf(annotations.manifestAnnotations());
     }
 
     /**
@@ -100,7 +100,8 @@ public final class Manifest {
      * @return The manifest
      */
     public Manifest withArtifactType(String artifactType) {
-        return new Manifest(schemaVersion, mediaType, artifactType, config, layers, annotations);
+        return new Manifest(
+                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
     }
 
     /**
@@ -109,7 +110,8 @@ public final class Manifest {
      * @return The manifest
      */
     public Manifest withLayers(List<Layer> layers) {
-        return new Manifest(schemaVersion, mediaType, artifactType, config, layers, annotations);
+        return new Manifest(
+                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
     }
 
     /**
@@ -118,7 +120,8 @@ public final class Manifest {
      * @return The manifest
      */
     public Manifest withConfig(Config config) {
-        return new Manifest(schemaVersion, mediaType, artifactType, config, layers, annotations);
+        return new Manifest(
+                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
     }
 
     /**
@@ -127,7 +130,8 @@ public final class Manifest {
      * @return The manifest
      */
     public Manifest withAnnotations(Map<String, String> annotations) {
-        return new Manifest(schemaVersion, mediaType, artifactType, config, layers, annotations);
+        return new Manifest(
+                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
     }
 
     /**
@@ -152,6 +156,6 @@ public final class Manifest {
      * @return The empty manifest
      */
     public static Manifest empty() {
-        return new Manifest(2, Const.DEFAULT_MANIFEST_MEDIA_TYPE, null, Config.empty(), List.of(), Map.of());
+        return new Manifest(2, Const.DEFAULT_MANIFEST_MEDIA_TYPE, null, Config.empty(), List.of(), Annotations.empty());
     }
 }
