@@ -185,11 +185,11 @@
           <executions>
             <execution>
               <id>javadoc</id>
-              <phase>verify</phase>
               <goals>
                 <goal>javadoc</goal>
                 <goal>jar</goal>
               </goals>
+              <phase>verify</phase>
               <configuration>
                 <show>public</show>
               </configuration>
