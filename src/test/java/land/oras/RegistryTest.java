@@ -195,7 +195,7 @@ public class RegistryTest {
         assertEquals("file1.txt", annotations.get(Const.ANNOTATION_TITLE));
 
         // Pull
-        registry.pullArtifact(containerRef, artifactDir);
+        registry.pullArtifact(containerRef, artifactDir, true);
         assertEquals("foobar", Files.readString(artifactDir.resolve("file1.txt")));
     }
 

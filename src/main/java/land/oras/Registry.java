@@ -210,8 +210,9 @@ public final class Registry {
      * Download an ORAS artifact
      * @param containerRef The container
      * @param path The path
+     * @param overwrite Overwrite
      */
-    public void pullArtifact(ContainerRef containerRef, Path path) {
+    public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
         Manifest manifest = getManifest(containerRef);
         for (Layer layer : manifest.getLayers()) {
             // Archive
@@ -227,7 +228,7 @@ public final class Registry {
                 // Take the filename of default to the digest
                 String fileName = layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest());
                 Path filePath = path.resolve(fileName);
-                if (Files.exists(filePath)) {
+                if (Files.exists(filePath) && !overwrite) {
                     LOG.info("File already exists. Not overriding: {}", filePath);
                 } else {
                     fetchBlob(containerRef.withDigest(layer.getDigest()), filePath);
