@@ -1,0 +1,24 @@
+name: PR build
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.14.0
+        with:
+          java-distribution: 'temurin'
+          java-version: 17
+          maven-version: 3.9.9
+          cache-enabled: true
+
+      - name: Maven build
+        run: mvn --batch-mode --update-snapshots verify
