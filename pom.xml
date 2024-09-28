@@ -9,6 +9,14 @@
   <name>ORAS Java SDK</name>
   <url>https://github.com/jonesbusy/oras-java</url>
 
+  <distributionManagement>
+    <repository>
+      <id>oras-java</id>
+      <name>ORAS Java GitHub packages</name>
+      <url>https://maven.pkg.github.com/jonesbusy/oras-java</url>
+    </repository>
+  </distributionManagement>
+
   <properties>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

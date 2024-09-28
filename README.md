@@ -27,6 +27,16 @@ Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hel
 registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"));
 ```
 
+### Deploy to GitHub Packages
+
+This is temporary until published to Maven Central with a proper workflow.
+
+The maven resolver must be switched to `wagon` to deploy to GitHub Packages.
+
+```shell
+mvn -Dmaven.resolver.transport=wagon -DskipTests -Poras-java clean deploy
+```
+
 ## Code of Conduct
 
 Please note that this project has adopted the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
