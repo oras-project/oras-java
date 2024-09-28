@@ -2,8 +2,9 @@ name: PR build
 
 on:
   workflow_call:
-  branches:
-    - main
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
