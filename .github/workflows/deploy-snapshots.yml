@@ -2,14 +2,15 @@ name: PR build
 
 on:
   workflow_call:
-  pull_request:
-    branches: [main]
+  branches:
+    - main
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
-  build:
+  deploy-snapshots:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Maven Action
@@ -20,5 +21,7 @@ jobs:
           maven-version: 3.9.9
           cache-enabled: true
 
-      - name: Maven deploy
-        run: mvn --batch-mode --update-snapshots verify
+      - name: Maven build
+        run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
