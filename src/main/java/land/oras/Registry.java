@@ -1,5 +1,6 @@
 package land.oras;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -490,6 +491,23 @@ public final class Registry {
                 client.download(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE), path);
         logResponse(response);
         handleError(response);
+    }
+
+    /**
+     * Fetch blob and return it as input stream
+     * @param containerRef The container
+     * @return The input stream
+     */
+    public InputStream fetchBlob(ContainerRef containerRef) {
+        if (!hasBlob(containerRef)) {
+            throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
+        }
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
+        OrasHttpClient.ResponseWrapper<InputStream> response =
+                client.download(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+        logResponse(response);
+        handleError(response);
+        return response.response();
     }
 
     /**
