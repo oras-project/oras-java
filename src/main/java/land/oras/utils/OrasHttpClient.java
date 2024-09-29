@@ -1,5 +1,6 @@
 package land.oras.utils;
 
+import java.io.InputStream;
 import java.net.*;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -160,6 +161,22 @@ public final class OrasHttpClient {
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofFile(file),
+                HttpRequest.BodyPublishers.noBody());
+    }
+
+    /**
+     * Download to to input stream
+     * @param uri The URI
+     * @param headers The headers
+     * @return The response
+     */
+    public ResponseWrapper<InputStream> download(URI uri, Map<String, String> headers) {
+        return executeRequest(
+                "GET",
+                uri,
+                headers,
+                new byte[0],
+                HttpResponse.BodyHandlers.ofInputStream(),
                 HttpRequest.BodyPublishers.noBody());
     }
 

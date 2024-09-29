@@ -9,6 +9,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -108,6 +109,11 @@ public class RegistryTest {
         registry.fetchBlob(
                 containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
                 blobDir.resolve("temp.txt"));
+
+        try (InputStream is = registry.fetchBlob(
+                containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"))) {
+            assertEquals("hello", new String(is.readAllBytes()));
+        }
 
         assertEquals("hello", Files.readString(blobDir.resolve("temp.txt")));
         registry.deleteBlob(
