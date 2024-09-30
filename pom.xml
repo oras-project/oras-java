@@ -40,7 +40,7 @@
     <testcontainer.version>1.20.1</testcontainer.version>
     <wiremock.version>3.9.1</wiremock.version>
     <mockito.version>5.14.0</mockito.version>
-    <system.stubs.version>2.1.6</system.stubs.version>
+    <system.stubs.version>2.1.7</system.stubs.version>
 
     <!-- Plugin version -->
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
