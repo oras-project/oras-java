@@ -35,7 +35,7 @@
     <apache.common-compress.version>1.27.1</apache.common-compress.version>
 
     <!-- Test dependencies version -->
-    <logback.version>1.5.9</logback.version>
+    <logback.version>1.5.10</logback.version>
     <junit.version>5.11.2</junit.version>
     <testcontainer.version>1.20.2</testcontainer.version>
     <wiremock.version>3.9.1</wiremock.version>
