@@ -7,13 +7,14 @@
   <version>${revision}</version>
   <packaging>jar</packaging>
   <name>ORAS Java SDK</name>
-  <url>https://github.com/jonesbusy/oras-java</url>
+  <url>https://github.com/oras-project/oras-java</url>
 
+  <!-- https://github.com/oras-project/oras-java/issues/19 for maven central distribution -->
   <distributionManagement>
     <repository>
       <id>github</id>
       <name>ORAS Java GitHub packages</name>
-      <url>https://maven.pkg.github.com/jonesbusy/oras-java</url>
+      <url>https://maven.pkg.github.com/oras-project/oras-java</url>
     </repository>
   </distributionManagement>
 
