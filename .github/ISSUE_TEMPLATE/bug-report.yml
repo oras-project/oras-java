@@ -1,0 +1,32 @@
+# Copyright The ORAS Authors.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 🐛 Bug report
+description: File a bug report
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug on the project.
+        
+        Please make sure the title is a brief and clear summary of the problem.
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description of the bug"
+      description: |
+        Please describe the behavior you witnessed and what you were expected to have.
+        For anything else, please provide the steps to reproduce the problem.
+    validations:
+      required: true
