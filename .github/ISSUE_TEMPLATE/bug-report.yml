@@ -14,7 +14,6 @@ body:
       label: "Description of the bug"
       description: |
         Please describe the behavior you witnessed and what you were expected to have.
-        If this is about a probe result, please specify the plugin and the proof that the probe is incorrect.
         For anything else, please provide the steps to reproduce the problem.
     validations:
       required: true
