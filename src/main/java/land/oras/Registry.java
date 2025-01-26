@@ -172,41 +172,20 @@ public final class Registry {
         }
         handleError(response);
     }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param paths The paths
+      /**
+     * Push an ORAS artifact using the Builder pattern.
+     * @param builder The PushArtifactBuilder containing all configuration
      * @return The manifest
      */
-    public Manifest pushArtifact(ContainerRef containerRef, Path... paths) {
-        return pushArtifact(containerRef, null, Annotations.empty(), Config.empty(), paths);
+    public Manifest pushArtifact(PushArtifactBuilder builder) {
+        return pushArtifact(
+                builder.containerRef,
+                builder.artifactType,
+                builder.annotations,
+                builder.config,
+                builder.paths
+        );
     }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(ContainerRef containerRef, String artifactType, Path... paths) {
-        return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
-    }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param annotations The annotations
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, Path... paths) {
-        return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
-    }
-
     /**
      * Download an ORAS artifact
      * @param containerRef The container
@@ -237,6 +216,7 @@ public final class Registry {
             }
         }
     }
+
 
     /**
      * Upload an ORAS artifact
@@ -300,6 +280,46 @@ public final class Registry {
         LOG.debug("Manifest pushed to: {}", location);
         return manifest;
     }
+     /**
+     * Builder class for configuring artifact uploads.
+     */
+    public static class PushArtifactBuilder {
+        private final ContainerRef containerRef; // Required parameter
+        private String artifactType = null;      // Optional parameter
+        private Annotations annotations = Annotations.empty(); // Default value
+        private Config config = Config.empty();  // Default value
+        private Path[] paths;                    // Required parameter
+
+        // Constructor for required fields
+        public PushArtifactBuilder(ContainerRef containerRef, Path... paths) {
+            this.containerRef = containerRef;
+            this.paths = paths;
+        }
+
+        // Setter for artifact type
+        public PushArtifactBuilder withArtifactType(String artifactType) {
+            this.artifactType = artifactType;
+            return this;
+        }
+
+        // Setter for annotations
+        public PushArtifactBuilder withAnnotations(Annotations annotations) {
+            this.annotations = annotations;
+            return this;
+        }
+
+        // Setter for config
+        public PushArtifactBuilder withConfig(Config config) {
+            this.config = config;
+            return this;
+        }
+
+        // Build method (optional if you just want chaining)
+        public PushArtifactBuilder build() {
+            return this;
+        }
+    }
+
 
     /**
      * Push a blob from file

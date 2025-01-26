@@ -184,7 +184,7 @@ public class RegistryTest {
         Files.writeString(file1, "foobar");
 
         // Upload
-        Manifest manifest = registry.pushArtifact(containerRef, file1);
+        Manifest manifest = registry.pushArtifact(new Registry.PushArtifactBuilder(containerRef, file1));
         assertEquals(1, manifest.getLayers().size());
 
         Layer layer = manifest.getLayers().get(0);
@@ -223,7 +223,7 @@ public class RegistryTest {
         Files.writeString(file3, "barfoo");
 
         // Upload blob dir
-        Manifest manifest = registry.pushArtifact(containerRef, blobDir);
+        Manifest manifest = registry.pushArtifact(new Registry.PushArtifactBuilder(containerRef, blobDir));
         assertEquals(1, manifest.getLayers().size());
 
         Layer layer = manifest.getLayers().get(0);
