@@ -5,12 +5,17 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+
+import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
+import java.util.Map;
 
+import land.oras.credentials.FileStore;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
@@ -35,6 +40,10 @@ public final class JsonUtils {
      */
     private JsonUtils() {
         // Hide constructor
+    }
+
+    public static Map<String, FileStore.Credential> fromJson(FileReader reader, Type type) {
+        return gson.fromJson(reader, type);
     }
 
     /**
