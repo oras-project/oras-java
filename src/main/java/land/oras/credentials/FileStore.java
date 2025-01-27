@@ -116,14 +116,19 @@ public class FileStore {
         try (FileReader reader = new FileReader(Paths.get(configPath).toFile())) {
             // Read the file content and deserialize into a Map<String, Credential>
             Map<String, Credential> credentials = JsonUtils.fromJson(reader, new TypeToken<Map<String, Credential>>(){}.getType());
+
             Config config = new Config();
+
             for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
+
                 String serverAddress = entry.getKey();
                 Credential credential = entry.getValue();
                 // Put the serverAddress and Credential into the credentialStore
                 config.credentialStore.put(serverAddress, credential);
             }
+
             return config;
+
         } catch (IOException e) {
             // Handle issues related to file reading or file not found
             throw new ConfigLoadingException("Failed to read the configuration file: " + configPath, e);
