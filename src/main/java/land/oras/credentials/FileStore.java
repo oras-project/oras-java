@@ -3,6 +3,7 @@ package land.oras.credentials;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
@@ -113,26 +114,20 @@ public class FileStore {
      */
     public static Config load(String configPath) throws ConfigLoadingException {
 
-        try (FileReader reader = new FileReader(Paths.get(configPath).toFile())) {
-            // Read the file content and deserialize into a Map<String, Credential>
-            Map<String, Credential> credentials = JsonUtils.fromJson(reader, new TypeToken<Map<String, Credential>>(){}.getType());
+        Map<String, Credential> credentials = JsonUtils.fromJson(Path.of(configPath), new TypeToken<Map<String, Credential>>(){}.getType());
 
-            Config config = new Config();
+        Config config = new Config();
 
-            for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
+        for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
 
-                String serverAddress = entry.getKey();
-                Credential credential = entry.getValue();
-                // Put the serverAddress and Credential into the credentialStore
-                config.credentialStore.put(serverAddress, credential);
-            }
-
-            return config;
-
-        } catch (IOException e) {
-            // Handle issues related to file reading or file not found
-            throw new ConfigLoadingException("Failed to read the configuration file: " + configPath, e);
+            String serverAddress = entry.getKey();
+            Credential credential = entry.getValue();
+            // Put the serverAddress and Credential into the credentialStore
+            config.credentialStore.put(serverAddress, credential);
         }
+
+        return config;
+
     }
 
         public Credential getCredential(String serverAddress) {

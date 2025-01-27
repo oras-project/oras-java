@@ -42,9 +42,6 @@ public final class JsonUtils {
         // Hide constructor
     }
 
-    public static Map<String, FileStore.Credential> fromJson(FileReader reader, Type type) {
-        return gson.fromJson(reader, type);
-    }
 
     /**
      * Type adapter for ZonedDateTime
@@ -101,4 +98,20 @@ public final class JsonUtils {
             throw new OrasException("Unable to read JSON file due to IO error", e);
         }
     }
+
+     /**
+     * Convert a JSON string to an object
+     * @param path The path to the JSON file
+     * @param type The class of the object
+     * @return The object
+     */
+    public static <T> T fromJson(Path path, Type type) {
+        try {
+            return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), type);
+        } catch (IOException e) {
+            throw new OrasException("Unable to read JSON file due to IO error", e);
+        }
+    }
+
+
 }
