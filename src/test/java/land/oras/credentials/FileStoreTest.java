@@ -1,5 +1,6 @@
 package land.oras.credentials;
 
+import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -116,9 +117,8 @@ class FileStoreTest {
         credentials.put("server1.example.com", new FileStore.Credential("admin", "password123"));
         credentials.put("server2.example.com", new FileStore.Credential("user", "userpass"));
 
-        // Convert the Map to a JSON string
-        ObjectMapper objectMapper = new ObjectMapper();
-        String jsonContent = objectMapper.writeValueAsString(credentials);
+
+        String jsonContent = JsonUtils.toJson(credentials);
 
         // Create a temporary file and write the JSON content to it
         Path tempFile = Files.createTempFile("config", ".json");

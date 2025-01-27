@@ -1,5 +1,6 @@
 package land.oras.credentials;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -7,9 +8,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.google.gson.reflect.TypeToken;
 import land.oras.exception.ConfigLoadingException;
+import land.oras.utils.JsonUtils;
 
 /**
  * FileStore implements a credentials store using a configuration file
@@ -110,19 +112,11 @@ public class FileStore {
      * @throws ConfigLoadingException If the file cannot be read or parsed.
      */
     public static Config load(String configPath) throws ConfigLoadingException {
-        ObjectMapper objectMapper = new ObjectMapper();
 
-        try {
-            // Read the file content
-            String fileContent = new String(Files.readAllBytes(Paths.get(configPath)));
-            // Parse JSON into a Map<String, Credential>
-            Map<String, Credential> credentials = objectMapper.readValue(fileContent,
-                new TypeReference<Map<String, Credential>>() {});
-
-            // Create a new Config instance
+        try (FileReader reader = new FileReader(Paths.get(configPath).toFile())) {
+            // Read the file content and deserialize into a Map<String, Credential>
+            Map<String, Credential> credentials = JsonUtils.fromJson(reader, new TypeToken<Map<String, Credential>>(){}.getType());
             Config config = new Config();
-
-            // Populate the credential store
             for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
                 String serverAddress = entry.getKey();
                 Credential credential = entry.getValue();
@@ -155,9 +149,6 @@ public class FileStore {
     public static class Credential {
         private  String username;
         private  String password;
-         // Default constructor for the jackson for deserialization
-        public Credential() {
-        }
 
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");
