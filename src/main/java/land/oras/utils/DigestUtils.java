@@ -86,4 +86,29 @@ public final class DigestUtils {
             throw new OrasException("Failed to calculate digest", e);
         }
     }
+
+    /**
+     * Calculate the sha256 digest of a InputStream
+     * @param input The input
+     * @return The digest
+     */
+    public static String sha256(InputStream input) {
+        try{
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+            }
+            byte[] hashBytes = digest.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return "sha256:%s".formatted(sb.toString());
+        }
+        catch (Exception e) {
+            throw new OrasException("Failed to calculate digest", e);
+        }
+    }
 }

@@ -2,8 +2,10 @@ package land.oras;
 
 import java.io.InputStream;
 import java.net.URI;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -216,24 +218,15 @@ public final class Registry {
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
         Manifest manifest = getManifest(containerRef);
         for (Layer layer : manifest.getLayers()) {
-            // Archive
-            if (layer.getMediaType().equals(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)) {
-                Path archive = ArchiveUtils.createTempArchive();
-                fetchBlob(containerRef.withDigest(layer.getDigest()), archive);
-                LOG.debug("Extracting: {} to {}", archive, path);
-                ArchiveUtils.extractTarGz(archive, path);
-                LOG.debug("Extracted: {}", path);
-            }
-            // Single artifact layer
-            else {
-                // Take the filename of default to the digest
-                String fileName = layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest());
-                Path filePath = path.resolve(fileName);
-                if (Files.exists(filePath) && !overwrite) {
-                    LOG.info("File already exists. Not overriding: {}", filePath);
-                } else {
-                    fetchBlob(containerRef.withDigest(layer.getDigest()), filePath);
-                }
+            Path targetPath = path.resolve(layer.getAnnotations()
+                .getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
+            
+            try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
+                Files.copy(is, targetPath, overwrite ? 
+                    StandardCopyOption.REPLACE_EXISTING : 
+                    StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException e) {
+                throw new OrasException("Failed to pull artifact", e);
             }
         }
     }
@@ -265,29 +258,14 @@ public final class Registry {
         List<Layer> layers = new ArrayList<>();
         // Upload all files as blobs
         for (Path path : paths) {
-
-            // Save filename in case of compressed archive
-            String fileName = path.getFileName().toString();
-            boolean isDirectory = false;
-
-            // Add layer annotation for the specific file
-            Map<String, String> layerAnnotations = new HashMap<>(annotations.getFileAnnotations(fileName));
-
-            // Add title annotation
-            layerAnnotations.put(Const.ANNOTATION_TITLE, fileName);
-
-            // Compress directory to tar.gz
-            if (path.toFile().isDirectory()) {
-                path = ArchiveUtils.createTarGz(path);
-                isDirectory = true;
-                layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+            try (InputStream is = Files.newInputStream(path)) {
+                long size = Files.size(path);
+                Layer layer = pushBlobStream(containerRef, is, size); // Use streaming version
+                layers.add(layer);
+                LOG.info("Uploaded: {}", layer.getDigest());
+            } catch (IOException e) {
+                throw new OrasException("Failed to push artifact", e);
             }
-            Layer layer = uploadBlob(containerRef, path, layerAnnotations);
-            if (isDirectory) {
-                layer = layer.withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE);
-            }
-            layers.add(layer);
-            LOG.info("Uploaded: {}", layer.getDigest());
         }
         // Push the config like any other blob
         Config pushedConfig = pushConfig(containerRef, config != null ? config : Config.empty());
@@ -640,5 +618,44 @@ public final class Registry {
         public Registry build() {
             return registry.build();
         }
+    }
+    
+
+    /**
+     * Push a blob using input stream so to abpid loading the whole blob in memory
+     * @param containerRef the container ref
+     * @param input the input stream
+     * @param size the size of the blob
+     */
+    public Layer pushBlobStream (ContainerRef containerRef, InputStream input, long size) {
+        String digest = DigestUtils.sha256(input);
+
+        // Check if blob exists
+        if  (hasBlob(containerRef.withDigest(digest))) {
+            LOG.info("Blob already exists: {}", digest);
+            return Layer.fromDigest(digest, size);
+        }
+
+        // Construct the uri for uploading blob
+        URI uri = URI.create("%s://%s".formatted(getScheme(), 
+        containerRef.withDigest(digest).getBlobsUploadDigestPath()));
+
+        // Upload the blob
+        OrasHttpClient.ResponseWrapper<String> response = client.uploadStream(
+            "POST", uri, input, size,
+            Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+
+        // TODO : We may want to handle response 
+        return Layer.fromDigest(digest, size);
+    }
+
+    /**
+     * Get blob as stream to avoid loading into memory
+     * @param containerRef The container ref
+     * @return The input stream
+     */
+    public InputStream getBlobStream(ContainerRef containerRef) {
+        // Similar to fetchBlob()
+        return fetchBlob(containerRef);
     }
 }
