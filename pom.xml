@@ -22,8 +22,7 @@
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-    <!-- Skip spotless for now during development -->
-    <spotless.skip>true</spotless.skip>
+    <spotless.skip>false</spotless.skip>
     <enforcer.skip>false</enforcer.skip>
 
     <maven.compiler.release>17</maven.compiler.release>
