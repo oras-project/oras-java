@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -12,6 +15,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import land.oras.utils.Const;
+import land.oras.utils.JsonUtils;
 import land.oras.utils.RegistryContainer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,10 +28,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
+@WireMockTest
 @Execution(ExecutionMode.CONCURRENT)
-public class RegistryTest {
+public class RegistryContainerTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RegistryTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RegistryContainerTest.class);
 
     @Container
     private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
@@ -44,6 +49,27 @@ public class RegistryTest {
     @BeforeEach
     void before() {
         registry.withFollowOutput();
+    }
+
+    @Test
+    void shouldListTags(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/tags/list"))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder().withInsecure(true).build();
+
+        // Test
+        List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text"
+                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))));
+
+        // Assert
+        assertEquals(2, tags.size());
+        assertEquals("latest", tags.get(0));
+        assertEquals("0.1.1", tags.get(1));
     }
 
     @Test
