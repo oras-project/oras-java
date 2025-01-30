@@ -1,0 +1,40 @@
+name: Deploy Javadoc
+
+on:
+  workflow_call:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-snapshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.18.0
+        with:
+          java-distribution: 'temurin'
+          java-version: 17
+          maven-version: 3.9.9
+          cache-enabled: true
+
+      - name: Build javadoc
+        run: mvn javadoc:javadoc
+
+      - name: Upload javadoc
+        id: deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/reports/apidocs/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
