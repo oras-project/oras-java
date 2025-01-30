@@ -13,6 +13,8 @@ OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conforma
 
 SNAPSHOT version are published on GitHub Maven package.
 
+Javadoc is published from main branch into: https://oras-project.github.io/oras-java/
+
 GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
 
 ```xml
