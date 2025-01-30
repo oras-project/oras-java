@@ -2,11 +2,14 @@ name: PR build
 
 on:
   workflow_call:
-  pull_request:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
     branches: [main]
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   build:
@@ -22,3 +25,36 @@ jobs:
 
       - name: Maven build
         run: mvn --batch-mode --update-snapshots verify
+
+      - name: Run Quality Monitor
+        uses: uhafner/quality-monitor@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-number: ${{ steps.pr.outputs.number }}
+          config: > # Only evaluate test and coverage for now
+            {
+              "tests": {
+                "name": "JUnit",
+                "tools": [
+                  {
+                    "id": "test",
+                    "name": "Tests",
+                    "pattern": "**/target/*-reports/TEST*.xml"
+                  }
+                ]
+              },
+              "coverage": [
+                {
+                  "name": "JaCoCo",
+                  "tools": [
+                    {
+                      "id": "jacoco",
+                      "name": "Line Coverage",
+                      "metric": "line",
+                      "sourcePath": "src/main/java",
+                      "pattern": "**/jacoco.xml"
+                    }
+                  ]
+                }
+              ]
+            }
