@@ -200,6 +200,7 @@
               <phase>verify</phase>
               <configuration>
                 <show>public</show>
+                <failOnWarnings>true</failOnWarnings>
               </configuration>
             </execution>
           </executions>
