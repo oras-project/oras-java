@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 jobs:
-  deploy-snapshots:
+  deploy-javadoc:
     runs-on: ubuntu-latest
     permissions:
       contents: read
