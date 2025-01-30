@@ -30,7 +30,7 @@ jobs:
         run: mvn javadoc:javadoc
 
       - name: Upload javadoc
-        id: deployment
+        id: upload-javadoc
         uses: actions/upload-pages-artifact@v3
         with:
           path: target/reports/apidocs/
