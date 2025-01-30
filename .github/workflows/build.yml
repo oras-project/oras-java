@@ -11,6 +11,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      checks: write
+      pull-requests: write
+      statuses: write
     steps:
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@v1.18.0
@@ -20,5 +26,44 @@ jobs:
           maven-version: 3.9.9
           cache-enabled: true
 
+      - name: Debug GITHUB_TOKEN Permissions
+        run: |
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/${{ github.repository }}
+
       - name: Maven build
         run: mvn --batch-mode --update-snapshots verify
+
+      - name: Run Quality Monitor
+        uses: uhafner/quality-monitor@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-number: ${{ steps.pr.outputs.number }}
+          config: > # Only evaluate test and coverage for now
+            {
+              "tests": {
+                "name": "JUnit",
+                "tools": [
+                  {
+                    "id": "test",
+                    "name": "Tests",
+                    "pattern": "**/target/*-reports/TEST*.xml"
+                  }
+                ]
+              },
+              "coverage": [
+                {
+                  "name": "JaCoCo",
+                  "tools": [
+                    {
+                      "id": "jacoco",
+                      "name": "Line Coverage",
+                      "metric": "line",
+                      "sourcePath": "src/main/java",
+                      "pattern": "**/jacoco.xml"
+                    }
+                  ]
+                }
+              ]
+            }
