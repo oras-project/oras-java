@@ -8,15 +8,14 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
   deploy-snapshots:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      pages: write
+      id-token: write
     steps:
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@v1.18.0
