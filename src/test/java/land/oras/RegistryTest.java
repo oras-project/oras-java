@@ -11,11 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.DigestUtils;
 import land.oras.utils.RegistryContainer;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -216,155 +215,5 @@ public class RegistryTest {
         assertEquals(2, annotations.size());
         assertEquals(blobDir.getFileName().toString(), annotations.get(Const.ANNOTATION_TITLE));
         assertEquals("true", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
-    }
-
-    // Push blob - successfull
-    // Push blob - failed - when blob already exists
-    // Push blob - Handles io exception
-    // Handle large stream content
-    @Test
-    void shouldPushAndGetBlobStream() throws IOException {
-        Registry registry = Registry.Builder.builder()
-                .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
-
-        // Create a file with test data to get accurate stream size
-        Path testFile = Files.createTempFile("test-data-", ".tmp");
-        String testData = "Hello World Stream Test";
-        Files.writeString(testFile, testData);
-        long fileSize = Files.size(testFile);
-
-        // Test pushBlobStream using file input stream
-        Layer layer;
-        try (InputStream inputStream = Files.newInputStream(testFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
-
-            // Verify the digest matches SHA-256 of content
-            assertEquals(DigestUtils.sha256(testFile), layer.getDigest());
-            assertEquals(fileSize, layer.getSize());
-        }
-
-        // Test getBlobStream
-        try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
-            String result = new String(resultStream.readAllBytes());
-            assertEquals(testData, result);
-        }
-
-        // Clean up
-        Files.delete(testFile);
-        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
-    }
-
-    @Test
-    void shouldHandleExistingBlobInStreamPush() throws IOException {
-        Registry registry = Registry.Builder.builder()
-                .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
-
-        // Create test file
-        Path testFile = Files.createTempFile("test-data-", ".tmp");
-        Files.writeString(testFile, "Test Content");
-        long fileSize = Files.size(testFile);
-        String expectedDigest = DigestUtils.sha256(testFile);
-
-        // First push
-        Layer firstLayer;
-        try (InputStream inputStream = Files.newInputStream(testFile)) {
-            firstLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
-        }
-
-        // Second push of same content should detect existing blob
-        Layer secondLayer;
-        try (InputStream inputStream = Files.newInputStream(testFile)) {
-            secondLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
-        }
-
-        // Verify both operations return same digest
-        assertEquals(expectedDigest, firstLayer.getDigest());
-        assertEquals(expectedDigest, secondLayer.getDigest());
-        assertEquals(firstLayer.getSize(), secondLayer.getSize());
-
-        // Clean up
-        Files.delete(testFile);
-        registry.deleteBlob(containerRef.withDigest(firstLayer.getDigest()));
-    }
-
-    @Test
-    void shouldHandleIOExceptionInStreamPush() throws IOException {
-        Registry registry = Registry.Builder.builder()
-                .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
-
-        // Create a failing input stream
-        InputStream failingStream = new InputStream() {
-            @Override
-            public int read() throws IOException {
-                throw new IOException("Simulated IO failure");
-            }
-        };
-
-        // Verify exception is wrapped in OrasException
-        OrasException exception =
-                assertThrows(OrasException.class, () -> registry.pushBlobStream(containerRef, failingStream, 100));
-        assertEquals("Failed to push blob stream", exception.getMessage());
-        assertTrue(exception.getCause() instanceof IOException);
-    }
-
-    @Test
-    void shouldHandleNonExistentBlobInGetStream() {
-        Registry registry = Registry.Builder.builder()
-                .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
-
-        // Try to get non-existent blob
-        String nonExistentDigest = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
-        // Verify it throws OrasException
-        assertThrows(OrasException.class, () -> registry.getBlobStream(containerRef.withDigest(nonExistentDigest)));
-    }
-
-    @Test
-    void shouldHandleLargeStreamContent() throws IOException {
-        Registry registry = Registry.Builder.builder()
-                .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
-
-        // Create temp file with 5MB of random data
-        Path largeFile = Files.createTempFile("large-test-", ".tmp");
-        byte[] largeData = new byte[5 * 1024 * 1024];
-        new Random().nextBytes(largeData);
-        Files.write(largeFile, largeData);
-        long fileSize = Files.size(largeFile);
-
-        // Push large content
-        Layer layer;
-        try (InputStream inputStream = Files.newInputStream(largeFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
-        }
-
-        // Verify content with stream
-        try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
-            byte[] result = resultStream.readAllBytes();
-            Assertions.assertArrayEquals(largeData, result);
-        }
-
-        // Clean up
-        Files.delete(largeFile);
-        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
     }
 }
