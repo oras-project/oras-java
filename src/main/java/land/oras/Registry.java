@@ -258,11 +258,30 @@ public final class Registry {
         List<Layer> layers = new ArrayList<>();
         // Upload all files as blobs
         for (Path path : paths) {
-            try (InputStream is = Files.newInputStream(path)) {
-                long size = Files.size(path);
-                Layer layer = pushBlobStream(containerRef, is, size); // Use streaming version
-                layers.add(layer);
-                LOG.info("Uploaded: {}", layer.getDigest());
+            try {
+                if (Files.isDirectory(path)) {
+                    // Create tar.gz archive for directory
+                    Path tempArchive = ArchiveUtils.createTarGz(path);
+                    try (InputStream is = Files.newInputStream(tempArchive)) {
+                        long size = Files.size(tempArchive);
+                        Layer layer = pushBlobStream(containerRef, is, size)
+                                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                                .withAnnotations(Map.of(
+                                    Const.ANNOTATION_TITLE, path.getFileName().toString(),
+                                    Const.ANNOTATION_ORAS_UNPACK, "true"
+                                ));
+                        layers.add(layer);
+                        LOG.info("Uploaded directory: {}", layer.getDigest());
+                    }
+                    Files.delete(tempArchive);
+                } else {
+                    try (InputStream is = Files.newInputStream(path)) {
+                        long size = Files.size(path);
+                        Layer layer = pushBlobStream(containerRef, is, size);
+                        layers.add(layer);
+                        LOG.info("Uploaded: {}", layer.getDigest());
+                    }
+                }
             } catch (IOException e) {
                 throw new OrasException("Failed to push artifact", e);
             }
@@ -628,25 +647,40 @@ public final class Registry {
      * @param size the size of the blob
      */
     public Layer pushBlobStream (ContainerRef containerRef, InputStream input, long size) {
-        String digest = DigestUtils.sha256(input);
+        try {
+            // Create a copy of input stream beacuse we dont want it to be consumed
+            Path tempFile = Files.createTempFile("oras-upload-", ".tmp");
+            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            
+            // Calculate digest from temp file
+            String digest = DigestUtils.sha256(tempFile);
+            
+            // Check if blob exists
+            if (hasBlob(containerRef.withDigest(digest))) {
+                LOG.info("Blob already exists: {}", digest);
+                Files.delete(tempFile);
+                return Layer.fromDigest(digest, size);
+            }
 
-        // Check if blob exists
-        if  (hasBlob(containerRef.withDigest(digest))) {
-            LOG.info("Blob already exists: {}", digest);
+            // Construct the uri for uploading blob
+            URI uri = URI.create("%s://%s".formatted(getScheme(), 
+                    containerRef.withDigest(digest).getBlobsUploadDigestPath()));
+
+            // Upload using the temp file's new input stream
+            try (InputStream uploadStream = Files.newInputStream(tempFile)) {
+                OrasHttpClient.ResponseWrapper<String> response = client.uploadStream(
+                    "POST", uri, uploadStream, size,
+                    Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+                    
+                logResponse(response);
+                handleError(response);
+            }
+            
+            Files.delete(tempFile);
             return Layer.fromDigest(digest, size);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob stream", e);
         }
-
-        // Construct the uri for uploading blob
-        URI uri = URI.create("%s://%s".formatted(getScheme(), 
-        containerRef.withDigest(digest).getBlobsUploadDigestPath()));
-
-        // Upload the blob
-        OrasHttpClient.ResponseWrapper<String> response = client.uploadStream(
-            "POST", uri, input, size,
-            Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-
-        // TODO : We may want to handle response 
-        return Layer.fromDigest(digest, size);
     }
 
     /**
