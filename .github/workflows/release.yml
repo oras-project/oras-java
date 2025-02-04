@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.18.0
+        with:
+          java-distribution: 'temurin'
+          java-version: 17
+          maven-version: 3.9.9
+          cache-enabled: true
+
+      - name: Maven release
+        run: mvn --batch-mode --update-snapshots -DtagNameFormat=@{project.version} -Dmaven.resolver.transport=wagon -DskipTests release:prepare release:perform
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Close draft release
+        run: |
+          release=$(gh api /repos/$GITHUB_REPOSITORY/releases | jq -e -r '[ .[] | select(.draft == true).id] | max')
+          gh api -X PATCH -F draft=false -F name=$version -F tag_name=$version /repos/$GITHUB_REPOSITORY/releases/$release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

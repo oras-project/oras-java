@@ -25,20 +25,18 @@
     <spotless.check.skip>false</spotless.check.skip>
     <enforcer.skip>false</enforcer.skip>
 
-    <maven.compiler.release>17</maven.compiler.release>
-
     <!-- Version -->
     <slf4j.version>2.0.16</slf4j.version>
     <docker-java.version>3.4.1</docker-java.version>
     <jspecify.version>1.0.0</jspecify.version>
-    <gson.version>2.11.0</gson.version>
+    <gson.version>2.12.1</gson.version>
     <apache.common-compress.version>1.27.1</apache.common-compress.version>
 
     <!-- Test dependencies version -->
     <logback.version>1.5.16</logback.version>
     <junit.version>5.11.4</junit.version>
     <testcontainer.version>1.20.4</testcontainer.version>
-    <wiremock.version>3.10.0</wiremock.version>
+    <wiremock.version>3.11.0</wiremock.version>
     <mockito.version>5.15.2</mockito.version>
     <system.stubs.version>2.1.7</system.stubs.version>
 
@@ -47,6 +45,11 @@
     <spotless-maven-plugin.version>2.44.2</spotless-maven-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
     <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+
+    <!-- Target Java 17 -->
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.release>17</maven.compiler.release>
 
   </properties>
 
@@ -200,6 +203,7 @@
               <phase>verify</phase>
               <configuration>
                 <show>public</show>
+                <failOnWarnings>true</failOnWarnings>
               </configuration>
             </execution>
           </executions>

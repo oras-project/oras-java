@@ -22,6 +22,7 @@ public record Annotations(
     /**
      * Create a new annotations record with only manifest annotations
      * @param manifestAnnotations The manifest annotations
+     * @return The annotations
      */
     public static Annotations ofManifest(Map<String, String> manifestAnnotations) {
         return new Annotations(new HashMap<>(), manifestAnnotations, new HashMap<>());

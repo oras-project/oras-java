@@ -561,6 +561,7 @@ public final class Registry {
     private void handleError(OrasHttpClient.ResponseWrapper<?> responseWrapper) {
         if (responseWrapper.statusCode() >= 400) {
             if (responseWrapper.response() instanceof String) {
+                LOG.debug("Response: {}", responseWrapper.response());
                 throw new OrasException((OrasHttpClient.ResponseWrapper<String>) responseWrapper);
             }
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", responseWrapper.statusCode(), Map.of()));

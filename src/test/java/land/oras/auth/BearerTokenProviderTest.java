@@ -15,12 +15,15 @@ import land.oras.utils.JsonUtils;
 import land.oras.utils.OrasHttpClient;
 import land.oras.utils.RegistryContainer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.Mockito;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @WireMockTest
+@Execution(ExecutionMode.SAME_THREAD)
 public class BearerTokenProviderTest {
 
     @Container

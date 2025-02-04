@@ -9,6 +9,36 @@
 
 OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conformant](https://github.com/opencontainers/oci-conformance) registries. This is a Java SDK for Java developers to empower them to do this in their applications.
 
+## Consuming SDK
+
+SNAPSHOT version are published on GitHub Maven package.
+
+Javadoc is published from main branch into: https://oras-project.github.io/oras-java/
+
+GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
+
+```xml
+<server>
+    <id>oras-java</id>
+    <username>YOUR_USERNAME</username>
+    <password>YOUR_ACCESS_TOKEN_WITH_PACKAGE_READ_SCOPE</password>
+</server>
+```
+
+Then on your `pom.xml`
+
+```xml
+<repositories>
+    <repository>
+        <id>oras-java</id>
+        <url>https://maven.pkg.github.com/oras-project/oras-java</url>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+```
+
 ## Examples
 
 ### Push an Artifact
