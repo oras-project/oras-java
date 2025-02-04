@@ -1,12 +1,13 @@
 package land.oras;
 
-import java.io.BufferedInputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -639,7 +640,6 @@ public final class Registry {
             return registry.build();
         }
     }
-    
 
     /**
      * Push a blob using input stream so to abpid loading the whole blob in memory
@@ -648,15 +648,21 @@ public final class Registry {
      * @param size the size of the blob
      */
     public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
+        Path tempFile = null;
         try {
-            // Wrap the input stream in a BufferedInputStream to support mark/reset
-            BufferedInputStream bufferedInputStream = new BufferedInputStream(input);
+            // Create a temporary file to store the stream content
+            tempFile = Files.createTempFile("oras-upload-", ".tmp");
 
-            // Calculate the digest directly from the buffered stream
-            String digest = DigestUtils.sha256(bufferedInputStream);
+            // Copy input stream to temp file while calculating digest
+            String digest;
+            try (InputStream bufferedInput = new BufferedInputStream(input);
+                 DigestInputStream digestInput = new DigestInputStream(bufferedInput, MessageDigest.getInstance("SHA-256"));
+                 OutputStream fileOutput = Files.newOutputStream(tempFile)) {
 
-            // Log the calculated digest to verify it
-            System.out.println("Calculated Digest: " + digest);
+                digestInput.transferTo(fileOutput);
+                byte[] digestBytes = digestInput.getMessageDigest().digest();
+                digest = "sha256:" + bytesToHex(digestBytes);
+            }
 
             // Check if the blob already exists
             if (hasBlob(containerRef.withDigest(digest))) {
@@ -664,74 +670,81 @@ public final class Registry {
                 return Layer.fromDigest(digest, size);
             }
 
-            // Construct the URI for uploading the blob
-            URI uri = URI.create("%s://%s".formatted(getScheme(),
-                    containerRef.withDigest(digest).getBlobsUploadDigestPath()));
-            System.out.println("Uploading blob to: " + uri);
-            System.out.println("Uploading file size: " + size);
+            // Construct the URI for initiating the upload
+            URI baseUri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath()));
+            System.out.println("Initiating blob upload at: " + baseUri);
 
-            // Mark the stream position before uploading
-            bufferedInputStream.mark(Integer.MAX_VALUE);  // Mark the stream for resetting
+            // Create an empty input stream for the initial POST request
+            InputStream emptyStream = new ByteArrayInputStream(new byte[0]);
 
-            // Upload the stream (resetting it for the upload process)
-            try (BufferedInputStream uploadStream = bufferedInputStream) {
-                OrasHttpClient.ResponseWrapper<String> response = client.uploadStream(
-                        "POST", uri, uploadStream, size,
+            // Start with a POST request to initiate the upload
+            OrasHttpClient.ResponseWrapper<String> initiateResponse = client.uploadStream(
+                    "POST", baseUri, emptyStream, 0,
+                    Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+
+            if (initiateResponse.statusCode() != 202) {
+                throw new OrasException("Failed to initiate blob upload: " + initiateResponse.statusCode());
+            }
+
+            // Get the location URL for the actual upload
+            String locationUrl = initiateResponse.headers().get("location");
+            if (locationUrl == null || locationUrl.isEmpty()) {
+                throw new OrasException("No location URL provided for blob upload");
+            }
+
+            // Ensure the location URL is absolute
+            if (!locationUrl.startsWith("http")) {
+                locationUrl = "%s://%s%s".formatted(getScheme(), containerRef.getRegistry(), locationUrl);
+            }
+
+            // Construct the final upload URI with the digest parameter
+            String separator = locationUrl.contains("?") ? "&" : "?";
+            URI finalizeUri = URI.create(locationUrl + separator + "digest=" + digest);
+
+            // Upload the content from the temporary file
+            try (InputStream uploadStream = Files.newInputStream(tempFile)) {
+                OrasHttpClient.ResponseWrapper<String> uploadResponse = client.uploadStream(
+                        "PUT", finalizeUri, uploadStream, size,
                         Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
 
-                System.out.println("Upload response code: " + response.statusCode());
-                System.out.println("Upload response headers: " + response.headers());
-
-                // Check for upload errors based on response
-                if (response.statusCode() != 202) {
-                    throw new OrasException("Unexpected response code during upload: " + response.statusCode());
-                }
-
-                // Extract the location URL from the response headers
-                String locationUrl = response.headers().get("location");
-                System.out.println("Location URL: " + locationUrl);
-
-                if (locationUrl != null && !locationUrl.isEmpty()) {
-                    // Extract the digest from the location URL (before ?)
-                    String locationDigest = locationUrl.split("\\?")[0].split("/")[5];
-                    System.out.println("Digest from location URL: " + locationDigest);
-
-                    // Check if the digest matches the one in the location URL
-                    if (!locationDigest.equals(digest)) {
-                        throw new OrasException("Digest mismatch in location URL: expected " + digest + ", but found " + locationDigest);
-                    }
-
-                    // Finalize the upload with a PUT request to the location URL
-                    URI finalizeUri = URI.create(locationUrl);
-                    try (BufferedInputStream uploadFinalizeStream = bufferedInputStream) {
-                        OrasHttpClient.ResponseWrapper<String> finalizeResponse = client.uploadStream(
-                                "PUT", finalizeUri, uploadFinalizeStream, size,
-                                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-
-                        System.out.println("Finalize upload response code: " + finalizeResponse.statusCode());
-                        System.out.println("Finalize upload response body: " + finalizeResponse.response());
-
-                        // Handle the finalization response
-                        logResponse(finalizeResponse);
-                        handleError(finalizeResponse);
-                    }
+                if (uploadResponse.statusCode() != 201 && uploadResponse.statusCode() != 202) {
+                    throw new OrasException("Failed to upload blob: " + uploadResponse.statusCode() +
+                            " - Response: " + uploadResponse.response());
                 }
 
                 return Layer.fromDigest(digest, size);
             }
-        } catch (IOException e) {
-            System.err.println("IOException occurred during blob upload: " + e.getMessage());
+        } catch (IOException | NoSuchAlgorithmException e) {
+            System.err.println("Error during blob upload: " + e.getMessage());
+            e.printStackTrace();
             throw new OrasException("Failed to push blob stream", e);
+        } finally {
+            // Clean up the temporary file
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException e) {
+                    LOG.warn("Failed to delete temporary file: {}", tempFile, e);
+                }
+            }
         }
     }
 
-
-
-
-
-
-
-
+    /**
+     * Bites to hex string
+     * @param bytes of bytes[]
+     */
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
 
     /**
      * Get blob as stream to avoid loading into memory
