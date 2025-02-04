@@ -1,5 +1,6 @@
 package land.oras;
 
+import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.io.IOException;
@@ -646,42 +647,91 @@ public final class Registry {
      * @param input the input stream
      * @param size the size of the blob
      */
-    public Layer pushBlobStream (ContainerRef containerRef, InputStream input, long size) {
+    public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
         try {
-            // Create a copy of input stream beacuse we dont want it to be consumed
-            Path tempFile = Files.createTempFile("oras-upload-", ".tmp");
-            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            
-            // Calculate digest from temp file
-            String digest = DigestUtils.sha256(tempFile);
-            
-            // Check if blob exists
+            // Wrap the input stream in a BufferedInputStream to support mark/reset
+            BufferedInputStream bufferedInputStream = new BufferedInputStream(input);
+
+            // Calculate the digest directly from the buffered stream
+            String digest = DigestUtils.sha256(bufferedInputStream);
+
+            // Log the calculated digest to verify it
+            System.out.println("Calculated Digest: " + digest);
+
+            // Check if the blob already exists
             if (hasBlob(containerRef.withDigest(digest))) {
                 LOG.info("Blob already exists: {}", digest);
-                Files.delete(tempFile);
                 return Layer.fromDigest(digest, size);
             }
 
-            // Construct the uri for uploading blob
-            URI uri = URI.create("%s://%s".formatted(getScheme(), 
+            // Construct the URI for uploading the blob
+            URI uri = URI.create("%s://%s".formatted(getScheme(),
                     containerRef.withDigest(digest).getBlobsUploadDigestPath()));
+            System.out.println("Uploading blob to: " + uri);
+            System.out.println("Uploading file size: " + size);
 
-            // Upload using the temp file's new input stream
-            try (InputStream uploadStream = Files.newInputStream(tempFile)) {
+            // Mark the stream position before uploading
+            bufferedInputStream.mark(Integer.MAX_VALUE);  // Mark the stream for resetting
+
+            // Upload the stream (resetting it for the upload process)
+            try (BufferedInputStream uploadStream = bufferedInputStream) {
                 OrasHttpClient.ResponseWrapper<String> response = client.uploadStream(
-                    "POST", uri, uploadStream, size,
-                    Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-                    
-                logResponse(response);
-                handleError(response);
+                        "POST", uri, uploadStream, size,
+                        Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+
+                System.out.println("Upload response code: " + response.statusCode());
+                System.out.println("Upload response headers: " + response.headers());
+
+                // Check for upload errors based on response
+                if (response.statusCode() != 202) {
+                    throw new OrasException("Unexpected response code during upload: " + response.statusCode());
+                }
+
+                // Extract the location URL from the response headers
+                String locationUrl = response.headers().get("location");
+                System.out.println("Location URL: " + locationUrl);
+
+                if (locationUrl != null && !locationUrl.isEmpty()) {
+                    // Extract the digest from the location URL (before ?)
+                    String locationDigest = locationUrl.split("\\?")[0].split("/")[5];
+                    System.out.println("Digest from location URL: " + locationDigest);
+
+                    // Check if the digest matches the one in the location URL
+                    if (!locationDigest.equals(digest)) {
+                        throw new OrasException("Digest mismatch in location URL: expected " + digest + ", but found " + locationDigest);
+                    }
+
+                    // Finalize the upload with a PUT request to the location URL
+                    URI finalizeUri = URI.create(locationUrl);
+                    try (BufferedInputStream uploadFinalizeStream = bufferedInputStream) {
+                        OrasHttpClient.ResponseWrapper<String> finalizeResponse = client.uploadStream(
+                                "PUT", finalizeUri, uploadFinalizeStream, size,
+                                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
+
+                        System.out.println("Finalize upload response code: " + finalizeResponse.statusCode());
+                        System.out.println("Finalize upload response body: " + finalizeResponse.response());
+
+                        // Handle the finalization response
+                        logResponse(finalizeResponse);
+                        handleError(finalizeResponse);
+                    }
+                }
+
+                return Layer.fromDigest(digest, size);
             }
-            
-            Files.delete(tempFile);
-            return Layer.fromDigest(digest, size);
         } catch (IOException e) {
+            System.err.println("IOException occurred during blob upload: " + e.getMessage());
             throw new OrasException("Failed to push blob stream", e);
         }
     }
+
+
+
+
+
+
+
+
 
     /**
      * Get blob as stream to avoid loading into memory

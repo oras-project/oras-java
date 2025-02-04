@@ -1,6 +1,5 @@
 package land.oras;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -271,6 +270,8 @@ public class RegistryTest {
             assertEquals(DigestUtils.sha256(testFile), layer.getDigest());
             assertEquals(fileSize, layer.getSize());
         }
+
+
 
         // Test getBlobStream
         try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
