@@ -1,6 +1,10 @@
 package land.oras;
 
-import java.io.*;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,7 +13,6 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import land.oras.auth.*;
@@ -267,10 +270,10 @@ public final class Registry {
                     try (InputStream is = Files.newInputStream(tempArchive)) {
                         long size = Files.size(tempArchive);
                         Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE) // Use tar+gzip for directories
                                 .withAnnotations(Map.of(
-                                    Const.ANNOTATION_TITLE, path.getFileName().toString(),
-                                    Const.ANNOTATION_ORAS_UNPACK, "true"
+                                        Const.ANNOTATION_TITLE, path.getFileName().toString(),
+                                        Const.ANNOTATION_ORAS_UNPACK, "true"
                                 ));
                         layers.add(layer);
                         LOG.info("Uploaded directory: {}", layer.getDigest());
@@ -279,7 +282,16 @@ public final class Registry {
                 } else {
                     try (InputStream is = Files.newInputStream(path)) {
                         long size = Files.size(path);
-                        Layer layer = pushBlobStream(containerRef, is, size);
+                        // Set mediaType for individual files
+                        String mediaType = Files.probeContentType(path);
+                        if (mediaType == null) {
+                            mediaType = "application/octet-stream";
+                        }
+                        Layer layer = pushBlobStream(containerRef, is, size)
+                                .withMediaType(mediaType)
+                                .withAnnotations(Map.of(
+                                        Const.ANNOTATION_TITLE, path.getFileName().toString()
+                                ));
                         layers.add(layer);
                         LOG.info("Uploaded: {}", layer.getDigest());
                     }
