@@ -277,19 +277,17 @@ public final class OrasHttpClient {
      * @param headers The headers
      * @return The response
      */
-    public ResponseWrapper<String> uploadStream(String method, URI uri, 
-            InputStream input, long size, Map<String, String> headers) {
+    public ResponseWrapper<String> uploadStream(
+            String method, URI uri, InputStream input, long size, Map<String, String> headers) {
         try {
-            HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofInputStream(
-                    () -> input);
-                    
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                    .uri(uri)
-                    .method(method, publisher);
-                    
+            HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofInputStream(() -> input);
+
+            HttpRequest.Builder requestBuilder =
+                    HttpRequest.newBuilder().uri(uri).method(method, publisher);
+
             // Add headers
             headers.forEach(requestBuilder::header);
-                    
+
             // Execute request
             HttpRequest request = requestBuilder.build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -339,8 +337,7 @@ public final class OrasHttpClient {
                 response.statusCode(),
                 response.headers().map().entrySet().stream()
                         .collect(Collectors.toMap(
-                                Map.Entry::getKey, 
-                                e -> e.getValue().get(0))));
+                                Map.Entry::getKey, e -> e.getValue().get(0))));
     }
 
     /**

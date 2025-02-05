@@ -12,10 +12,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
-import land.oras.utils.JsonUtils;
 import land.oras.utils.RegistryContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -249,8 +247,6 @@ public class RegistryTest {
             assertEquals(fileSize, layer.getSize());
         }
 
-
-
         // Test getBlobStream
         try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
             String result = new String(resultStream.readAllBytes());
@@ -317,9 +313,8 @@ public class RegistryTest {
         };
 
         // Verify exception is wrapped in OrasException
-        OrasException exception = assertThrows(OrasException.class, () ->
-                registry.pushBlobStream(containerRef, failingStream, 100)
-        );
+        OrasException exception =
+                assertThrows(OrasException.class, () -> registry.pushBlobStream(containerRef, failingStream, 100));
         assertEquals("Failed to push blob stream", exception.getMessage());
         assertTrue(exception.getCause() instanceof IOException);
     }
@@ -337,9 +332,7 @@ public class RegistryTest {
         String nonExistentDigest = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
         // Verify it throws OrasException
-        assertThrows(OrasException.class, () ->
-                registry.getBlobStream(containerRef.withDigest(nonExistentDigest))
-        );
+        assertThrows(OrasException.class, () -> registry.getBlobStream(containerRef.withDigest(nonExistentDigest)));
     }
 
     @Test

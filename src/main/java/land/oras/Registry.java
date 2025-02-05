@@ -1,9 +1,9 @@
 package land.oras;
 
-import java.io.InputStream;
-import java.io.IOException;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
@@ -223,13 +223,14 @@ public final class Registry {
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
         Manifest manifest = getManifest(containerRef);
         for (Layer layer : manifest.getLayers()) {
-            Path targetPath = path.resolve(layer.getAnnotations()
-                .getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
-            
+            Path targetPath =
+                    path.resolve(layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
+
             try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
-                Files.copy(is, targetPath, overwrite ? 
-                    StandardCopyOption.REPLACE_EXISTING : 
-                    StandardCopyOption.ATOMIC_MOVE);
+                Files.copy(
+                        is,
+                        targetPath,
+                        overwrite ? StandardCopyOption.REPLACE_EXISTING : StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException e) {
                 throw new OrasException("Failed to pull artifact", e);
             }
@@ -272,9 +273,10 @@ public final class Registry {
                         Layer layer = pushBlobStream(containerRef, is, size)
                                 .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE) // Use tar+gzip for directories
                                 .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE, path.getFileName().toString(),
-                                        Const.ANNOTATION_ORAS_UNPACK, "true"
-                                ));
+                                        Const.ANNOTATION_TITLE,
+                                        path.getFileName().toString(),
+                                        Const.ANNOTATION_ORAS_UNPACK,
+                                        "true"));
                         layers.add(layer);
                         LOG.info("Uploaded directory: {}", layer.getDigest());
                     }
@@ -290,8 +292,8 @@ public final class Registry {
                         Layer layer = pushBlobStream(containerRef, is, size)
                                 .withMediaType(mediaType)
                                 .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE, path.getFileName().toString()
-                                ));
+                                        Const.ANNOTATION_TITLE,
+                                        path.getFileName().toString()));
                         layers.add(layer);
                         LOG.info("Uploaded: {}", layer.getDigest());
                     }
@@ -669,8 +671,9 @@ public final class Registry {
             // Copy input stream to temp file while calculating digest
             String digest;
             try (InputStream bufferedInput = new BufferedInputStream(input);
-                 DigestInputStream digestInput = new DigestInputStream(bufferedInput, MessageDigest.getInstance("SHA-256"));
-                 OutputStream fileOutput = Files.newOutputStream(tempFile)) {
+                    DigestInputStream digestInput =
+                            new DigestInputStream(bufferedInput, MessageDigest.getInstance("SHA-256"));
+                    OutputStream fileOutput = Files.newOutputStream(tempFile)) {
 
                 digestInput.transferTo(fileOutput);
                 byte[] digestBytes = digestInput.getMessageDigest().digest();
@@ -692,7 +695,10 @@ public final class Registry {
 
             // Start with a POST request to initiate the upload
             OrasHttpClient.ResponseWrapper<String> initiateResponse = client.uploadStream(
-                    "POST", baseUri, emptyStream, 0,
+                    "POST",
+                    baseUri,
+                    emptyStream,
+                    0,
                     Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
 
             if (initiateResponse.statusCode() != 202) {
@@ -717,12 +723,15 @@ public final class Registry {
             // Upload the content from the temporary file
             try (InputStream uploadStream = Files.newInputStream(tempFile)) {
                 OrasHttpClient.ResponseWrapper<String> uploadResponse = client.uploadStream(
-                        "PUT", finalizeUri, uploadStream, size,
+                        "PUT",
+                        finalizeUri,
+                        uploadStream,
+                        size,
                         Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
 
                 if (uploadResponse.statusCode() != 201 && uploadResponse.statusCode() != 202) {
-                    throw new OrasException("Failed to upload blob: " + uploadResponse.statusCode() +
-                            " - Response: " + uploadResponse.response());
+                    throw new OrasException("Failed to upload blob: " + uploadResponse.statusCode() + " - Response: "
+                            + uploadResponse.response());
                 }
 
                 return Layer.fromDigest(digest, size);
