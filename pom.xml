@@ -4,7 +4,7 @@
 
   <groupId>land.oras.java</groupId>
   <artifactId>oras-java-sdk</artifactId>
-  <version>${revision}</version>
+  <version>0.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>ORAS Java SDK</name>
   <url>https://github.com/oras-project/oras-java</url>
