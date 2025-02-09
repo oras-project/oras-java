@@ -10,8 +10,8 @@
   <url>https://github.com/oras-project/oras-java</url>
 
   <scm>
-    <connection>scm:git:https://github.com/oras-project/oras-java</connection>
-    <developerConnection>scm:git:https://github.com/oras-project/oras-java</developerConnection>
+    <connection>scm:git:git@github.com:oras-project/oras-java.git</connection>
+    <developerConnection>scm:git:git@github.com:oras-project/oras-java.git</developerConnection>
     <tag>HEAD</tag>
     <url>https://github.com/oras-project/oras-java</url>
   </scm>
@@ -222,6 +222,7 @@
           <version>${maven-release-plugin.version}</version>
           <configuration>
             <tagNameFormat>@{project.version}</tagNameFormat>
+            <scmCommentPrefix>[ci skip]</scmCommentPrefix>
           </configuration>
         </plugin>
         <plugin>

@@ -27,6 +27,11 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.RELEASE_SSH_KEY }}
+
       - name: Maven release
         run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests -Darguments="-DskipTests" release:prepare release:perform
         env:
