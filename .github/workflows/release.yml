@@ -40,6 +40,6 @@ jobs:
       - name: Close draft release
         run: |
           release_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
-          gh api -X PATCH -F draft=false /repos/$GITHUB_REPOSITORY/releases/$release_id
+          gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$release_id
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
