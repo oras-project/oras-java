@@ -67,6 +67,11 @@ The maven resolver must be switched to `wagon` to deploy to GitHub Packages.
 mvn -Dmaven.resolver.transport=wagon -DskipTests -Poras-java clean deploy
 ```
 
+### Perform release
+
+- Ensure the draft release version correspond to the version on the `pom.xml`
+- Run the release workflow
+
 ## Code of Conduct
 
 Please note that this project has adopted the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
