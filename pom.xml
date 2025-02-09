@@ -12,7 +12,7 @@
   <scm>
     <connection>scm:git:git@github.com:oras-project/oras-java.git</connection>
     <developerConnection>scm:git:git@github.com:oras-project/oras-java.git</developerConnection>
-    <tag>0.1.0</tag>
+    <tag>HEAD</tag>
     <url>https://github.com/oras-project/oras-java</url>
   </scm>
 
