@@ -657,10 +657,12 @@ public final class Registry {
     }
 
     /**
-     * Push a blob using input stream so to abpid loading the whole blob in memory
+     * Push a blob using input stream to avoid loading the whole blob in memory
      * @param containerRef the container ref
      * @param input the input stream
      * @param size the size of the blob
+     * @return The Layer containing the uploaded blob information
+     * @throws OrasException if upload fails or digest calculation fails
      */
     public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
         Path tempFile = null;
