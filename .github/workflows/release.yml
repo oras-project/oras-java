@@ -23,7 +23,7 @@ jobs:
           cache-enabled: true
 
       - name: Maven release
-        run: mvn --batch-mode --update-snapshots -DtagNameFormat=@{project.version} -Dmaven.resolver.transport=wagon -DskipTests release:prepare release:perform
+        run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests release:prepare release:perform
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
