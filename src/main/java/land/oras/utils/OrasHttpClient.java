@@ -17,9 +17,10 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509ExtendedTrustManager;
-import land.oras.OrasException;
+
 import land.oras.auth.AuthProvider;
 import land.oras.auth.NoAuthProvider;
+import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;

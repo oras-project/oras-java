@@ -1,4 +1,4 @@
-package land.oras;
+package land.oras.exception;
 
 import land.oras.utils.JsonUtils;
 import land.oras.utils.OrasHttpClient;
@@ -16,7 +16,7 @@ public class OrasException extends RuntimeException {
     /**
      * Logger
      */
-    private static final Logger LOG = LoggerFactory.getLogger(OrasException.class);
+    private static final Logger LOG = LoggerFactory.getLogger(land.oras.exception.OrasException.class);
 
     /**
      * Possible error response
