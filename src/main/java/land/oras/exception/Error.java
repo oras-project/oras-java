@@ -1,4 +1,4 @@
-package land.oras;
+package land.oras.exception;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

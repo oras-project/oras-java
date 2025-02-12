@@ -2,8 +2,15 @@ package land.oras.credentials;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
+import wiremock.com.fasterxml.jackson.databind.ObjectMapper;
 
 
 class FileStoreTest {
@@ -104,9 +111,32 @@ class FileStoreTest {
 
     @Test
     void testConfigLoad_success() throws Exception {
-        // Simulate a successful config load
-        FileStore.Config config = FileStore.Config.load("config.json");
+         // Create a temporary JSON file for testing
+        Map<String, FileStore.Credential> credentials = new HashMap<>();
+        credentials.put("server1.example.com", new FileStore.Credential("admin", "password123"));
+        credentials.put("server2.example.com", new FileStore.Credential("user", "userpass"));
 
+        // Convert the Map to a JSON string
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonContent = objectMapper.writeValueAsString(credentials);
+
+        // Create a temporary file and write the JSON content to it
+        Path tempFile = Files.createTempFile("config", ".json");
+        Files.write(tempFile, jsonContent.getBytes());
+
+        // Load the configuration from the temporary file
+        FileStore.Config config = FileStore.Config.load(tempFile.toString());
+
+        // Verify that the config was loaded successfully and contains the correct data
         assertNotNull(config);
+        assertNotNull(config.getCredential("server1.example.com"));
+        assertNotNull(config.getCredential("server2.example.com"));
+        assertEquals("admin", config.getCredential("server1.example.com").getUsername());
+        assertEquals("password123", config.getCredential("server1.example.com").getPassword());
+        assertEquals("user", config.getCredential("server2.example.com").getUsername());
+        assertEquals("userpass", config.getCredential("server2.example.com").getPassword());
+
+        // Clean up by deleting the temporary file
+        Files.delete(tempFile);
     }
 }

@@ -1,7 +1,15 @@
 package land.oras.credentials;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import land.oras.exception.ConfigLoadingException;
 
 /**
  * FileStore implements a credentials store using a configuration file
@@ -94,11 +102,39 @@ public class FileStore {
     public static class Config {
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
-        public static Config load(String configPath) throws Exception {
-            // Simulate loading the configuration file.
-            // In a real implementation, you would parse the file and populate the credential store.
-            return new Config();
+    /**
+     * Load configuration from a JSON file and populate the credential store.
+     *
+     * @param configPath Path to the JSON configuration file.
+     * @return A Config instance with loaded credentials.
+     * @throws ConfigLoadingException If the file cannot be read or parsed.
+     */
+    public static Config load(String configPath) throws ConfigLoadingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        try {
+            // Read the file content
+            String fileContent = new String(Files.readAllBytes(Paths.get(configPath)));
+            // Parse JSON into a Map<String, Credential>
+            Map<String, Credential> credentials = objectMapper.readValue(fileContent,
+                new TypeReference<Map<String, Credential>>() {});
+
+            // Create a new Config instance
+            Config config = new Config();
+
+            // Populate the credential store
+            for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
+                String serverAddress = entry.getKey();
+                Credential credential = entry.getValue();
+                // Put the serverAddress and Credential into the credentialStore
+                config.credentialStore.put(serverAddress, credential);
+            }
+            return config;
+        } catch (IOException e) {
+            // Handle issues related to file reading or file not found
+            throw new ConfigLoadingException("Failed to read the configuration file: " + configPath, e);
         }
+    }
 
         public Credential getCredential(String serverAddress) {
             return credentialStore.get(serverAddress);
@@ -117,8 +153,11 @@ public class FileStore {
      * Nested Credential class to represent username and password pairs.
      */
     public static class Credential {
-        private final String username;
-        private final String password;
+        private  String username;
+        private  String password;
+         // Default constructor for the jackson for deserialization
+        public Credential() {
+        }
 
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");

@@ -9,7 +9,8 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.time.ZonedDateTime;
 import java.util.Map;
-import land.oras.OrasException;
+
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.OrasHttpClient;
