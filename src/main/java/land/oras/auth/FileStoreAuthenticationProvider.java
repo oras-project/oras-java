@@ -4,7 +4,6 @@ import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
 import land.oras.exception.ConfigLoadingException;
 
-
 /**
  * FileStoreAuthenticationProvider is an implementation of the AuthProvider interface.
  * It retrieves credentials from a FileStore and generates a Basic Authentication header.
@@ -28,8 +27,8 @@ public class FileStoreAuthenticationProvider implements AuthProvider {
         if (credential == null) {
             throw new ConfigLoadingException("No credentials found for server address: " + serverAddress);
         }
-        this.usernamePasswordAuthProvider = new UsernamePasswordProvider(credential.getUsername(), credential.getPassword());
-
+        this.usernamePasswordAuthProvider =
+                new UsernamePasswordProvider(credential.getUsername(), credential.getPassword());
     }
 
     @Override
@@ -37,4 +36,3 @@ public class FileStoreAuthenticationProvider implements AuthProvider {
         return usernamePasswordAuthProvider.getAuthHeader();
     }
 }
-

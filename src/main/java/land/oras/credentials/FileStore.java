@@ -1,16 +1,10 @@
 package land.oras.credentials;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
+import com.google.gson.reflect.TypeToken;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-
-
-import com.google.gson.reflect.TypeToken;
 import land.oras.exception.ConfigLoadingException;
 import land.oras.utils.JsonUtils;
 
@@ -105,30 +99,30 @@ public class FileStore {
     public static class Config {
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
-    /**
-     * Load configuration from a JSON file and populate the credential store.
-     *
-     * @param configPath Path to the JSON configuration file.
-     * @return A Config instance with loaded credentials.
-     * @throws ConfigLoadingException If the file cannot be read or parsed.
-     */
-    public static Config load(String configPath) throws ConfigLoadingException {
+        /**
+         * Load configuration from a JSON file and populate the credential store.
+         *
+         * @param configPath Path to the JSON configuration file.
+         * @return A Config instance with loaded credentials.
+         * @throws ConfigLoadingException If the file cannot be read or parsed.
+         */
+        public static Config load(String configPath) throws ConfigLoadingException {
 
-        Map<String, Credential> credentials = JsonUtils.fromJson(Path.of(configPath), new TypeToken<Map<String, Credential>>(){}.getType());
+            Map<String, Credential> credentials =
+                    JsonUtils.fromJson(Path.of(configPath), new TypeToken<Map<String, Credential>>() {}.getType());
 
-        Config config = new Config();
+            Config config = new Config();
 
-        for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
+            for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
 
-            String serverAddress = entry.getKey();
-            Credential credential = entry.getValue();
-            // Put the serverAddress and Credential into the credentialStore
-            config.credentialStore.put(serverAddress, credential);
+                String serverAddress = entry.getKey();
+                Credential credential = entry.getValue();
+                // Put the serverAddress and Credential into the credentialStore
+                config.credentialStore.put(serverAddress, credential);
+            }
+
+            return config;
         }
-
-        return config;
-
-    }
 
         public Credential getCredential(String serverAddress) {
             return credentialStore.get(serverAddress);
@@ -147,8 +141,8 @@ public class FileStore {
      * Nested Credential class to represent username and password pairs.
      */
     public static class Credential {
-        private  String username;
-        private  String password;
+        private String username;
+        private String password;
 
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");

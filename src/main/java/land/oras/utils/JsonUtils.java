@@ -5,17 +5,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-
-import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
-import java.util.Map;
-
-import land.oras.credentials.FileStore;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
@@ -41,7 +36,6 @@ public final class JsonUtils {
     private JsonUtils() {
         // Hide constructor
     }
-
 
     /**
      * Type adapter for ZonedDateTime
@@ -99,7 +93,7 @@ public final class JsonUtils {
         }
     }
 
-     /**
+    /**
      * Convert a JSON string to an object
      * @param path The path to the JSON file
      * @param type The class of the object
@@ -112,6 +106,4 @@ public final class JsonUtils {
             throw new OrasException("Unable to read JSON file due to IO error", e);
         }
     }
-
-
 }

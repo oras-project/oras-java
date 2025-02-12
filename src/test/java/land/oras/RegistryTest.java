@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
 import land.oras.utils.RegistryContainer;
