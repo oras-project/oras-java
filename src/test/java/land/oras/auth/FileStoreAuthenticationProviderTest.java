@@ -1,16 +1,15 @@
 package land.oras.auth;
 
-import land.oras.credentials.FileStore;
-import land.oras.credentials.FileStore.Credential;
-import land.oras.exception.ConfigLoadingException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import land.oras.credentials.FileStore;
+import land.oras.credentials.FileStore.Credential;
+import land.oras.exception.ConfigLoadingException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class FileStoreAuthenticationProviderTest {
 
@@ -63,7 +62,8 @@ class FileStoreAuthenticationProviderTest {
         // Verify that the getAuthHeader method returns the expected Basic Auth header
         String authHeader = authProvider.getAuthHeader();
         String expectedAuthString = "testUser:testPassword";
-        String expectedEncodedAuth = "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
+        String expectedEncodedAuth =
+                "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
 
         assertEquals(expectedEncodedAuth, authHeader);
     }

@@ -1,18 +1,15 @@
 package land.oras.credentials;
 
-import land.oras.utils.JsonUtils;
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-
+import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import wiremock.com.fasterxml.jackson.databind.ObjectMapper;
-
 
 class FileStoreTest {
 
@@ -67,7 +64,7 @@ class FileStoreTest {
 
     @Test
     void testPutCredential_whenPutDisabled_throwsException() {
-        fileStore = new FileStore(true, mockConfig);  // Set disablePut to true
+        fileStore = new FileStore(true, mockConfig); // Set disablePut to true
 
         UnsupportedOperationException thrown = assertThrows(UnsupportedOperationException.class, () -> {
             fileStore.put(SERVER_ADDRESS, mockCredential);
@@ -85,7 +82,8 @@ class FileStoreTest {
             fileStore.put(SERVER_ADDRESS, invalidCredential);
         });
 
-        assertEquals(FileStore.ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username", thrown.getMessage());
+        assertEquals(
+                FileStore.ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username", thrown.getMessage());
     }
 
     @Test
@@ -107,16 +105,16 @@ class FileStoreTest {
             fileStore.put(SERVER_ADDRESS, invalidCredential);
         });
 
-        assertEquals(FileStore.ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username", thrown.getMessage());
+        assertEquals(
+                FileStore.ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username", thrown.getMessage());
     }
 
     @Test
     void testConfigLoad_success() throws Exception {
-         // Create a temporary JSON file for testing
+        // Create a temporary JSON file for testing
         Map<String, FileStore.Credential> credentials = new HashMap<>();
         credentials.put("server1.example.com", new FileStore.Credential("admin", "password123"));
         credentials.put("server2.example.com", new FileStore.Credential("user", "userpass"));
-
 
         String jsonContent = JsonUtils.toJson(credentials);
 
