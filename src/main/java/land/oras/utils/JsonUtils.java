@@ -94,10 +94,13 @@ public final class JsonUtils {
     }
 
     /**
-     * Convert a JSON string to an object
-     * @param path The path to the JSON file
-     * @param type The class of the object
-     * @return The object
+     * Converts the contents of a JSON file to an object of the specified type.
+     *
+     * @param path The {@code Path} to the JSON file to be read.
+     * @param type The {@code Type} representing the class of the object to be deserialized.
+     * @param <T>  The type of the object to be returned.
+     * @return An object of type {@code T} deserialized from the JSON file.
+     * @throws OrasException If an I/O error occurs while reading the file or the JSON is invalid.
      */
     public static <T> T fromJson(Path path, Type type) {
         try {
