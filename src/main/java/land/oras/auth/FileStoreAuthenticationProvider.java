@@ -19,6 +19,7 @@ public class FileStoreAuthenticationProvider implements AuthProvider {
      *
      * @param fileStore     The FileStore instance to retrieve credentials from.
      * @param serverAddress The server address for which to retrieve credentials.
+     * @throws Exception     If an error occurs during authentication initialization.
      */
     public FileStoreAuthenticationProvider(FileStore fileStore, String serverAddress) throws Exception {
         this.fileStore = fileStore;

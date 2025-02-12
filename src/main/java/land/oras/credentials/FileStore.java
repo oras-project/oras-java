@@ -19,7 +19,16 @@ public class FileStore {
     private final boolean disablePut;
     private final Config config;
 
+    /**
+     * Error message indicating that putting plaintext credentials is disabled.
+     * This is used to enforce security policies against storing sensitive credentials in plaintext format.
+     */
     public static final String ERR_PLAINTEXT_PUT_DISABLED = "Putting plaintext credentials is disabled";
+
+    /**
+     * Error message indicating that the format of the provided credential is invalid.
+     * This is typically used when credentials do not match the expected structure or format.
+     */
     public static final String ERR_BAD_CREDENTIAL_FORMAT = "Bad credential format";
 
     /**
@@ -124,14 +133,34 @@ public class FileStore {
             return config;
         }
 
+        /**
+         * Retrieves the {@code Credential} associated with the specified server address.
+         *
+         * @param serverAddress The address of the server whose credential is to be retrieved.
+         * @return The {@code Credential} associated with the server address, or {@code null} if no credential is found.
+         */
         public Credential getCredential(String serverAddress) {
             return credentialStore.get(serverAddress);
         }
 
+        /**
+         * Associates the specified {@code Credential} with the given server address.
+         * If a credential already exists for the server address, it will be replaced.
+         *
+         * @param serverAddress The address of the server to associate with the credential.
+         * @param credential    The {@code Credential} to store. Must not be {@code null}.
+         * @throws NullPointerException If the provided credential is {@code null}.
+         */
         public void putCredential(String serverAddress, Credential credential) {
             credentialStore.put(serverAddress, credential);
         }
 
+        /**
+         * Removes the {@code Credential} associated with the specified server address.
+         * If no credential is associated with the server address, this method does nothing.
+         *
+         * @param serverAddress The address of the server whose credential is to be removed.
+         */
         public void deleteCredential(String serverAddress) {
             credentialStore.remove(serverAddress);
         }
@@ -144,15 +173,31 @@ public class FileStore {
         private String username;
         private String password;
 
+        /**
+         * Constructs a new {@code Credential} object with the specified username and password.
+         *
+         * @param username The username for the credential. Must not be {@code null}.
+         * @param password The password for the credential. Must not be {@code null}.
+         */
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");
             this.password = Objects.requireNonNull(password, "Password cannot be null");
         }
 
+        /**
+         * Returns the username associated with this credential.
+         *
+         * @return The username as a {@code String}.
+         */
         public String getUsername() {
             return username;
         }
 
+        /**
+         * Returns the password associated with this credential.
+         *
+         * @return The password as a {@code String}.
+         */
         public String getPassword() {
             return password;
         }
