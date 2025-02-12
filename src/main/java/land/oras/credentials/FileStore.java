@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import land.oras.exception.ConfigLoadingException;
+import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
 
 /**
@@ -113,9 +113,9 @@ public class FileStore {
          *
          * @param configPath Path to the JSON configuration file.
          * @return A Config instance with loaded credentials.
-         * @throws ConfigLoadingException If the file cannot be read or parsed.
+         * @throws OrasException If the file cannot be read or parsed.
          */
-        public static Config load(String configPath) throws ConfigLoadingException {
+        public static Config load(String configPath) throws OrasException {
 
             Map<String, Credential> credentials =
                     JsonUtils.fromJson(Path.of(configPath), new TypeToken<Map<String, Credential>>() {}.getType());
