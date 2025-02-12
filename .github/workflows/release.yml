@@ -1,7 +1,7 @@
 name: Release
 
 on:
-  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,14 +22,24 @@ jobs:
           maven-version: 3.9.9
           cache-enabled: true
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.RELEASE_SSH_KEY }}
+
       - name: Maven release
-        run: mvn --batch-mode --update-snapshots -DtagNameFormat=@{project.version} -Dmaven.resolver.transport=wagon -DskipTests release:prepare release:perform
+        run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests -Darguments="-DskipTests" release:prepare release:perform
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Close draft release
         run: |
-          release=$(gh api /repos/$GITHUB_REPOSITORY/releases | jq -e -r '[ .[] | select(.draft == true).id] | max')
-          gh api -X PATCH -F draft=false -F name=$version -F tag_name=$version /repos/$GITHUB_REPOSITORY/releases/$release
+          release_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
+          gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$release_id
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

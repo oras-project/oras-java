@@ -4,10 +4,17 @@
 
   <groupId>land.oras.java</groupId>
   <artifactId>oras-java-sdk</artifactId>
-  <version>${revision}</version>
+  <version>0.1.1-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>ORAS Java SDK</name>
   <url>https://github.com/oras-project/oras-java</url>
+
+  <scm>
+    <connection>scm:git:git@github.com:oras-project/oras-java.git</connection>
+    <developerConnection>scm:git:git@github.com:oras-project/oras-java.git</developerConnection>
+    <tag>HEAD</tag>
+    <url>https://github.com/oras-project/oras-java</url>
+  </scm>
 
   <!-- https://github.com/oras-project/oras-java/issues/19 for maven central distribution -->
   <distributionManagement>
@@ -45,6 +52,7 @@
     <spotless-maven-plugin.version>2.44.2</spotless-maven-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
     <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+    <maven-release-plugin.version>3.1.1</maven-release-plugin.version>
 
     <!-- Target Java 17 -->
     <maven.compiler.source>17</maven.compiler.source>
@@ -207,6 +215,15 @@
               </configuration>
             </execution>
           </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>${maven-release-plugin.version}</version>
+          <configuration>
+            <tagNameFormat>@{project.version}</tagNameFormat>
+            <scmCommentPrefix>[ci skip]</scmCommentPrefix>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
