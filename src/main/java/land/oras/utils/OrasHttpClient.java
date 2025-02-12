@@ -269,6 +269,35 @@ public final class OrasHttpClient {
     }
 
     /**
+     * Upload a stream
+     * @param method The method (POST or PUT)
+     * @param uri The URI
+     * @param input The input stream
+     * @param size The size of the stream
+     * @param headers The headers
+     * @return The response
+     */
+    public ResponseWrapper<String> uploadStream(
+            String method, URI uri, InputStream input, long size, Map<String, String> headers) {
+        try {
+            HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofInputStream(() -> input);
+
+            HttpRequest.Builder requestBuilder =
+                    HttpRequest.newBuilder().uri(uri).method(method, publisher);
+
+            // Add headers
+            headers.forEach(requestBuilder::header);
+
+            // Execute request
+            HttpRequest request = requestBuilder.build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            return toResponseWrapper(response);
+        } catch (Exception e) {
+            throw new OrasException("Failed to upload stream", e);
+        }
+    }
+
+    /**
      * Execute a request
      * @param method The method
      * @param uri The URI
@@ -296,15 +325,19 @@ public final class OrasHttpClient {
             HttpRequest request = builder.build();
             logRequest(request, body);
             HttpResponse<T> response = client.send(request, handler);
-            return new ResponseWrapper<T>(
-                    response.body(),
-                    response.statusCode(),
-                    response.headers().map().entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey, e -> e.getValue().get(0))));
+            return toResponseWrapper(response);
         } catch (Exception e) {
             throw new OrasException("Unable to create HTTP request", e);
         }
+    }
+
+    private <T> ResponseWrapper<T> toResponseWrapper(HttpResponse<T> response) {
+        return new ResponseWrapper<>(
+                response.body(),
+                response.statusCode(),
+                response.headers().map().entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey, e -> e.getValue().get(0))));
     }
 
     /**
