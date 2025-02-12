@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
-import land.oras.exception.ConfigLoadingException;
+import land.oras.exception.OrasException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +42,7 @@ class FileStoreAuthenticationProviderTest {
         when(mockFileStore.get(serverAddress)).thenReturn(null);
 
         // Verify that the constructor throws ConfigLoadingException
-        ConfigLoadingException exception = assertThrows(ConfigLoadingException.class, () -> {
+        OrasException exception = assertThrows(OrasException.class, () -> {
             new FileStoreAuthenticationProvider(mockFileStore, serverAddress);
         });
 
@@ -74,7 +74,7 @@ class FileStoreAuthenticationProviderTest {
         when(mockFileStore.get(serverAddress)).thenReturn(null);
 
         // Create the authentication provider, expecting it to throw ConfigLoadingException
-        ConfigLoadingException exception = assertThrows(ConfigLoadingException.class, () -> {
+        OrasException exception = assertThrows(OrasException.class, () -> {
             new FileStoreAuthenticationProvider(mockFileStore, serverAddress);
         });
 
