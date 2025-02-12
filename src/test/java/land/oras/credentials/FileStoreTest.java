@@ -9,9 +9,13 @@ import java.util.Map;
 import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
 class FileStoreTest {
+
+    @TempDir
+    private Path tempDir;
 
     private FileStore fileStore;
     private FileStore.Config mockConfig;
@@ -119,11 +123,11 @@ class FileStoreTest {
         String jsonContent = JsonUtils.toJson(credentials);
 
         // Create a temporary file and write the JSON content to it
-        Path tempFile = Files.createTempFile("config", ".json");
-        Files.write(tempFile, jsonContent.getBytes());
+        tempDir = Files.createTempFile("config", ".json");
+        Files.write(tempDir, jsonContent.getBytes());
 
         // Load the configuration from the temporary file
-        FileStore.Config config = FileStore.Config.load(tempFile.toString());
+        FileStore.Config config = FileStore.Config.load(tempDir.toString());
 
         // Verify that the config was loaded successfully and contains the correct data
         assertNotNull(config);
@@ -135,6 +139,6 @@ class FileStoreTest {
         assertEquals("userpass", config.getCredential("server2.example.com").getPassword());
 
         // Clean up by deleting the temporary file
-        Files.delete(tempFile);
+        Files.delete(tempDir);
     }
 }
