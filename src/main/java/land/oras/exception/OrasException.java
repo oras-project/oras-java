@@ -16,7 +16,7 @@ public class OrasException extends RuntimeException {
     /**
      * Logger
      */
-    private static final Logger LOG = LoggerFactory.getLogger(land.oras.exception.OrasException.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OrasException.class);
 
     /**
      * Possible error response
