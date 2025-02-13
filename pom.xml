@@ -43,7 +43,7 @@
     <logback.version>1.5.16</logback.version>
     <junit.version>5.11.4</junit.version>
     <testcontainer.version>1.20.4</testcontainer.version>
-    <wiremock.version>3.11.0</wiremock.version>
+    <wiremock.version>3.12.0</wiremock.version>
     <mockito.version>5.15.2</mockito.version>
     <system.stubs.version>2.1.7</system.stubs.version>
 
