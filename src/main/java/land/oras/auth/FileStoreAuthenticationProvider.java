@@ -1,5 +1,6 @@
 package land.oras.auth;
 
+import land.oras.ContainerRef;
 import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
 import land.oras.exception.OrasException;
@@ -11,22 +12,22 @@ import land.oras.exception.OrasException;
 public class FileStoreAuthenticationProvider implements AuthProvider {
 
     private final FileStore fileStore;
-    private final String serverAddress;
+    private final ContainerRef containerRef;
     private final UsernamePasswordProvider usernamePasswordAuthProvider;
 
     /**
      * Constructor for FileStoreAuthenticationProvider.
      *
      * @param fileStore     The FileStore instance to retrieve credentials from.
-     * @param serverAddress The server address for which to retrieve credentials.
+     * @param containerRef The server address for which to retrieve credentials.
      * @throws Exception     If an error occurs during authentication initialization.
      */
-    public FileStoreAuthenticationProvider(FileStore fileStore, String serverAddress) throws Exception {
+    public FileStoreAuthenticationProvider(FileStore fileStore, ContainerRef containerRef) throws Exception {
         this.fileStore = fileStore;
-        this.serverAddress = serverAddress;
-        Credential credential = fileStore.get(serverAddress);
+        this.containerRef = containerRef;
+        Credential credential = fileStore.get(containerRef);
         if (credential == null) {
-            throw new OrasException("No credentials found for server address: " + serverAddress);
+            throw new OrasException("No credentials found for containerRef");
         }
         this.usernamePasswordAuthProvider =
                 new UsernamePasswordProvider(credential.getUsername(), credential.getPassword());

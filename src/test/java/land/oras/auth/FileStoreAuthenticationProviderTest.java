@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import land.oras.ContainerRef;
 import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
 import land.oras.exception.OrasException;
@@ -15,7 +16,7 @@ class FileStoreAuthenticationProviderTest {
 
     private FileStore mockFileStore;
     private FileStoreAuthenticationProvider authProvider;
-    private final String serverAddress = "example.com";
+    private ContainerRef serverAddress;
 
     @BeforeEach
     void setUp() {
@@ -34,20 +35,6 @@ class FileStoreAuthenticationProviderTest {
 
         // Assert that the authentication provider is created successfully
         assertNotNull(authProvider);
-    }
-
-    @Test
-    void testConstructor_missingCredentials() throws Exception {
-        // Mock no credentials for the server address
-        when(mockFileStore.get(serverAddress)).thenReturn(null);
-
-        // Verify that the constructor throws ConfigLoadingException
-        OrasException exception = assertThrows(OrasException.class, () -> {
-            new FileStoreAuthenticationProvider(mockFileStore, serverAddress);
-        });
-
-        // Assert the exception message
-        assertTrue(exception.getMessage().contains("No credentials found for server address"));
     }
 
     @Test
@@ -79,6 +66,6 @@ class FileStoreAuthenticationProviderTest {
         });
 
         // Verify the exception message
-        assertTrue(exception.getMessage().contains("No credentials found for server address"));
+        assertTrue(exception.getMessage().contains("No credentials found for containerRef"));
     }
 }
