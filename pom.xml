@@ -282,8 +282,7 @@
           <configuration>
             <tagNameFormat>@{project.version}</tagNameFormat>
             <scmCommentPrefix>[ci skip]</scmCommentPrefix>
-            <!-- Enable release profile when ready for central -->
-            <!-- <releaseProfiles>release</releaseProfiles> -->
+            <releaseProfiles>release</releaseProfiles>
           </configuration>
         </plugin>
         <plugin>
