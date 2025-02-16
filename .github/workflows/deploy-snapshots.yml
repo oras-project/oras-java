@@ -39,6 +39,14 @@ jobs:
       - name: List keys
         run: gpg -K
 
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+      - name: List keys
+        run: gpg -K
+
       - name: Maven build
         run: mvn --batch-mode -Psign-only --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests deploy
         env:
