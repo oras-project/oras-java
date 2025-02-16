@@ -34,6 +34,6 @@ jobs:
         run: gpg -K
 
       - name: Maven build
-        run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests deploy
+        run: mvn --batch-mode -Psign-only --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
