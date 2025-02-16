@@ -24,6 +24,12 @@ jobs:
           java-version: 17
           maven-version: 3.9.9
           cache-enabled: true
+          settings-servers: |
+            [{
+                "id": "central",
+                "username": "${{ secrets.CENTRAL_USERNAME }}",
+                "password": "${{ secrets.CENTRAL_PASSWORD }}"
+            }]
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v6
