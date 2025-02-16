@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.RegistryContainer;
