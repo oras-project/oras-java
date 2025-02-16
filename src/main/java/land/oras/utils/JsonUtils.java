@@ -6,6 +6,7 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
+import java.io.Reader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -108,5 +109,18 @@ public final class JsonUtils {
         } catch (IOException e) {
             throw new OrasException("Unable to read JSON file due to IO error", e);
         }
+    }
+
+    /**
+     * Deserializes the contents of a JSON input to an object of the specified type.
+     *
+     * @param reader The {@code Reader} from which the JSON content is read.
+     * @param type The {@code Type} representing the target object type to be deserialized.
+     * @param <T> The type of the object to be returned.
+     * @return An object of type {@code T} deserialized from the JSON content.
+     * @throws OrasException If an error occurs while reading the input or the JSON format is invalid.
+     */
+    public static <T> T fromJson(Reader reader, Type type) {
+        return gson.fromJson(reader, type);
     }
 }

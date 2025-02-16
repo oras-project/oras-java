@@ -1,10 +1,11 @@
 package land.oras.credentials;
 
-import com.google.gson.reflect.TypeToken;
-import java.nio.file.Path;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
 
@@ -47,47 +48,47 @@ public class FileStore {
      *
      * @param configPath Path to the configuration file.
      * @return FileStore instance.
-     * @throws Exception if loading the configuration fails.
+     * @throws OrasException if loading the configuration fails.
      */
-    public static FileStore newFileStore(String configPath) throws Exception {
-        Config cfg = Config.load(configPath);
-        return new FileStore(false, cfg);
-    }
+    //        public static FileStore newFileStore(String configPath) throws OrasException {
+    //            Config cfg = Config.load(configPath);
+    //            return new FileStore(false, cfg);
+    //        }
 
     /**
-     * Retrieves credentials for the given server address.
+     * Retrieves credentials for the given containerREf.
      *
-     * @param serverAddress Server address.
+     * @param containerRef ContainerRef.
      * @return Credential object.
-     * @throws Exception if retrieval fails.
+     * @throws OrasException if retrieval fails.
      */
-    public Credential get(String serverAddress) throws Exception {
-        return config.getCredential(serverAddress);
+    public Credential get(ContainerRef containerRef) throws OrasException {
+        return config.getCredential(containerRef);
     }
 
     /**
-     * Saves credentials for the given server address.
+     * Saves credentials for the given ContainerRef.
      *
-     * @param serverAddress Server address.
+     * @param containerRef ContainerRef.
      * @param credential Credential object.
      * @throws Exception if saving fails.
      */
-    public void put(String serverAddress, Credential credential) throws Exception {
+    public void put(ContainerRef containerRef, Credential credential) throws Exception {
         if (disablePut) {
             throw new UnsupportedOperationException(ERR_PLAINTEXT_PUT_DISABLED);
         }
         validateCredentialFormat(credential);
-        config.putCredential(serverAddress, credential);
+        config.putCredential(containerRef, credential);
     }
 
     /**
-     * Deletes credentials for the given server address.
+     * Deletes credentials for the given container.
      *
-     * @param serverAddress Server address.
-     * @throws Exception if deletion fails.
+     * @param containerRef .
+     * @throws OrasException if deletion fails.
      */
-    public void delete(String serverAddress) throws Exception {
-        config.deleteCredential(serverAddress);
+    public void delete(ContainerRef containerRef) throws OrasException {
+        config.deleteCredential(containerRef);
     }
 
     /**
@@ -109,60 +110,74 @@ public class FileStore {
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
         /**
-         * Load configuration from a JSON file and populate the credential store.
+         * Loads the configuration from a JSON file at the specified path and populates the credential store.
          *
-         * @param configPath Path to the JSON configuration file.
-         * @return A Config instance with loaded credentials.
-         * @throws OrasException If the file cannot be read or parsed.
+         * @param configPath The path to the JSON configuration file.
+         * @return A {@code Config} object populated with the credentials from the JSON file.
+         * @throws OrasException If an error occurs while reading or parsing the JSON file.
          */
         public static Config load(String configPath) throws OrasException {
-
-            Map<String, Credential> credentials =
-                    JsonUtils.fromJson(Path.of(configPath), new TypeToken<Map<String, Credential>>() {}.getType());
-
             Config config = new Config();
+            try (FileReader reader = new FileReader(configPath)) {
+                // Deserialize the JSON file into a map of ContainerRef to Credential
+                Map<String, Map<String, String>> credentials = JsonUtils.fromJson(reader, Map.class);
 
-            for (Map.Entry<String, Credential> entry : credentials.entrySet()) {
-
-                String serverAddress = entry.getKey();
-                Credential credential = entry.getValue();
-                // Put the serverAddress and Credential into the credentialStore
-                config.credentialStore.put(serverAddress, credential);
+                // Populate the credential store with the parsed credentials
+                for (Map.Entry<String, Map<String, String>> entry : credentials.entrySet()) {
+                    Map<String, String> values = entry.getValue();
+                    if (values != null) {
+                        String username = values.get("username");
+                        String password = values.get("password");
+                        if (username != null && password != null) {
+                            config.credentialStore.put(entry.getKey(), new Credential(username, password));
+                        } else {
+                            throw new OrasException(
+                                    "Invalid credential entry: missing username or password for " + entry.getKey());
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                throw new OrasException("Failed to load configuration from path: " + configPath, e);
+            } catch (ClassCastException e) {
+                throw new OrasException("Invalid JSON structure in configuration file: " + configPath, e);
             }
-
             return config;
         }
 
         /**
-         * Retrieves the {@code Credential} associated with the specified server address.
+         * Retrieves the {@code Credential} associated with the specified containerRef.
          *
-         * @param serverAddress The address of the server whose credential is to be retrieved.
-         * @return The {@code Credential} associated with the server address, or {@code null} if no credential is found.
+         * @param containerRef The containerRef whose credential is to be retrieved.
+         * @return The {@code Credential} associated with the containerRef, or {@code null} if no credential is found.
          */
-        public Credential getCredential(String serverAddress) {
-            return credentialStore.get(serverAddress);
+        public Credential getCredential(ContainerRef containerRef) throws OrasException {
+            if (credentialStore.containsKey(containerRef)) {
+                return credentialStore.get(containerRef);
+            } else {
+                throw new OrasException("No credentials found for server address");
+            }
         }
 
         /**
-         * Associates the specified {@code Credential} with the given server address.
-         * If a credential already exists for the server address, it will be replaced.
+         * Associates the specified {@code Credential} with the given containerRef.
+         * If a credential already exists for the containerRef, it will be replaced.
          *
-         * @param serverAddress The address of the server to associate with the credential.
+         * @param containerRef The containerRef to associate with the credential.
          * @param credential    The {@code Credential} to store. Must not be {@code null}.
          * @throws NullPointerException If the provided credential is {@code null}.
          */
-        public void putCredential(String serverAddress, Credential credential) {
-            credentialStore.put(serverAddress, credential);
+        public void putCredential(ContainerRef containerRef, Credential credential) {
+            credentialStore.put(containerRef.toString(), credential);
         }
 
         /**
-         * Removes the {@code Credential} associated with the specified server address.
-         * If no credential is associated with the server address, this method does nothing.
+         * Removes the {@code Credential} associated with the specified containerRef.
+         * If no credential is associated with the containerRef, this method does nothing.
          *
-         * @param serverAddress The address of the server whose credential is to be removed.
+         * @param containerRef The containerRef whose credential is to be removed.
          */
-        public void deleteCredential(String serverAddress) {
-            credentialStore.remove(serverAddress);
+        public void deleteCredential(ContainerRef containerRef) {
+            credentialStore.remove(containerRef.toString());
         }
     }
 
