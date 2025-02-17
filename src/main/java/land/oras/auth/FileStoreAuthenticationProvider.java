@@ -3,6 +3,7 @@ package land.oras.auth;
 import land.oras.ContainerRef;
 import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
+import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -20,13 +21,24 @@ public class FileStoreAuthenticationProvider implements AuthProvider {
     /**
      * Constructor for FileStoreAuthenticationProvider.
      *
-     * @param fileStore     The FileStore instance to retrieve credentials from.
-     * @param containerRef The server address for which to retrieve credentials.
-     * @throws Exception     If an error occurs during authentication initialization.
+     * @param fileStore The FileStore instance to retrieve credentials from.
+     * @param registry The registry
      */
-    public FileStoreAuthenticationProvider(FileStore fileStore, ContainerRef containerRef) throws Exception {
+    public FileStoreAuthenticationProvider(FileStore fileStore, String registry) {
+        ContainerRef containerRef = ContainerRef.forRegistry(registry);
         Credential credential = fileStore.get(containerRef);
+        if (credential == null) {
+            throw new OrasException("No credentials found for " + containerRef.getRegistry());
+        }
         this.usernamePasswordAuthProvider = new UsernamePasswordProvider(credential.username(), credential.password());
+    }
+
+    /**
+     * Constructor for FileStoreAuthenticationProvider.
+     * @param registry The registry
+     */
+    public FileStoreAuthenticationProvider(String registry) {
+        this(FileStore.newFileStore(), registry);
     }
 
     @Override
