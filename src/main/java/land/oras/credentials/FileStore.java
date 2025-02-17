@@ -50,13 +50,13 @@ public class FileStore {
      * @return FileStore instance.
      * @throws OrasException if loading the configuration fails.
      */
-    //        public static FileStore newFileStore(String configPath) throws OrasException {
-    //            Config cfg = Config.load(configPath);
-    //            return new FileStore(false, cfg);
-    //        }
+    public static FileStore newFileStore(String configPath) throws OrasException {
+        Config cfg = Config.load(configPath);
+        return new FileStore(false, cfg);
+    }
 
     /**
-     * Retrieves credentials for the given containerREf.
+     * Retrieves credentials for the given containerRef.
      *
      * @param containerRef ContainerRef.
      * @return Credential object.
