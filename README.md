@@ -57,6 +57,25 @@ Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hel
 registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"));
 ```
 
+## Authentication
+
+Using docker login existing credentials
+
+```java
+Registry registry = Registry.Builder.builder()
+        .withAuthProvider(new FileStoreAuthenticationProvider("docker.io"))
+        .build();
+```
+
+Using username and password
+
+```java
+ContainerRef containerRef = ContainerRef.forRegistry("docker.io");
+Registry registry = Registry.Builder.builder()
+        .withAuthProvider(new UsernamePasswordProvider("username", "password"))
+        .build();
+```
+
 ### Deploy to GitHub Packages
 
 This is temporary until published to Maven Central with a proper workflow.
