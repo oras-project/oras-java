@@ -2,6 +2,7 @@ package land.oras;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

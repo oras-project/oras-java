@@ -1,4 +1,4 @@
-package land.oras;
+package land.oras.exception;
 
 import land.oras.utils.JsonUtils;
 import land.oras.utils.OrasHttpClient;
