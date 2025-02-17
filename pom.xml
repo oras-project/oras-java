@@ -343,6 +343,25 @@
             </execution>
           </executions>
         </plugin>
+        <!-- spdx plugin -->
+        <plugin>
+          <groupId>org.spdx</groupId>
+          <artifactId>spdx-maven-plugin</artifactId>
+          <version>0.6.5</version>
+          <configuration>
+            <excludedFilePatterns>
+              <excludedFilePattern>*.spdx</excludedFilePattern>
+            </excludedFilePatterns>
+          </configuration>
+          <executions>
+            <execution>
+              <id>build-spdx</id>
+              <goals>
+                <goal>createSPDX</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
 
         <!-- Jacoco test coverage -->
         <plugin>
