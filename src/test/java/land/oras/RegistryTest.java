@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
@@ -36,6 +37,8 @@ public class RegistryTest {
     @Container
     private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
 
+    private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
+
     /**
      * Blob temporary dir
      */
@@ -55,6 +58,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
@@ -79,6 +83,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
@@ -112,6 +117,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
 
         // Empty manifest
@@ -157,6 +163,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
@@ -192,6 +199,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
@@ -228,6 +236,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -264,6 +273,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -301,6 +311,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -325,6 +336,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -341,6 +353,7 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
                 .withSkipTlsVerify(true)
+                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));

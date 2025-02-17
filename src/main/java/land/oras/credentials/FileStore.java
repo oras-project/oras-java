@@ -8,13 +8,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
+import org.jspecify.annotations.NullMarked;
 
 /**
  * FileStore implements a credentials store using a configuration file
  * to keep the credentials in plain-text.
- *
- * Reference: https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties
+ * Reference: <a href="https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties">Docker config</a>
  */
+@NullMarked
 public class FileStore {
 
     private final boolean disablePut;
@@ -38,7 +39,7 @@ public class FileStore {
      * @param disablePut boolean flag to disable putting credentials in plaintext.
      * @param config configuration instance.
      */
-    public FileStore(boolean disablePut, Config config) {
+    FileStore(boolean disablePut, Config config) {
         this.disablePut = disablePut;
         this.config = Objects.requireNonNull(config, "Config cannot be null");
     }
@@ -98,7 +99,7 @@ public class FileStore {
      * @throws Exception if the credential format is invalid.
      */
     private void validateCredentialFormat(Credential credential) throws Exception {
-        if (credential.getUsername().contains(":")) {
+        if (credential.username().contains(":")) {
             throw new IllegalArgumentException(ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username");
         }
     }
@@ -107,6 +108,9 @@ public class FileStore {
      * Nested Config class for configuration management.
      */
     public static class Config {
+
+        private Config() {}
+
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
         /**
@@ -125,15 +129,13 @@ public class FileStore {
                 // Populate the credential store with the parsed credentials
                 for (Map.Entry<String, Map<String, String>> entry : credentials.entrySet()) {
                     Map<String, String> values = entry.getValue();
-                    if (values != null) {
-                        String username = values.get("username");
-                        String password = values.get("password");
-                        if (username != null && password != null) {
-                            config.credentialStore.put(entry.getKey(), new Credential(username, password));
-                        } else {
-                            throw new OrasException(
-                                    "Invalid credential entry: missing username or password for " + entry.getKey());
-                        }
+                    String username = values.get("username");
+                    String password = values.get("password");
+                    if (username != null && password != null) {
+                        config.credentialStore.put(entry.getKey(), new Credential(username, password));
+                    } else {
+                        throw new OrasException(
+                                "Invalid credential entry: missing username or password for " + entry.getKey());
                     }
                 }
             } catch (IOException e) {
@@ -151,8 +153,8 @@ public class FileStore {
          * @return The {@code Credential} associated with the containerRef, or {@code null} if no credential is found.
          */
         public Credential getCredential(ContainerRef containerRef) throws OrasException {
-            if (credentialStore.containsKey(containerRef)) {
-                return credentialStore.get(containerRef);
+            if (credentialStore.containsKey(containerRef.getRegistry())) {
+                return credentialStore.get(containerRef.getRegistry());
             } else {
                 throw new OrasException("No credentials found for server address");
             }
@@ -167,7 +169,7 @@ public class FileStore {
          * @throws NullPointerException If the provided credential is {@code null}.
          */
         public void putCredential(ContainerRef containerRef, Credential credential) {
-            credentialStore.put(containerRef.toString(), credential);
+            credentialStore.put(containerRef.getRegistry(), credential);
         }
 
         /**
@@ -183,11 +185,10 @@ public class FileStore {
 
     /**
      * Nested Credential class to represent username and password pairs.
+     * @param username The username for the credential.
+     * @param password The password for the credential.
      */
-    public static class Credential {
-        private String username;
-        private String password;
-
+    public record Credential(String username, String password) {
         /**
          * Constructs a new {@code Credential} object with the specified username and password.
          *
@@ -197,24 +198,6 @@ public class FileStore {
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");
             this.password = Objects.requireNonNull(password, "Password cannot be null");
-        }
-
-        /**
-         * Returns the username associated with this credential.
-         *
-         * @return The username as a {@code String}.
-         */
-        public String getUsername() {
-            return username;
-        }
-
-        /**
-         * Returns the password associated with this credential.
-         *
-         * @return The password as a {@code String}.
-         */
-        public String getPassword() {
-            return password;
         }
     }
 }

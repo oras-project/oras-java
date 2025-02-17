@@ -282,14 +282,18 @@ public final class OrasHttpClient {
         try {
             HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofInputStream(() -> input);
 
-            HttpRequest.Builder requestBuilder =
-                    HttpRequest.newBuilder().uri(uri).method(method, publisher);
+            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, publisher);
 
             // Add headers
-            headers.forEach(requestBuilder::header);
+            headers.forEach(builder::header);
+
+            // Add authentication header if any
+            if (this.authProvider.getAuthHeader() != null) {
+                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader());
+            }
 
             // Execute request
-            HttpRequest request = requestBuilder.build();
+            HttpRequest request = builder.build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             return toResponseWrapper(response);
         } catch (Exception e) {

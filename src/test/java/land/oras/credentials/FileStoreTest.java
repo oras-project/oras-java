@@ -55,8 +55,8 @@ class FileStoreTest {
         FileStore.Credential credential = fileStore.get(SERVER_ADDRESS);
 
         assertNotNull(credential);
-        assertEquals(USERNAME, credential.getUsername());
-        assertEquals(PASSWORD, credential.getPassword());
+        assertEquals(USERNAME, credential.username());
+        assertEquals(PASSWORD, credential.password());
     }
 
     @Test

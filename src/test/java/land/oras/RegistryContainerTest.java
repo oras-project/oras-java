@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -38,6 +39,8 @@ public class RegistryContainerTest {
     @Container
     private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
 
+    private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
+
     /**
      * Blob temporary dir
      */
@@ -61,7 +64,10 @@ public class RegistryContainerTest {
                 .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
 
         // Insecure registry
-        Registry registry = Registry.Builder.builder().withInsecure(true).build();
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
 
         // Test
         List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text"
@@ -77,6 +83,7 @@ public class RegistryContainerTest {
     void shouldPushAndGetBlobThenDelete() {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -101,6 +108,7 @@ public class RegistryContainerTest {
     void shouldUploadAndFetchBlobThenDelete() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -134,6 +142,7 @@ public class RegistryContainerTest {
     void shouldPushAndGetManifestThenDelete() {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
 
@@ -179,6 +188,7 @@ public class RegistryContainerTest {
 
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -214,6 +224,7 @@ public class RegistryContainerTest {
 
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
