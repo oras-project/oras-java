@@ -58,7 +58,7 @@ class FileStoreAuthenticationProviderTest {
     @Test
     void testGetAuthHeader_missingCredentials() throws Exception {
         // Mock no credentials for the server address
-        when(mockFileStore.get(serverAddress)).thenReturn(null);
+        when(mockFileStore.get(serverAddress)).thenThrow(new OrasException("No credentials found for containerRef"));
 
         // Create the authentication provider, expecting it to throw ConfigLoadingException
         OrasException exception = assertThrows(OrasException.class, () -> {
