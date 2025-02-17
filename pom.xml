@@ -347,11 +347,14 @@
         <plugin>
           <groupId>org.spdx</groupId>
           <artifactId>spdx-maven-plugin</artifactId>
+          <!-- please check for updates on https://search.maven.org/search?q=a:spdx-maven-plugin -->
           <version>0.6.5</version>
+          <!-- please check the documentation to understand different configuration https://spdx.github.io/spdx-maven-plugin/createSPDX-mojo.html -->
           <configuration>
             <excludedFilePatterns>
               <excludedFilePattern>*.spdx</excludedFilePattern>
             </excludedFilePatterns>
+            <version>0.6.5</version>
           </configuration>
           <executions>
             <execution>
