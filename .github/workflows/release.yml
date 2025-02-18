@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
   packages: write
 
 jobs:
@@ -12,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
       packages: write
     steps:
       - name: Setup Maven Action
