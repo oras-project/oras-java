@@ -208,4 +208,13 @@ public final class ContainerRef {
         }
         return new ContainerRef(registry, namespace, repository, tag, digest);
     }
+
+    /**
+     * Return a container reference for a registry
+     * @param registry The registry
+     * @return The container reference
+     */
+    public static ContainerRef forRegistry(String registry) {
+        return new ContainerRef(registry, null, "library", "latest", null);
+    }
 }

@@ -1,30 +1,27 @@
 package land.oras.credentials;
 
-import java.io.FileReader;
-import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * FileStore implements a credentials store using a configuration file
  * to keep the credentials in plain-text.
- *
- * Reference: https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties
+ * Reference: <a href="https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties">Docker config</a>
  */
+@NullMarked
 public class FileStore {
 
-    private final boolean disablePut;
-    private final Config config;
-
     /**
-     * Error message indicating that putting plaintext credentials is disabled.
-     * This is used to enforce security policies against storing sensitive credentials in plaintext format.
+     * The internal config
      */
-    public static final String ERR_PLAINTEXT_PUT_DISABLED = "Putting plaintext credentials is disabled";
+    private final Config config;
 
     /**
      * Error message indicating that the format of the provided credential is invalid.
@@ -35,11 +32,9 @@ public class FileStore {
     /**
      * Constructor for FileStore.
      *
-     * @param disablePut boolean flag to disable putting credentials in plaintext.
      * @param config configuration instance.
      */
-    public FileStore(boolean disablePut, Config config) {
-        this.disablePut = disablePut;
+    FileStore(Config config) {
         this.config = Objects.requireNonNull(config, "Config cannot be null");
     }
 
@@ -48,21 +43,27 @@ public class FileStore {
      *
      * @param configPath Path to the configuration file.
      * @return FileStore instance.
-     * @throws OrasException if loading the configuration fails.
      */
-    public static FileStore newFileStore(String configPath) throws OrasException {
-        Config cfg = Config.load(configPath);
-        return new FileStore(false, cfg);
+    public static FileStore newFileStore(Path configPath) {
+        ConfigFile configFile = JsonUtils.fromJson(configPath, ConfigFile.class);
+        return new FileStore(Config.load(configFile));
+    }
+
+    /**
+     * Creates a new FileStore from default location
+     * @return FileStore instance.
+     */
+    public static FileStore newFileStore() {
+        return newFileStore(Path.of(System.getProperty("user.home"), ".docker", "config.json"));
     }
 
     /**
      * Retrieves credentials for the given containerRef.
      *
      * @param containerRef ContainerRef.
-     * @return Credential object.
-     * @throws OrasException if retrieval fails.
+     * @return Credential object or null if no credential is found.
      */
-    public Credential get(ContainerRef containerRef) throws OrasException {
+    public @Nullable Credential get(ContainerRef containerRef) throws OrasException {
         return config.getCredential(containerRef);
     }
 
@@ -74,9 +75,6 @@ public class FileStore {
      * @throws Exception if saving fails.
      */
     public void put(ContainerRef containerRef, Credential credential) throws Exception {
-        if (disablePut) {
-            throw new UnsupportedOperationException(ERR_PLAINTEXT_PUT_DISABLED);
-        }
         validateCredentialFormat(credential);
         config.putCredential(containerRef, credential);
     }
@@ -98,49 +96,68 @@ public class FileStore {
      * @throws Exception if the credential format is invalid.
      */
     private void validateCredentialFormat(Credential credential) throws Exception {
-        if (credential.getUsername().contains(":")) {
+        if (credential.username().contains(":")) {
             throw new IllegalArgumentException(ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username");
+        }
+    }
+
+    /**
+     * Nested ConfigFile class to represent the configuration file.
+     * @param auths The auths map.
+     */
+    record ConfigFile(Map<String, Map<String, String>> auths) {
+
+        /**
+         * Constructs a new {@code ConfigFile} object with the specified auths.
+         * @param credential The credential.
+         * @return ConfigFile object.
+         */
+        static ConfigFile fromCredential(Credential credential) {
+            return new ConfigFile(Map.of(
+                    "auths",
+                    Map.of(
+                            "auth",
+                            java.util.Base64.getEncoder()
+                                    .encodeToString((credential.username + ":" + credential.password).getBytes()))));
         }
     }
 
     /**
      * Nested Config class for configuration management.
      */
-    public static class Config {
+    static class Config {
+
+        /**
+         * Private constructor to prevent instantiation.
+         */
+        private Config() {}
+
+        /**
+         * Stores the credentials
+         */
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
         /**
          * Loads the configuration from a JSON file at the specified path and populates the credential store.
          *
-         * @param configPath The path to the JSON configuration file.
+         * @param configFile The config file
          * @return A {@code Config} object populated with the credentials from the JSON file.
          * @throws OrasException If an error occurs while reading or parsing the JSON file.
          */
-        public static Config load(String configPath) throws OrasException {
+        public static Config load(ConfigFile configFile) throws OrasException {
             Config config = new Config();
-            try (FileReader reader = new FileReader(configPath)) {
-                // Deserialize the JSON file into a map of ContainerRef to Credential
-                Map<String, Map<String, String>> credentials = JsonUtils.fromJson(reader, Map.class);
-
-                // Populate the credential store with the parsed credentials
-                for (Map.Entry<String, Map<String, String>> entry : credentials.entrySet()) {
-                    Map<String, String> values = entry.getValue();
-                    if (values != null) {
-                        String username = values.get("username");
-                        String password = values.get("password");
-                        if (username != null && password != null) {
-                            config.credentialStore.put(entry.getKey(), new Credential(username, password));
-                        } else {
-                            throw new OrasException(
-                                    "Invalid credential entry: missing username or password for " + entry.getKey());
-                        }
+            configFile.auths.forEach((host, value) -> {
+                String auth = value.get("auth");
+                if (auth != null) {
+                    String base64Decoded =
+                            new String(java.util.Base64.getDecoder().decode(auth));
+                    String[] parts = base64Decoded.split(":");
+                    if (parts.length != 2) {
+                        throw new OrasException("Invalid credential format");
                     }
+                    config.credentialStore.put(host, new Credential(parts[0], parts[1]));
                 }
-            } catch (IOException e) {
-                throw new OrasException("Failed to load configuration from path: " + configPath, e);
-            } catch (ClassCastException e) {
-                throw new OrasException("Invalid JSON structure in configuration file: " + configPath, e);
-            }
+            });
             return config;
         }
 
@@ -150,12 +167,8 @@ public class FileStore {
          * @param containerRef The containerRef whose credential is to be retrieved.
          * @return The {@code Credential} associated with the containerRef, or {@code null} if no credential is found.
          */
-        public Credential getCredential(ContainerRef containerRef) throws OrasException {
-            if (credentialStore.containsKey(containerRef)) {
-                return credentialStore.get(containerRef);
-            } else {
-                throw new OrasException("No credentials found for server address");
-            }
+        public @Nullable Credential getCredential(ContainerRef containerRef) throws OrasException {
+            return credentialStore.getOrDefault(containerRef.getRegistry(), null);
         }
 
         /**
@@ -167,7 +180,7 @@ public class FileStore {
          * @throws NullPointerException If the provided credential is {@code null}.
          */
         public void putCredential(ContainerRef containerRef, Credential credential) {
-            credentialStore.put(containerRef.toString(), credential);
+            credentialStore.put(containerRef.getRegistry(), credential);
         }
 
         /**
@@ -183,11 +196,10 @@ public class FileStore {
 
     /**
      * Nested Credential class to represent username and password pairs.
+     * @param username The username for the credential.
+     * @param password The password for the credential.
      */
-    public static class Credential {
-        private String username;
-        private String password;
-
+    public record Credential(String username, String password) {
         /**
          * Constructs a new {@code Credential} object with the specified username and password.
          *
@@ -197,24 +209,6 @@ public class FileStore {
         public Credential(String username, String password) {
             this.username = Objects.requireNonNull(username, "Username cannot be null");
             this.password = Objects.requireNonNull(password, "Password cannot be null");
-        }
-
-        /**
-         * Returns the username associated with this credential.
-         *
-         * @return The username as a {@code String}.
-         */
-        public String getUsername() {
-            return username;
-        }
-
-        /**
-         * Returns the password associated with this credential.
-         *
-         * @return The password as a {@code String}.
-         */
-        public String getPassword() {
-            return password;
         }
     }
 }

@@ -10,10 +10,14 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import land.oras.auth.FileStoreAuthenticationProvider;
+import land.oras.auth.UsernamePasswordProvider;
+import land.oras.credentials.FileStore;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -38,11 +42,16 @@ public class RegistryContainerTest {
     @Container
     private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
 
+    private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
+
     /**
      * Blob temporary dir
      */
     @TempDir
     private Path blobDir;
+
+    @TempDir
+    private Path configDir;
 
     @TempDir
     private Path artifactDir;
@@ -61,7 +70,10 @@ public class RegistryContainerTest {
                 .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
 
         // Insecure registry
-        Registry registry = Registry.Builder.builder().withInsecure(true).build();
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
 
         // Test
         List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text"
@@ -74,9 +86,54 @@ public class RegistryContainerTest {
     }
 
     @Test
+    void shouldListTagsWithFileStoreAuth(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
+
+        // Auth file for current registry
+        String authFile =
+                """
+                {
+                        "auths": {
+                                "localhost:%d": {
+                                        "auth": "bXl1c2VyOm15cGFzcw=="
+                                }
+                        }
+                }
+                """
+                        .formatted(registry.getMappedPort(5000));
+
+        Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
+
+        ContainerRef containerRef = ContainerRef.forRegistry("localhost:%d".formatted(registry.getMappedPort(5000)));
+        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(
+                FileStore.newFileStore(configDir.resolve("config.json")), containerRef.getRegistry());
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text-store/tags/list"))
+                .willReturn(WireMock.okJson(
+                        JsonUtils.toJson(new Tags("artifact-text-store", List.of("latest", "0.1.1"))))));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        // Test
+        List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text-store"
+                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))));
+
+        // Assert
+        assertEquals(2, tags.size());
+        assertEquals("latest", tags.get(0));
+        assertEquals("0.1.1", tags.get(1));
+    }
+
+    @Test
     void shouldPushAndGetBlobThenDelete() {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -101,6 +158,7 @@ public class RegistryContainerTest {
     void shouldUploadAndFetchBlobThenDelete() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -134,6 +192,7 @@ public class RegistryContainerTest {
     void shouldPushAndGetManifestThenDelete() {
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
 
@@ -179,6 +238,7 @@ public class RegistryContainerTest {
 
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =
@@ -214,6 +274,7 @@ public class RegistryContainerTest {
 
         Registry registry = Registry.Builder.builder()
                 .withInsecure(true)
+                .withAuthProvider(authProvider)
                 .withSkipTlsVerify(true)
                 .build();
         ContainerRef containerRef =

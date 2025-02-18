@@ -4,12 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,16 +31,22 @@ class FileStoreTest {
         mockCredential = new FileStore.Credential(USERNAME, PASSWORD);
 
         // Create FileStore instance
-        fileStore = new FileStore(false, mockConfig);
+        fileStore = new FileStore(mockConfig);
     }
 
     @Test
     void testNewFileStore_success() throws Exception {
         // Simulate loading configuration
-        String configPath = "config.json";
         FileStore.Config mockConfig = Mockito.mock(FileStore.Config.class);
-        FileStore fileStoreInstance = new FileStore(false, mockConfig);
+        FileStore fileStoreInstance = new FileStore(mockConfig);
 
+        assertNotNull(fileStoreInstance);
+    }
+
+    @Test
+    void testNewFileStore_defaultLocation_success() throws Exception {
+        // Simulate loading configuration from default location
+        FileStore fileStoreInstance = FileStore.newFileStore();
         assertNotNull(fileStoreInstance);
     }
 
@@ -55,8 +58,8 @@ class FileStoreTest {
         FileStore.Credential credential = fileStore.get(SERVER_ADDRESS);
 
         assertNotNull(credential);
-        assertEquals(USERNAME, credential.getUsername());
-        assertEquals(PASSWORD, credential.getPassword());
+        assertEquals(USERNAME, credential.username());
+        assertEquals(PASSWORD, credential.password());
     }
 
     @Test
@@ -67,17 +70,6 @@ class FileStoreTest {
         fileStore.put(SERVER_ADDRESS, mockCredential);
 
         Mockito.verify(mockConfig, Mockito.times(1)).putCredential(SERVER_ADDRESS, mockCredential);
-    }
-
-    @Test
-    void testPutCredential_whenPutDisabled_throwsException() {
-        fileStore = new FileStore(true, mockConfig); // Set disablePut to true
-
-        UnsupportedOperationException thrown = assertThrows(UnsupportedOperationException.class, () -> {
-            fileStore.put(SERVER_ADDRESS, mockCredential);
-        });
-
-        assertEquals(FileStore.ERR_PLAINTEXT_PUT_DISABLED, thrown.getMessage());
     }
 
     @Test
@@ -201,22 +193,14 @@ class FileStoreTest {
     @Test
     void testConfigLoad_success() throws Exception {
         // Create a temporary JSON file for testing
-        Map<ContainerRef, FileStore.Credential> credentials = new HashMap<>();
         ContainerRef containerRef =
                 ContainerRef.parse("docker.io/library/foo/hello-world:latest@sha256:1234567890abcdef");
-        credentials.put(containerRef, new FileStore.Credential("admin", "password123"));
 
-        String jsonContent = JsonUtils.toJson(credentials);
-
-        // Create a temporary file and write the JSON content to it
-        tempDir = Files.createTempFile("config", ".json");
-        Files.write(tempDir, jsonContent.getBytes());
+        FileStore.ConfigFile configFile =
+                FileStore.ConfigFile.fromCredential(new FileStore.Credential("admin", "password123"));
 
         // Load the configuration from the temporary file
-        FileStore.Config.load(tempDir.toString());
-
-        //        assertNotNull(config);
-        //        assertNotNull(config.getCredential(containerRef));
+        FileStore.Config.load(configFile);
 
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("library/foo", containerRef.getNamespace());
