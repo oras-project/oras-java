@@ -75,6 +75,7 @@
     <central-publishing-maven-plugin.version>0.7.0</central-publishing-maven-plugin.version>
     <sigstore-maven-plugin.version>1.2.0</sigstore-maven-plugin.version>
     <spdx-maven-plugin.version>1.0.0-RC1</spdx-maven-plugin.version>
+    <maven-license-plugin.version>2.5.0</maven-license-plugin.version>
 
     <!-- Target Java 17 -->
     <maven.compiler.source>17</maven.compiler.source>
@@ -229,6 +230,33 @@
   <build>
     <pluginManagement>
       <plugins>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>license-maven-plugin</artifactId>
+          <version>${maven-license-plugin.version}</version>
+          <configuration>
+            <failOnMissingHeader>true</failOnMissingHeader>
+            <organizationName>ORAS</organizationName>
+            <licenseName>apache_v2</licenseName>
+            <inceptionYear>2024</inceptionYear>
+            <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+            <emptyLineAfterHeader>true</emptyLineAfterHeader>
+            <excludes>**/logback*.xml,**/junit-platform.properties</excludes>
+            <processStartTag>= LICENSE =</processStartTag>
+            <sectionDelimiter>===</sectionDelimiter>
+            <processEndTag>= LICENSE END =</processEndTag>
+            <projectName>ORAS Java SDK</projectName>
+          </configuration>
+          <executions>
+            <execution>
+              <id>check</id>
+              <goals>
+                <goal>check-file-header</goal>
+              </goals>
+              <phase>validate</phase>
+            </execution>
+          </executions>
+        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
@@ -408,6 +436,10 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>license-maven-plugin</artifactId>
       </plugin>
       <plugin>
         <groupId>org.spdx</groupId>
