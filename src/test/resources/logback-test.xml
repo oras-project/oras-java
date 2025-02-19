@@ -11,4 +11,5 @@
         <appender-ref ref="CONSOLE" />
     </root>
     <logger name="land.oras" level="TRACE" />
+    <logger name="land.oras.utils.RegistryContainer" level="WARN" />
 </configuration>
