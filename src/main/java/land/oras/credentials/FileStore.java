@@ -20,7 +20,10 @@
 
 package land.oras.credentials;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +32,8 @@ import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * FileStore implements a credentials store using a configuration file
@@ -37,6 +42,8 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 public class FileStore {
+
+    private static final Logger LOG = LoggerFactory.getLogger(FileStore.class);
 
     /**
      * The internal config
@@ -61,12 +68,19 @@ public class FileStore {
     /**
      * Creates a new FileStore based on the given configuration file path.
      *
-     * @param configPath Path to the configuration file.
+     * @param configPaths Path to the configuration files.
      * @return FileStore instance.
      */
-    public static FileStore newFileStore(Path configPath) {
-        ConfigFile configFile = JsonUtils.fromJson(configPath, ConfigFile.class);
-        return new FileStore(Config.load(configFile));
+    public static FileStore newFileStore(List<Path> configPaths) {
+        List<ConfigFile> files = new ArrayList<>();
+        for (Path configPath : configPaths) {
+            if (Files.exists(configPath)) {
+                ConfigFile configFile = JsonUtils.fromJson(configPath, ConfigFile.class);
+                LOG.debug("Loaded auth config file: {}", configPath);
+                files.add(configFile);
+            }
+        }
+        return new FileStore(Config.load(files));
     }
 
     /**
@@ -74,7 +88,11 @@ public class FileStore {
      * @return FileStore instance.
      */
     public static FileStore newFileStore() {
-        return newFileStore(Path.of(System.getProperty("user.home"), ".docker", "config.json"));
+        List<Path> paths = List.of(
+                Path.of(System.getProperty("user.home"), ".docker", "config.json"), // Docker
+                Path.of(System.getenv("XDG_RUNTIME_DIR"), "containers", "auth.json") // Podman
+                );
+        return newFileStore(paths);
     }
 
     /**
@@ -160,24 +178,26 @@ public class FileStore {
         /**
          * Loads the configuration from a JSON file at the specified path and populates the credential store.
          *
-         * @param configFile The config file
+         * @param configFiles The config files
          * @return A {@code Config} object populated with the credentials from the JSON file.
          * @throws OrasException If an error occurs while reading or parsing the JSON file.
          */
-        public static Config load(ConfigFile configFile) throws OrasException {
+        public static Config load(List<ConfigFile> configFiles) throws OrasException {
             Config config = new Config();
-            configFile.auths.forEach((host, value) -> {
-                String auth = value.get("auth");
-                if (auth != null) {
-                    String base64Decoded =
-                            new String(java.util.Base64.getDecoder().decode(auth));
-                    String[] parts = base64Decoded.split(":");
-                    if (parts.length != 2) {
-                        throw new OrasException("Invalid credential format");
+            for (ConfigFile configFile : configFiles) {
+                configFile.auths.forEach((host, value) -> {
+                    String auth = value.get("auth");
+                    if (auth != null) {
+                        String base64Decoded =
+                                new String(java.util.Base64.getDecoder().decode(auth));
+                        String[] parts = base64Decoded.split(":");
+                        if (parts.length != 2) {
+                            throw new OrasException("Invalid credential format");
+                        }
+                        config.credentialStore.put(host, new Credential(parts[0], parts[1]));
                     }
-                    config.credentialStore.put(host, new Credential(parts[0], parts[1]));
-                }
-            });
+                });
+            }
             return config;
         }
 

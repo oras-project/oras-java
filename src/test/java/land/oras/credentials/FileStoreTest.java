@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -220,7 +221,7 @@ class FileStoreTest {
                 FileStore.ConfigFile.fromCredential(new FileStore.Credential("admin", "password123"));
 
         // Load the configuration from the temporary file
-        FileStore.Config.load(configFile);
+        FileStore.Config.load(List.of(configFile));
 
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("library/foo", containerRef.getNamespace());
