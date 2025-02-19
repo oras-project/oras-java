@@ -86,7 +86,8 @@ public final class OrasHttpClient {
      */
     private OrasHttpClient() {
         this.builder = HttpClient.newBuilder();
-        this.builder.followRedirects(HttpClient.Redirect.NORMAL); // Some registry might redirect blob to other domain
+        this.builder.followRedirects(
+                HttpClient.Redirect.NEVER); // No automatic redirect, only GET and HEAD request will redirect
         this.skipTlsVerify = false;
         this.builder.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_NONE));
         this.authProvider = new NoAuthProvider();
@@ -349,8 +350,27 @@ public final class OrasHttpClient {
             HttpRequest request = builder.build();
             logRequest(request, body);
             HttpResponse<T> response = client.send(request, handler);
+
+            if (response.statusCode() == HttpURLConnection.HTTP_MOVED_PERM
+                    || response.statusCode() == HttpURLConnection.HTTP_MOVED_TEMP
+                    || response.statusCode() == 307) {
+
+                LOG.debug(
+                        "Redirecting to {}",
+                        response.headers().firstValue("Location").orElseThrow());
+                URI redirectUri =
+                        new URI(response.headers().firstValue("Location").orElseThrow());
+                HttpRequest.Builder newBuilder =
+                        HttpRequest.newBuilder().uri(redirectUri).method(method, bodyPublisher);
+                HttpRequest newRequest = newBuilder.build();
+                logRequest(newRequest, body);
+                HttpResponse<T> newResponse = client.send(newRequest, handler);
+                return toResponseWrapper(newResponse);
+            }
+
             return toResponseWrapper(response);
         } catch (Exception e) {
+            LOG.error("Failed to execute request", e);
             throw new OrasException("Unable to create HTTP request", e);
         }
     }
