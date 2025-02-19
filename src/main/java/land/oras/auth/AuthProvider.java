@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import land.oras.ContainerRef;
+import org.jspecify.annotations.Nullable;
+
 /**
  * Interface for auth provider
  * Must return the authentication header to pass to HTTP requests
@@ -28,7 +31,9 @@ public interface AuthProvider {
 
     /**
      * Get the authentication header for this provider
-     * @return The authentication header
+     * @param registry The registry
+     * @return The authentication header or null if not applicable
      */
-    String getAuthHeader();
+    @Nullable
+    String getAuthHeader(ContainerRef registry);
 }

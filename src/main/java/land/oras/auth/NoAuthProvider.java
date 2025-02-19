@@ -20,6 +20,8 @@
 
 package land.oras.auth;
 
+import land.oras.ContainerRef;
+
 /**
  * A provider without any authentication
  */
@@ -31,7 +33,7 @@ public class NoAuthProvider implements AuthProvider {
     public NoAuthProvider() {}
 
     @Override
-    public String getAuthHeader() {
+    public String getAuthHeader(ContainerRef registry) {
         return null;
     }
 }

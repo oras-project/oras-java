@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import land.oras.ContainerRef;
+import org.jspecify.annotations.NonNull;
+
 /**
  * A provider for username and password authentication
  */
@@ -62,7 +65,8 @@ public abstract class AbstractUsernamePasswordProvider implements AuthProvider {
     }
 
     @Override
-    public String getAuthHeader() {
+    @NonNull
+    public String getAuthHeader(ContainerRef registry) {
         return "Basic " + java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 }

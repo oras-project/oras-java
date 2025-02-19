@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -73,9 +74,11 @@ public class BearerTokenProvider implements AuthProvider {
     /**
      * Retrieve
      * @param response The response
+     * @param containerRef The container reference
      * @return The token
      */
-    public BearerTokenProvider refreshToken(OrasHttpClient.ResponseWrapper<String> response) {
+    public BearerTokenProvider refreshToken(
+            ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
 
         String wwwAuthHeader = response.headers().getOrDefault(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "");
         LOG.debug("WWW-Authenticate header: {}", wwwAuthHeader);
@@ -102,7 +105,7 @@ public class BearerTokenProvider implements AuthProvider {
         OrasHttpClient httpClient =
                 OrasHttpClient.Builder.builder().withAuthentication(provider).build();
         OrasHttpClient.ResponseWrapper<String> responseWrapper =
-                httpClient.get(uri, Map.of(Const.AUTHORIZATION_HEADER, provider.getAuthHeader()));
+                httpClient.get(uri, Map.of(Const.AUTHORIZATION_HEADER, provider.getAuthHeader(containerRef)));
 
         // Log the response
         LOG.debug(
@@ -135,7 +138,7 @@ public class BearerTokenProvider implements AuthProvider {
     }
 
     @Override
-    public String getAuthHeader() {
+    public String getAuthHeader(ContainerRef registry) {
         if (token == null) {
             throw new OrasException("No token available");
         }

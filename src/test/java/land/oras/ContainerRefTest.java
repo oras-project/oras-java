@@ -97,4 +97,10 @@ public class ContainerRefTest {
                 ContainerRef.parse("docker.io/library/foo/hello-world:latest@sha256:1234567890abcdef");
         assertEquals("docker.io/v2/library/foo/hello-world/tags/list", containerRef.getTagsPath());
     }
+
+    @Test
+    void shouldGetReferenceFromUrl() {
+        ContainerRef containerRef = ContainerRef.fromUrl("http://docker.io/foo/bar/test/api");
+        assertEquals("docker.io", containerRef.getRegistry());
+    }
 }

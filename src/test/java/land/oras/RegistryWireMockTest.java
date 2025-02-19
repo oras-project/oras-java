@@ -122,8 +122,8 @@ public class RegistryWireMockTest {
         Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
 
         ContainerRef containerRef = ContainerRef.forRegistry("localhost:%d".formatted(wmRuntimeInfo.getHttpPort()));
-        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(
-                FileStore.newFileStore(configDir.resolve("config.json")), containerRef.getRegistry());
+        FileStoreAuthenticationProvider authProvider =
+                new FileStoreAuthenticationProvider(FileStore.newFileStore(configDir.resolve("config.json")));
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();

@@ -23,8 +23,8 @@ package land.oras.auth;
 import land.oras.ContainerRef;
 import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
-import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * FileStoreAuthenticationProvider is an implementation of the AuthProvider interface.
@@ -33,36 +33,31 @@ import org.jspecify.annotations.NullMarked;
 @NullMarked
 public class FileStoreAuthenticationProvider implements AuthProvider {
 
+    private final FileStore fileStore;
+
     /**
-     * Delegate to username password authentication
+     * Default constructor
      */
-    private final UsernamePasswordProvider usernamePasswordAuthProvider;
+    public FileStoreAuthenticationProvider() {
+        this(FileStore.newFileStore());
+    }
 
     /**
      * Constructor for FileStoreAuthenticationProvider.
      *
      * @param fileStore The FileStore instance to retrieve credentials from.
-     * @param registry The registry
      */
-    public FileStoreAuthenticationProvider(FileStore fileStore, String registry) {
-        ContainerRef containerRef = ContainerRef.forRegistry(registry);
-        Credential credential = fileStore.get(containerRef);
-        if (credential == null) {
-            throw new OrasException("No credentials found for " + containerRef.getRegistry());
-        }
-        this.usernamePasswordAuthProvider = new UsernamePasswordProvider(credential.username(), credential.password());
-    }
-
-    /**
-     * Constructor for FileStoreAuthenticationProvider.
-     * @param registry The registry
-     */
-    public FileStoreAuthenticationProvider(String registry) {
-        this(FileStore.newFileStore(), registry);
+    public FileStoreAuthenticationProvider(FileStore fileStore) {
+        this.fileStore = fileStore;
     }
 
     @Override
-    public String getAuthHeader() {
-        return usernamePasswordAuthProvider.getAuthHeader();
+    @Nullable
+    public String getAuthHeader(ContainerRef registry) {
+        Credential credential = fileStore.get(registry);
+        if (credential == null) {
+            return null;
+        }
+        return new UsernamePasswordProvider(credential.username(), credential.password()).getAuthHeader(registry);
     }
 }
