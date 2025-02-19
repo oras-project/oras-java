@@ -53,6 +53,33 @@ public class RegistryWireMockTest {
     private Path configDir;
 
     @Test
+    void shouldRedirectWhenDownloadingBlob(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:one"))
+                .willReturn(WireMock.temporaryRedirect("http://localhost:%d/v2/library/artifact-text/blobs/sha256:other"
+                        .formatted(wmRuntimeInfo.getHttpPort()))));
+
+        // Return blob on new location
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
+                .willReturn(WireMock.ok()));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
+                .willReturn(WireMock.ok().withBody("blob-data")));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/artifact-text".formatted(wmRuntimeInfo.getHttpPort()));
+        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
     void shouldListTags(WireMockRuntimeInfo wmRuntimeInfo) {
 
         // Return data from wiremock
