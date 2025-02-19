@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -32,7 +33,10 @@ import org.testcontainers.utility.MountableFile;
 @NullMarked
 public class RegistryContainer extends GenericContainer<RegistryContainer> {
 
-    private Logger LOG = org.slf4j.LoggerFactory.getLogger(RegistryContainer.class);
+    /**
+     * Logger
+     */
+    private Logger LOG = LoggerFactory.getLogger(RegistryContainer.class);
 
     // myuser:mypass
     public static final String AUTH_STRING = "myuser:$2y$05$M1VYs6EzFkXBmuS.BrIreObAnJcWCgzSPeT9/Rh3aVEqTqtSL8XN.";
