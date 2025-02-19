@@ -46,6 +46,8 @@
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+    <project.build.outputTimestamp>2025-01-01T00:00:00Z</project.build.outputTimestamp>
+
     <spotless.check.skip>false</spotless.check.skip>
     <enforcer.skip>false</enforcer.skip>
 
