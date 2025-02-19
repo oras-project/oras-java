@@ -143,7 +143,7 @@ public final class Registry {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getTagsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
         }
         handleError(response);
@@ -158,7 +158,7 @@ public final class Registry {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of());
         logResponse(response);
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.delete(uri, Map.of());
             logResponse(response);
         }
@@ -177,7 +177,7 @@ public final class Registry {
                 uri,
                 JsonUtils.toJson(manifest).getBytes(),
                 Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.put(
                     uri,
                     JsonUtils.toJson(manifest).getBytes(),
@@ -197,7 +197,7 @@ public final class Registry {
         OrasHttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of());
         logResponse(response);
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.delete(uri, Map.of());
             logResponse(response);
         }
@@ -369,7 +369,7 @@ public final class Registry {
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.upload(
                     "POST", uri, Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE), blob);
             logResponse(response);
@@ -437,7 +437,7 @@ public final class Registry {
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.post(
                     uri, data, Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
             logResponse(response);
@@ -484,7 +484,7 @@ public final class Registry {
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
             logResponse(response);
         }
@@ -506,7 +506,7 @@ public final class Registry {
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
             logResponse(response);
         }
@@ -559,7 +559,7 @@ public final class Registry {
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(response)) {
+        if (switchTokenAuth(containerRef, response)) {
             response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
             logResponse(response);
         }
@@ -574,18 +574,18 @@ public final class Registry {
      * Switch the current authentication to token auth
      * @param response The response
      */
-    private boolean switchTokenAuth(OrasHttpClient.ResponseWrapper<String> response) {
+    private boolean switchTokenAuth(ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
         if (response.statusCode() == 401 && authProvider instanceof AbstractUsernamePasswordProvider) {
             LOG.debug("Requesting token with token flow");
-            setAuthProvider(
-                    new BearerTokenProvider((AbstractUsernamePasswordProvider) authProvider).refreshToken(response));
+            setAuthProvider(new BearerTokenProvider((AbstractUsernamePasswordProvider) authProvider)
+                    .refreshToken(containerRef, response));
             return true;
         }
         // Need token refresh (expired or wrong scope)
         if ((response.statusCode() == 401 || response.statusCode() == 403)
                 && authProvider instanceof BearerTokenProvider) {
             LOG.debug("Requesting new token with username password flow");
-            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(response));
+            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, response));
             return true;
         }
         return false;

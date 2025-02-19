@@ -237,4 +237,17 @@ public final class ContainerRef {
     public static ContainerRef forRegistry(String registry) {
         return new ContainerRef(registry, null, "library", "latest", null);
     }
+
+    /**
+     * Return a container reference from URL
+     * @param url The URL
+     * @return The container reference
+     */
+    public static ContainerRef fromUrl(String url) {
+        String registry = url.replaceAll("^(http://|https://)", "");
+        if (registry.contains("/")) {
+            registry = registry.substring(0, registry.indexOf("/"));
+        }
+        return new ContainerRef(registry, null, "library", "latest", null);
+    }
 }

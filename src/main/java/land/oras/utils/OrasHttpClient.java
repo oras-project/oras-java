@@ -37,6 +37,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509ExtendedTrustManager;
+import land.oras.ContainerRef;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.NoAuthProvider;
 import land.oras.exception.OrasException;
@@ -309,8 +310,9 @@ public final class OrasHttpClient {
             headers.forEach(builder::header);
 
             // Add authentication header if any
-            if (this.authProvider.getAuthHeader() != null) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader());
+            ContainerRef registry = ContainerRef.fromUrl(uri.toASCIIString());
+            if (this.authProvider.getAuthHeader(registry) != null) {
+                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(registry));
             }
 
             // Execute request
@@ -343,8 +345,9 @@ public final class OrasHttpClient {
             HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, bodyPublisher);
 
             // Add authentication header if any
-            if (this.authProvider.getAuthHeader() != null) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader());
+            ContainerRef registry = ContainerRef.fromUrl(uri.toASCIIString());
+            if (this.authProvider.getAuthHeader(registry) != null) {
+                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(registry));
             }
             headers.forEach(builder::header);
             HttpRequest request = builder.build();
