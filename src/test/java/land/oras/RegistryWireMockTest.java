@@ -123,7 +123,7 @@ public class RegistryWireMockTest {
 
         ContainerRef containerRef = ContainerRef.forRegistry("localhost:%d".formatted(wmRuntimeInfo.getHttpPort()));
         FileStoreAuthenticationProvider authProvider =
-                new FileStoreAuthenticationProvider(FileStore.newFileStore(configDir.resolve("config.json")));
+                new FileStoreAuthenticationProvider(FileStore.newFileStore(List.of(configDir.resolve("config.json"))));
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
