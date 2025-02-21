@@ -19,7 +19,7 @@ body:
     attributes:
       value: |
         Thank you for taking the time to report a bug on the project.
-        
+
         Please make sure the title is a brief and clear summary of the problem.
   - type: textarea
     id: description
