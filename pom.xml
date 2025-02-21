@@ -509,10 +509,7 @@
       </build>
     </profile>
     <profile>
-      <id>sign-only</id>
-      <properties>
-        <skipTests>true</skipTests>
-      </properties>
+      <id>sign</id>
       <build>
         <plugins>
           <plugin>
