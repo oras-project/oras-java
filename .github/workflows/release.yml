@@ -3,11 +3,6 @@ name: Release
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-  id-token: write
-  packages: write
-
 jobs:
   deploy-release:
     runs-on: ubuntu-latest
