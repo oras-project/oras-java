@@ -31,16 +31,17 @@ import land.oras.credentials.FileStore;
 import land.oras.credentials.FileStore.Credential;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@Execution(ExecutionMode.CONCURRENT)
 class FileStoreAuthenticationProviderTest {
 
     @Mock
     private FileStore mockFileStore;
-
-    private FileStoreAuthenticationProvider authProvider;
 
     public static final String REGISTRY = "localhost:5000";
 
@@ -51,7 +52,7 @@ class FileStoreAuthenticationProviderTest {
         doReturn(credential).when(mockFileStore).get(any(ContainerRef.class));
 
         // Create the authentication provider
-        authProvider = new FileStoreAuthenticationProvider(mockFileStore);
+        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(mockFileStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
         String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
@@ -60,5 +61,10 @@ class FileStoreAuthenticationProviderTest {
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
 
         assertEquals(expectedEncodedAuth, authHeader);
+    }
+
+    @Test
+    void testDefaultLocation() {
+        new FileStoreAuthenticationProvider();
     }
 }
