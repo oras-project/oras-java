@@ -1,6 +1,7 @@
 # ORAS Java
 
 [![GitHub Workflow Status](https://github.com/oras-project/oras-java/actions/workflows/build.yml/badge.svg)](https://github.com/oras-project/oras-java/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/jonesbusy/oras-java/graph/badge.svg?token=NUOO2COAXT)](https://codecov.io/gh/jonesbusy/oras-java)
 [![GitHub release](https://img.shields.io/github/v/release/oras-project/oras-java)](https://github.com/oras-project/oras-java/releases)
 [![GitHub license](https://img.shields.io/github/license/oras-project/oras-java)](https://github.com/oras-project/oras-java/blob/main/LICENSE)
 [![Javadoc](https://img.shields.io/badge/javadoc-latest-blue)](https://oras-project.github.io/oras-java/)
