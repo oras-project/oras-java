@@ -20,5 +20,12 @@ jobs:
           maven-version: 3.9.9
           cache-enabled: true
 
+      - name: Setup Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.13'
+      - name: Run pre-commit
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+
       - name: Maven build
         run: mvn --batch-mode --update-snapshots verify
