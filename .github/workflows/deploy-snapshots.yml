@@ -37,7 +37,7 @@ jobs:
         run: gpg -K
 
       - name: Maven build
-        run: mvn --batch-mode -Psign-only --update-snapshots -Dmaven.resolver.transport=wagon deploy
+        run: mvn --batch-mode -Psign --update-snapshots -Dmaven.resolver.transport=wagon deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
