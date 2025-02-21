@@ -1,8 +1,7 @@
 # ORAS Java
 
 [![GitHub Workflow Status](https://github.com/oras-project/oras-java/actions/workflows/build.yml/badge.svg)](https://github.com/oras-project/oras-java/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/jonesbusy/oras-java/graph/badge.svg?token=NUOO2COAXT)](https://codecov.io/gh/jonesbusy/oras-java)
-[![GitHub release](https://img.shields.io/github/v/release/oras-project/oras-java)](https://github.com/oras-project/oras-java/releases)
+[![codecov](https://codecov.io/gh/oras-project/oras-java/branch/main/graph/badge.svg)](https://codecov.io/gh/oras-project/oras-java)[![GitHub release](https://img.shields.io/github/v/release/oras-project/oras-java)](https://github.com/oras-project/oras-java/releases)
 [![GitHub license](https://img.shields.io/github/license/oras-project/oras-java)](https://github.com/oras-project/oras-java/blob/main/LICENSE)
 [![Javadoc](https://img.shields.io/badge/javadoc-latest-blue)](https://oras-project.github.io/oras-java/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/oras-project/oras-java/badge)](https://scorecard.dev/viewer/?uri=github.com/oras-project/oras-java)
@@ -13,7 +12,9 @@
 >
 > It's configuration and APIs might change in future releases
 
-![ORAS Logo](https://raw.githubusercontent.com/oras-project/oras-www/main/static/img/oras.png)
+<p align="left">
+<a href="https://oras.land/"><img src="https://oras.land/img/oras.svg" alt="banner" width="200px"></a>
+</p>
 
 OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conformant](https://github.com/opencontainers/oci-conformance) registries. This is a Java SDK for Java developers to empower them to do this in their applications.
 
