@@ -58,6 +58,15 @@ public final class DigestUtils {
     }
 
     /**
+     * Calculate the sha256 digest of a file
+     * @param inputStream The input stream
+     * @return The digest
+     */
+    public static String sha256(InputStream inputStream) {
+        return digest("SHA-256", inputStream);
+    }
+
+    /**
      * Calculate the digest of a file
      * @param algorithm The algorithm
      * @param path The path
@@ -109,12 +118,13 @@ public final class DigestUtils {
 
     /**
      * Calculate the sha256 digest of a InputStream
+     * @param algorithm The algorithm
      * @param input The input
      * @return The digest
      */
-    public static String sha256(InputStream input) {
+    public static String digest(String algorithm, InputStream input) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(algorithm);
             byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = input.read(buffer)) != -1) {

@@ -56,6 +56,17 @@ public class DigestUtilsTest {
     }
 
     @Test
+    void testStream() throws IOException {
+        Files.createFile(blobDir.resolve("hello.txt"));
+        Files.writeString(blobDir.resolve("hello.txt"), "hello");
+        try (var stream = Files.newInputStream(blobDir.resolve("hello.txt"))) {
+            assertEquals(
+                    "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                    DigestUtils.digest("SHA-256", stream));
+        }
+    }
+
+    @Test
     void testLargeFile() throws IOException {
         Files.createFile(blobDir.resolve("large.txt"));
         Files.writeString(blobDir.resolve("large.txt"), "a".repeat(1000000));

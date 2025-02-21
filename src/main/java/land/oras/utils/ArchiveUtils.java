@@ -118,29 +118,6 @@ public final class ArchiveUtils {
     }
 
     /**
-     * Convert the tar entry mode to PosixFilePermissions
-     * @param mode The mode
-     * @return The permissions
-     */
-    private static Set<PosixFilePermission> convertToPosixPermissions(int mode) {
-        Set<PosixFilePermission> permissions = EnumSet.noneOf(PosixFilePermission.class);
-
-        if ((mode & 0400) != 0) permissions.add(PosixFilePermission.OWNER_READ);
-        if ((mode & 0200) != 0) permissions.add(PosixFilePermission.OWNER_WRITE);
-        if ((mode & 0100) != 0) permissions.add(PosixFilePermission.OWNER_EXECUTE);
-
-        if ((mode & 0040) != 0) permissions.add(PosixFilePermission.GROUP_READ);
-        if ((mode & 0020) != 0) permissions.add(PosixFilePermission.GROUP_WRITE);
-        if ((mode & 0010) != 0) permissions.add(PosixFilePermission.GROUP_EXECUTE);
-
-        if ((mode & 0004) != 0) permissions.add(PosixFilePermission.OTHERS_READ);
-        if ((mode & 0002) != 0) permissions.add(PosixFilePermission.OTHERS_WRITE);
-        if ((mode & 0001) != 0) permissions.add(PosixFilePermission.OTHERS_EXECUTE);
-
-        return permissions;
-    }
-
-    /**
      * Create a tar.gz file from a directory
      * @param sourceDir The source directory
      * @return The path to the tar.gz file
@@ -194,5 +171,28 @@ public final class ArchiveUtils {
             throw new OrasException("Failed to create tar.gz file", e);
         }
         return tarGzFile;
+    }
+
+    /**
+     * Convert the tar entry mode to PosixFilePermissions
+     * @param mode The mode
+     * @return The permissions
+     */
+    private static Set<PosixFilePermission> convertToPosixPermissions(int mode) {
+        Set<PosixFilePermission> permissions = EnumSet.noneOf(PosixFilePermission.class);
+
+        if ((mode & 0400) != 0) permissions.add(PosixFilePermission.OWNER_READ);
+        if ((mode & 0200) != 0) permissions.add(PosixFilePermission.OWNER_WRITE);
+        if ((mode & 0100) != 0) permissions.add(PosixFilePermission.OWNER_EXECUTE);
+
+        if ((mode & 0040) != 0) permissions.add(PosixFilePermission.GROUP_READ);
+        if ((mode & 0020) != 0) permissions.add(PosixFilePermission.GROUP_WRITE);
+        if ((mode & 0010) != 0) permissions.add(PosixFilePermission.GROUP_EXECUTE);
+
+        if ((mode & 0004) != 0) permissions.add(PosixFilePermission.OTHERS_READ);
+        if ((mode & 0002) != 0) permissions.add(PosixFilePermission.OTHERS_WRITE);
+        if ((mode & 0001) != 0) permissions.add(PosixFilePermission.OTHERS_EXECUTE);
+
+        return permissions;
     }
 }
