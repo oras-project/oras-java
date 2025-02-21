@@ -20,14 +20,14 @@ jobs:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@2.4.0
+        uses: ossf/scorecard-action@v2.4.0
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
 
       - name: Upload artifact
-        uses: actions/upload-artifact@4.6.0
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: SARIF file
           path: results.sarif
