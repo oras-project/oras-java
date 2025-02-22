@@ -22,6 +22,7 @@ package land.oras.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
@@ -96,7 +97,11 @@ public final class JsonUtils {
      * @return The object
      */
     public static <T> T fromJson(String json, Class<T> clazz) {
-        return gson.fromJson(json, clazz);
+        try {
+            return gson.fromJson(json, clazz);
+        } catch (JsonSyntaxException e) {
+            throw new OrasException("Unable to parse JSON string", e);
+        }
     }
 
     /**
@@ -111,6 +116,8 @@ public final class JsonUtils {
             return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), clazz);
         } catch (IOException e) {
             throw new OrasException("Unable to read JSON file due to IO error", e);
+        } catch (JsonSyntaxException e) {
+            throw new OrasException("Unable to parse JSON file", e);
         }
     }
 
@@ -128,6 +135,8 @@ public final class JsonUtils {
             return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), type);
         } catch (IOException e) {
             throw new OrasException("Unable to read JSON file due to IO error", e);
+        } catch (JsonSyntaxException e) {
+            throw new OrasException("Unable to parse JSON file", e);
         }
     }
 
@@ -141,6 +150,10 @@ public final class JsonUtils {
      * @throws OrasException If an error occurs while reading the input or the JSON format is invalid.
      */
     public static <T> T fromJson(Reader reader, Type type) {
-        return gson.fromJson(reader, type);
+        try {
+            return gson.fromJson(reader, type);
+        } catch (JsonSyntaxException e) {
+            throw new OrasException("Unable to parse JSON content", e);
+        }
     }
 }
