@@ -20,7 +20,8 @@
 
 package land.oras.auth;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 
@@ -61,6 +62,24 @@ class FileStoreAuthenticationProviderTest {
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
 
         assertEquals(expectedEncodedAuth, authHeader);
+    }
+
+    @Test
+    void testGetNullAuthHeader() throws Exception {
+
+        // No credentials
+        doReturn(null).when(mockFileStore).get(any(ContainerRef.class));
+
+        // Create the authentication provider
+        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(mockFileStore);
+
+        // Verify that the getAuthHeader method returns the expected Basic Auth header
+        String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
+        String expectedAuthString = "testUser:testPassword";
+        String expectedEncodedAuth =
+                "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
+
+        assertNull(authHeader, "Auth header should be null");
     }
 
     @Test
