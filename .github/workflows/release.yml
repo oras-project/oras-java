@@ -29,6 +29,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config gpg.format openpgp
+          git config commit.gpgsign true
+          git config user.signingkey CB5831CAFA9D8C6AFA9FC9DA67E69853B952BA35
 
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # v6.2.0
