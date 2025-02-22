@@ -32,7 +32,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
@@ -43,8 +42,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -52,12 +49,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Execution(ExecutionMode.CONCURRENT)
 public class RegistryTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RegistryTest.class);
-
     @Container
     private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
-
-    private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
 
     /**
      * Blob temporary dir
@@ -76,9 +69,8 @@ public class RegistryTest {
     @Test
     void shouldPushAndGetBlobThenDelete() {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
@@ -99,11 +91,37 @@ public class RegistryTest {
     }
 
     @Test
+    void shouldFailWithoutAuthentication() {
+        Registry registry = Registry.Builder.builder().insecure().build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.pushBlob(containerRef, "hello".getBytes());
+                },
+                "Response code: 401");
+    }
+
+    @Test
+    void shouldFailWithoutExistingAuthentication() {
+        Registry registry =
+                Registry.Builder.builder().defaults().withInsecure(true).build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.pushBlob(containerRef, "hello".getBytes());
+                },
+                "Response code: 401");
+    }
+
+    @Test
     void shouldUploadAndFetchBlobThenDelete() throws IOException {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
@@ -135,9 +153,8 @@ public class RegistryTest {
     @Test
     void shouldPushAndGetManifestThenDelete() {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
 
         // Empty manifest
@@ -181,9 +198,8 @@ public class RegistryTest {
     void testShouldPushAndPullMinimalArtifact() throws IOException {
 
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
@@ -217,9 +233,8 @@ public class RegistryTest {
     void testShouldPushCompressedDirectory() throws IOException {
 
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
@@ -254,9 +269,8 @@ public class RegistryTest {
     @Test
     void shouldPushAndGetBlobStream() throws IOException {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -291,9 +305,8 @@ public class RegistryTest {
     @Test
     void shouldHandleExistingBlobInStreamPush() throws IOException {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -329,9 +342,8 @@ public class RegistryTest {
     @Test
     void shouldHandleIOExceptionInStreamPush() throws IOException {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -354,9 +366,8 @@ public class RegistryTest {
     @Test
     void shouldHandleNonExistentBlobInGetStream() {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
@@ -371,9 +382,8 @@ public class RegistryTest {
     @Test
     void shouldHandleLargeStreamContent() throws IOException {
         Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withSkipTlsVerify(true)
-                .withAuthProvider(authProvider)
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));

@@ -50,39 +50,33 @@ Then on your `pom.xml`
 
 ## Examples
 
+## Authentication
+
+Using default existing login existing credentials (e.g. `~/.docker/config.json`)
+
+```java
+Registry registry = Registry.Builder.builder().defaults().build();
+```
+
+Using username and password
+
+```java
+Registry registry = Registry.Builder.builder().defaults("username", "password").build();
+```
+
 ### Push an Artifact
 
 ```java
-Path artifact = Path.of("pom.xml");
-Registry registry = Registry.Builder.builder()
-        .withInsecure(true)
-        .build();
+Path artifact = Path.of("my-file.txt");
+Registry registry = Registry.Builder.builder().insecure().build();
 Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hello:v1"), artifact);
 ```
 
 ### Pull an Artifact
 
 ```java
+Registry registry = Registry.Builder.builder().insecure().build();
 registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"));
-```
-
-## Authentication
-
-Using docker login existing credentials
-
-```java
-Registry registry = Registry.Builder.builder()
-        .withAuthProvider(new FileStoreAuthenticationProvider("docker.io"))
-        .build();
-```
-
-Using username and password
-
-```java
-ContainerRef containerRef = ContainerRef.forRegistry("docker.io");
-Registry registry = Registry.Builder.builder()
-        .withAuthProvider(new UsernamePasswordProvider("username", "password"))
-        .build();
 ```
 
 ### Deploy to GitHub Packages
