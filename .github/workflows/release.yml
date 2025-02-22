@@ -48,9 +48,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Close draft release
+      - name: Finalize release
         run: |
           release_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
           gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$release_id
+          for file in target/*.jar target/*.jar.asc target/*.jar.sigstore.json; do
+            gh release upload $release_id "$file"
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
