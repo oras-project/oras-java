@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
  * It retrieves credentials from a FileStore and generates a Basic Authentication header.
  */
 @NullMarked
-public class FileStoreAuthenticationProvider implements AuthProvider {
+public final class FileStoreAuthenticationProvider implements AuthProvider {
 
     private final FileStore fileStore;
 

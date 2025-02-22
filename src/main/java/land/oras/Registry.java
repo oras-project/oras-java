@@ -38,7 +38,9 @@ import java.util.Map;
 import land.oras.auth.AbstractUsernamePasswordProvider;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.BearerTokenProvider;
+import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.NoAuthProvider;
+import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
@@ -631,6 +633,37 @@ public final class Registry {
          */
         private Builder() {
             // Hide constructor
+        }
+
+        /**
+         * Return a new builder with default authentication using existing host auth
+         * @return The builder
+         */
+        public Builder defaults() {
+            registry.setAuthProvider(new FileStoreAuthenticationProvider());
+            return this;
+        }
+
+        /**
+         * Return a new builder with username and password authentication
+         * @param username The username
+         * @param password The password
+         * @return The builder
+         */
+        public Builder defaults(String username, String password) {
+            registry.setAuthProvider(new UsernamePasswordProvider(username, password));
+            return this;
+        }
+
+        /**
+         * Return a new builder with insecure communication and not authentification
+         * @return The builder
+         */
+        public Builder insecure() {
+            registry.setInsecure(true);
+            registry.setSkipTlsVerify(true);
+            registry.setAuthProvider(new NoAuthProvider());
+            return this;
         }
 
         /**

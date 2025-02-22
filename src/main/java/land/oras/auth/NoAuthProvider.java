@@ -25,7 +25,7 @@ import land.oras.ContainerRef;
 /**
  * A provider without any authentication
  */
-public class NoAuthProvider implements AuthProvider {
+public final class NoAuthProvider implements AuthProvider {
 
     /**
      * Constructor

@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  * A provider for bearer token authentication
  */
 @NullMarked
-public class BearerTokenProvider implements AuthProvider {
+public final class BearerTokenProvider implements AuthProvider {
 
     /**
      * The pattern for the WWW-Authenticate header value
