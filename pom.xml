@@ -68,7 +68,7 @@
 
     <!-- Plugin version -->
     <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
-    <spotless-maven-plugin.version>2.44.2</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>2.44.3</spotless-maven-plugin.version>
     <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
     <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
     <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
