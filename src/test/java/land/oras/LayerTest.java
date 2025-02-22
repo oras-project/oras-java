@@ -45,6 +45,39 @@ public class LayerTest {
         assertEquals(Layer.fromJson(json).toJson(), Layer.empty().toJson());
     }
 
+    @Test
+    void shouldReadNullAnnotations() {
+        String json =
+                """
+            {
+              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+              "size": 32654
+            }
+        """;
+        Layer layer = Layer.fromJson(json);
+        assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
+        assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
+        assertEquals(32654, layer.getSize());
+        assertEquals(0, layer.getAnnotations().size());
+    }
+
+    @Test
+    void shouldReadBlobData() {
+        String json =
+                """
+            {
+              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+              "data": "e30="
+            }
+        """;
+        Layer layer = Layer.fromJson(json);
+        assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
+        assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
+        assertEquals("e30=", layer.getData());
+    }
+
     private String emptyLayer() {
         return """
             {
