@@ -56,12 +56,12 @@ jobs:
           draft_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
           echo "Draft ID: $draft_id"
           gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$draft_id
-          release_id=$(gh api /repos/oras-project/oras-java/releases/latest | jq -r '.id')
-          echo "Release ID: $release_id"
+          release_tag_name=$(gh api /repos/oras-project/oras-java/releases/latest | jq -r '.tag_name')
+          echo "Release tag: $release_tag_name"
           for file in target/checkout/target/*.jar target/checkout/target/*.jar.asc target/checkout/target/*.jar.sigstore.json; do
             if [[ -f "$file" ]]; then
               echo "Uploading $file"
-              gh release upload "$release_id" "$file"
+              gh release upload "$release_tag_name" "$file" --repo oras-project/oras-java
             else
               echo "Skipping missing file: $file"
             fi
