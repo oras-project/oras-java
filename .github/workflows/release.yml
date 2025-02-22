@@ -53,10 +53,18 @@ jobs:
 
       - name: Finalize release
         run: |
-          release_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
-          gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$release_id
-          for file in target/*.jar target/*.jar.asc target/*.jar.sigstore.json; do
-            gh release upload $release_id "$file"
+          draft_id=$(gh api /repos/oras-project/oras-java/releases | jq -r '.[] | select(.draft == true) | .id')
+          echo "Draft ID: $draft_id"
+          gh api -X PATCH -F draft=false /repos/oras-project/oras-java/releases/$draft_id
+          release_id=$(gh api /repos/oras-project/oras-java/releases/latest | jq -r '.id')
+          echo "Release ID: $release_id"
+          for file in target/checkout/target/*.jar target/checkout/target/*.jar.asc target/checkout/target/*.jar.sigstore.json; do
+            if [[ -f "$file" ]]; then
+              echo "Uploading $file"
+              gh release upload "$release_id" "$file"
+            else
+              echo "Skipping missing file: $file"
+            fi
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
