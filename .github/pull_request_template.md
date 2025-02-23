@@ -10,8 +10,6 @@
 
 ### Description
 
-Closes #issue-id.
-
 <!-- Comment:
  Please start by adding a link to an issue if the pull request is trying to solve one.
  You can used keyword to do the linking automatically: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword.
@@ -29,11 +27,6 @@ Closes #issue-id.
   the bugfix or the improvement.
 -->
 
-```[tasklist]
 ### Submitter checklist
-- [ ] If an issue exists, it is well described and linked in the description
-- [ ] The description of this pull request is detailed and explain why this pull request is needed
-- [ ] The changeset is on a specific branch. Using `feature/` for new feature, or improvements ; Using `fix/` for bug fixes ; Using `docs/` for any documentation changes.
-- [ ] If required, the documentation has been updated
-- [ ] There is automated tests to cover the code change / addition or an explanation why there is no tests in the description.
-```
+- [ ] I have read and understood the [CONTRIBUTING](https://github.com/oras-project/oras-java/blob/main/CONTRIBUTING.md) guide
+- [ ] I have run `mvn license:update-file-header`, `mvn spotless:apply`, `pre-commit run -a`, `mvn clean install` before opening the PR
