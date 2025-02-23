@@ -53,7 +53,6 @@
 
     <!-- Version -->
     <slf4j.version>2.0.16</slf4j.version>
-    <docker-java.version>3.4.1</docker-java.version>
     <jspecify.version>1.0.0</jspecify.version>
     <gson.version>2.12.1</gson.version>
     <apache.common-compress.version>1.27.1</apache.common-compress.version>
@@ -92,11 +91,6 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
         <version>${logback.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.github.docker-java</groupId>
-        <artifactId>docker-java</artifactId>
-        <version>${docker-java.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.code.gson</groupId>
