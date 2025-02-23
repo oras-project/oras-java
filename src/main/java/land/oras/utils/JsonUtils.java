@@ -77,6 +77,7 @@ public final class JsonUtils {
     static {
         gson = new GsonBuilder()
                 .registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeTypeAdapter())
+                .disableHtmlEscaping()
                 .create();
     }
 

@@ -21,6 +21,7 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,7 +165,7 @@ public class RegistryTest {
         Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
         String location = registry.pushManifest(containerRef, emptyManifest);
         assertEquals(
-                "http://%s/v2/library/empty-manifest/manifests/sha256:f570eb29564f04e73d15cc2a2bb4153d488b9e8428c7f5108b895baa379750bd"
+                "http://%s/v2/library/empty-manifest/manifests/sha256:8c9c89ba64282b316bf526d0ea9b803ed5a555e160d924d4830d7dc8e2df25f9"
                         .formatted(this.registry.getRegistry()),
                 location);
         Manifest manifest = registry.getManifest(containerRef);
@@ -210,12 +211,28 @@ public class RegistryTest {
         // Upload
         Manifest manifest = registry.pushArtifact(containerRef, file1);
         assertEquals(1, manifest.getLayers().size());
+        assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, manifest.getArtifactType());
+
+        // Ensure one annotation (created by the SDK)
+        Map<String, String> manifestAnnotations = manifest.getAnnotations();
+        assertEquals(1, manifestAnnotations.size(), "Annotations size is incorrect");
+        assertNotNull(manifestAnnotations.get(Const.ANNOTATION_CREATED), "Created annotation is missing");
+
+        // Assert config
+        Config config = manifest.getConfig();
+        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, config.getMediaType());
+        assertEquals("sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", config.getDigest());
+        assertEquals(2, config.getSize());
+        assertEquals("{}", new String(config.getDataBytes()));
+
+        // Null annotations
+        assertNull(config.getAnnotations(), "Annotations should be null");
 
         Layer layer = manifest.getLayers().get(0);
 
         // A test file layer
         assertEquals(6, layer.getSize());
-        assertEquals("text/plain", layer.getMediaType());
+        assertEquals(Const.DEFAULT_BLOB_MEDIA_TYPE, layer.getMediaType());
         assertEquals("sha256:c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2", layer.getDigest());
 
         Map<String, String> annotations = layer.getAnnotations();

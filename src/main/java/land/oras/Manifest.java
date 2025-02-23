@@ -111,7 +111,7 @@ public final class Manifest {
         if (annotations == null) {
             return Map.of();
         }
-        return Collections.unmodifiableMap(annotations);
+        return annotations;
     }
 
     /**

@@ -281,8 +281,12 @@ public final class Registry {
         Manifest manifest = Manifest.empty();
         if (artifactType != null) {
             manifest = manifest.withArtifactType(artifactType);
+        } else {
+            manifest = manifest.withArtifactType(Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
         }
-        manifest = manifest.withAnnotations(annotations.manifestAnnotations());
+        Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
+        manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+        manifest = manifest.withAnnotations(manifestAnnotations);
         if (config != null) {
             config = config.withAnnotations(annotations);
             manifest = manifest.withConfig(config);
@@ -310,13 +314,8 @@ public final class Registry {
                 } else {
                     try (InputStream is = Files.newInputStream(path)) {
                         long size = Files.size(path);
-                        // Set mediaType for individual files
-                        String mediaType = Files.probeContentType(path);
-                        if (mediaType == null) {
-                            mediaType = "application/octet-stream";
-                        }
                         Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(mediaType)
+                                .withMediaType(Const.DEFAULT_BLOB_MEDIA_TYPE)
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
                                         path.getFileName().toString()));
