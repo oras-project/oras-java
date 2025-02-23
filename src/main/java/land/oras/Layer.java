@@ -26,7 +26,6 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
@@ -218,8 +217,12 @@ public final class Layer {
     public static Layer fromFile(Path file) {
         Map<String, String> annotations =
                 Map.of(Const.ANNOTATION_TITLE, file.getFileName().toString());
-        String mediaType = getContentType(file);
-        return new Layer(mediaType, DigestUtils.sha256(file), file.toFile().length(), file, annotations);
+        return new Layer(
+                Const.DEFAULT_BLOB_MEDIA_TYPE,
+                DigestUtils.sha256(file),
+                file.toFile().length(),
+                file,
+                annotations);
     }
 
     /**
@@ -234,19 +237,6 @@ public final class Layer {
                 data.length,
                 Base64.getEncoder().encodeToString(data),
                 Map.of());
-    }
-
-    /**
-     * Get the content-type file or the default content type
-     * @param path The path
-     * @return The content type
-     */
-    private static String getContentType(Path path) {
-        try {
-            return Objects.requireNonNullElse(Files.probeContentType(path), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
-        } catch (Exception e) {
-            return Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE;
-        }
     }
 
     /**

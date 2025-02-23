@@ -20,6 +20,9 @@
 
 package land.oras.utils;
 
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -51,6 +54,11 @@ public final class Const {
     public static final String DEFAULT_BLOB_DIR_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+gzip";
 
     /**
+     * The default artifact media type if not specified
+     */
+    public static final String DEFAULT_ARTIFACT_MEDIA_TYPE = "application/vnd.unknown.artifact.v1";
+
+    /**
      * The default blob media type if file type cannot be determined
      */
     public static final String DEFAULT_BLOB_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar";
@@ -79,6 +87,22 @@ public final class Const {
      * Annotation for the title
      */
     public static final String ANNOTATION_TITLE = "org.opencontainers.image.title";
+
+    /**
+     * Annotation for the crated date
+     */
+    public static final String ANNOTATION_CREATED = "org.opencontainers.image.created";
+
+    /**
+     * Get the current timestamp for the created annotation
+     * @return The current timestamp
+     */
+    public static String currentTimestamp() {
+        return Instant.now()
+                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                .atOffset(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+    }
 
     /**
      * Annotation to unpack the content

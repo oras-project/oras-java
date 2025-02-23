@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import land.oras.utils.Const;
@@ -44,10 +45,9 @@ public final class Config {
     private final @Nullable Map<String, String> annotations;
 
     /**
-     * The base 64 encoded data. Never serialized because configuration
-     * is always referenced by digest.
+     * The base 64 encoded data
      */
-    private final transient @Nullable String data;
+    private final @Nullable String data;
 
     /**
      * Constructor
@@ -60,7 +60,12 @@ public final class Config {
         this.digest = digest;
         this.size = size;
         this.data = data;
-        this.annotations = Map.copyOf(annotations.configAnnotations());
+        // Config annotation are generally empty since not default annotations are added by ORAS
+        if (!annotations.configAnnotations().isEmpty()) {
+            this.annotations = Map.copyOf(annotations.configAnnotations());
+        } else {
+            this.annotations = null;
+        }
     }
 
     /**
@@ -104,17 +109,14 @@ public final class Config {
         if (data != null) {
             return Base64.getDecoder().decode(data);
         }
-        return "{}".getBytes();
+        return "{}".getBytes(StandardCharsets.UTF_8);
     }
 
     /**
      * Get the annotations
      * @return The annotations
      */
-    public Map<String, String> getAnnotations() {
-        if (annotations == null) {
-            return Map.of();
-        }
+    public @Nullable Map<String, String> getAnnotations() {
         return annotations;
     }
 
