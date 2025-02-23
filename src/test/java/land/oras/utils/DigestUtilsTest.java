@@ -40,14 +40,14 @@ public class DigestUtilsTest {
     private Path blobDir;
 
     @Test
-    void testByteArray() {
+    void testSha256ByteArray() {
         assertEquals(
                 "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-                DigestUtils.sha256("hello".getBytes()));
+                DigestUtils.digest("SHA-256", "hello".getBytes()));
     }
 
     @Test
-    void testFile() throws IOException {
+    void testSha256File() throws IOException {
         Files.createFile(blobDir.resolve("hello.txt"));
         Files.writeString(blobDir.resolve("hello.txt"), "hello");
         assertEquals(
@@ -56,7 +56,7 @@ public class DigestUtilsTest {
     }
 
     @Test
-    void testStream() throws IOException {
+    void testSha256Stream() throws IOException {
         Files.createFile(blobDir.resolve("hello.txt"));
         Files.writeString(blobDir.resolve("hello.txt"), "hello");
         try (var stream = Files.newInputStream(blobDir.resolve("hello.txt"))) {
@@ -67,11 +67,47 @@ public class DigestUtilsTest {
     }
 
     @Test
-    void testLargeFile() throws IOException {
+    void testSha256LargeFile() throws IOException {
         Files.createFile(blobDir.resolve("large.txt"));
         Files.writeString(blobDir.resolve("large.txt"), "a".repeat(1000000));
         assertEquals(
                 "sha256:cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0",
                 DigestUtils.digest("SHA-256", blobDir.resolve("large.txt")));
+    }
+
+    @Test
+    void testSha512ByteArray() {
+        assertEquals(
+                "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+                DigestUtils.digest("SHA-512", "hello".getBytes()));
+    }
+
+    @Test
+    void testSha512File() throws IOException {
+        Files.createFile(blobDir.resolve("hello.txt"));
+        Files.writeString(blobDir.resolve("hello.txt"), "hello");
+        assertEquals(
+                "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+                DigestUtils.digest("SHA-512", blobDir.resolve("hello.txt")));
+    }
+
+    @Test
+    void testSha512Stream() throws IOException {
+        Files.createFile(blobDir.resolve("hello.txt"));
+        Files.writeString(blobDir.resolve("hello.txt"), "hello");
+        try (var stream = Files.newInputStream(blobDir.resolve("hello.txt"))) {
+            assertEquals(
+                    "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+                    DigestUtils.digest("SHA-512", stream));
+        }
+    }
+
+    @Test
+    void testSha512LargeFile() throws IOException {
+        Files.createFile(blobDir.resolve("large.txt"));
+        Files.writeString(blobDir.resolve("large.txt"), "a".repeat(1000000));
+        assertEquals(
+                "sha512:e718483d0ce769644e2e42c7bc15b4638e1f98b13b2044285632a803afa973ebde0ff244877ea60a4cb0432ce577c31beb009c5c2c49aa2e4eadb217ad8cc09b",
+                DigestUtils.digest("SHA-512", blobDir.resolve("large.txt")));
     }
 }

@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -136,6 +137,19 @@ public final class ContainerRef {
     }
 
     /**
+     * Get the algorithm for this container ref
+     * @return The algorithm
+     */
+    public SupportedAlgorithm getAlgorithm() {
+        // Default if not set
+        if (digest == null) {
+            return SupportedAlgorithm.getDefault();
+        }
+        // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
+        return SupportedAlgorithm.fromPrefix(digest.split(":")[0]);
+    }
+
+    /**
      * Get the API prefix
      * @return The API prefix
      */
@@ -226,6 +240,15 @@ public final class ContainerRef {
         if (namespace != null) {
             namespace = namespace.substring(0, namespace.length() - 1);
         }
+
+        // Validate digest algorithm
+        if (digest != null) {
+            String prefix = digest.split(":")[0];
+            if (!SupportedAlgorithm.isSupported(prefix)) {
+                throw new OrasException("Unsupported digest algorithm: " + prefix);
+            }
+        }
+
         return new ContainerRef(registry, namespace, repository, tag, digest);
     }
 

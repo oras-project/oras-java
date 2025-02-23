@@ -40,33 +40,6 @@ public final class DigestUtils {
     private DigestUtils() {}
 
     /**
-     * Calculate the sha256 digest of a byte array
-     * @param bytes The bytes
-     * @return The digest
-     */
-    public static String sha256(byte[] bytes) {
-        return digest("SHA-256", bytes);
-    }
-
-    /**
-     * Calculate the sha256 digest of a file
-     * @param file The file
-     * @return The digest
-     */
-    public static String sha256(Path file) {
-        return digest("SHA-256", file);
-    }
-
-    /**
-     * Calculate the sha256 digest of a file
-     * @param inputStream The input stream
-     * @return The digest
-     */
-    public static String sha256(InputStream inputStream) {
-        return digest("SHA-256", inputStream);
-    }
-
-    /**
      * Calculate the digest of a file
      * @param algorithm The algorithm
      * @param path The path
@@ -135,9 +108,26 @@ public final class DigestUtils {
             for (byte b : hashBytes) {
                 sb.append(String.format("%02x", b));
             }
-            return "sha256:%s".formatted(sb.toString());
+            return "%s:%s".formatted(algorithm.toLowerCase().replaceAll("-", ""), sb.toString());
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
+    }
+
+    /**
+     * Bytes to hex string
+     * @param bytes of bytes[]
+     * @return hex string
+     */
+    public static String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
     }
 }

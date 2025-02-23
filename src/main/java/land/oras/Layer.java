@@ -28,8 +28,8 @@ import java.util.Collections;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.DigestUtils;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -219,7 +219,7 @@ public final class Layer {
                 Map.of(Const.ANNOTATION_TITLE, file.getFileName().toString());
         return new Layer(
                 Const.DEFAULT_BLOB_MEDIA_TYPE,
-                DigestUtils.sha256(file),
+                SupportedAlgorithm.getDefault().digest(file),
                 file.toFile().length(),
                 file,
                 annotations);
@@ -227,13 +227,14 @@ public final class Layer {
 
     /**
      * Create a layer from data
+     * @param containerRef The container reference
      * @param data The data
      * @return The layer
      */
-    public static Layer fromData(byte[] data) {
+    public static Layer fromData(ContainerRef containerRef, byte[] data) {
         return new Layer(
                 Const.DEFAULT_BLOB_MEDIA_TYPE,
-                DigestUtils.sha256(data),
+                containerRef.getAlgorithm().digest(data),
                 data.length,
                 Base64.getEncoder().encodeToString(data),
                 Map.of());

@@ -20,9 +20,10 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
+import land.oras.exception.OrasException;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -38,7 +39,16 @@ public class ContainerRefTest {
         assertEquals("library/foo", containerRef.getNamespace());
         assertEquals("hello-world", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
+        assertEquals(SupportedAlgorithm.SHA256, containerRef.getAlgorithm());
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
+    }
+
+    @Test
+    void shouldFailWithUnSupportedAlgorithm() {
+        assertThrows(
+                OrasException.class,
+                () -> ContainerRef.parse("docker.io/library/foo/hello-world:latest@test:1234567890abcdef"),
+                "Unsupported algorithm: test");
     }
 
     @Test
