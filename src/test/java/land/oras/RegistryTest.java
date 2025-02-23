@@ -62,6 +62,9 @@ public class RegistryTest {
     @TempDir
     private Path artifactDir;
 
+    @TempDir
+    private Path extractDir;
+
     @BeforeEach
     void before() {
         registry.withFollowOutput();
@@ -247,7 +250,7 @@ public class RegistryTest {
     }
 
     @Test
-    void testShouldPushCompressedDirectory() throws IOException {
+    void testShouldPushAndPullCompressedDirectory() throws IOException {
 
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -277,12 +280,16 @@ public class RegistryTest {
         assertEquals(2, annotations.size());
         assertEquals(blobDir.getFileName().toString(), annotations.get(Const.ANNOTATION_TITLE));
         assertEquals("true", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
+
+        // Pull
+        registry.pullArtifact(containerRef, extractDir, true);
+
+        // Assert extracted files
+        assertEquals("foobar", Files.readString(extractDir.resolve("file1.txt")));
+        assertEquals("test1234", Files.readString(extractDir.resolve("file2.txt")));
+        assertEquals("barfoo", Files.readString(extractDir.resolve("file3.txt")));
     }
 
-    // Push blob - successfull
-    // Push blob - failed - when blob already exists
-    // Push blob - Handles io exception
-    // Handle large stream content
     @Test
     void shouldPushAndGetBlobStream() throws IOException {
         Registry registry = Registry.Builder.builder()

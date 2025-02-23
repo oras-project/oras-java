@@ -99,7 +99,7 @@ public class ArchiveUtilsTest {
 
         assertTrue(Files.exists(archive), "Archive should exist");
 
-        ArchiveUtils.extractTarGz(archive, targetDir);
+        ArchiveUtils.extractTarGz(Files.newInputStream(archive), targetDir);
 
         // Ensure all files are extracted
         assertTrue(Files.exists(targetDir.resolve("dir1")), "dir1 should exist");

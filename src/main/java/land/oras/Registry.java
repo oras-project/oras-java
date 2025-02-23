@@ -249,14 +249,20 @@ public final class Registry {
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
         Manifest manifest = getManifest(containerRef);
         for (Layer layer : manifest.getLayers()) {
-            Path targetPath =
-                    path.resolve(layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
-
             try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
-                Files.copy(
-                        is,
-                        targetPath,
-                        overwrite ? StandardCopyOption.REPLACE_EXISTING : StandardCopyOption.ATOMIC_MOVE);
+                // Unpack or just copy blob
+                if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
+                    LOG.debug("Extracting blob to: {}", path);
+                    ArchiveUtils.extractTarGz(is, path);
+                } else {
+                    Path targetPath = path.resolve(
+                            layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
+                    LOG.debug("Copying blob to: {}", targetPath);
+                    Files.copy(
+                            is,
+                            targetPath,
+                            overwrite ? StandardCopyOption.REPLACE_EXISTING : StandardCopyOption.ATOMIC_MOVE);
+                }
             } catch (IOException e) {
                 throw new OrasException("Failed to pull artifact", e);
             }
