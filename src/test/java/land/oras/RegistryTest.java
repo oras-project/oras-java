@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Random;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.DigestUtils;
 import land.oras.utils.RegistryContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,13 +70,14 @@ public class RegistryTest {
     }
 
     @Test
-    void shouldPushAndGetBlobThenDelete() {
+    void shouldPushAndGetBlobThenDeleteWithSha256() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                        .formatted(this.registry.getRegistry()));
         Layer layer = registry.pushBlob(containerRef, "hello".getBytes());
         assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", layer.getDigest());
         byte[] blob = registry.getBlob(
@@ -91,6 +91,36 @@ public class RegistryTest {
         assertThrows(OrasException.class, () -> {
             registry.getBlob(
                     containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+        });
+    }
+
+    @Test
+    void shouldPushAndGetBlobThenDeleteWithSha512() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-text@sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+                        .formatted(this.registry.getRegistry()));
+        Layer layer = registry.pushBlob(containerRef, "hello".getBytes());
+        assertEquals(
+                "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+                layer.getDigest());
+        byte[] blob = registry.getBlob(
+                containerRef.withDigest(
+                        "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"));
+        assertEquals("hello", new String(blob));
+        registry.pushBlob(containerRef, "hello".getBytes());
+        registry.deleteBlob(
+                containerRef.withDigest(
+                        "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"));
+
+        // Ensure the blob is deleted
+        assertThrows(OrasException.class, () -> {
+            registry.getBlob(
+                    containerRef.withDigest(
+                            "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"));
         });
     }
 
@@ -340,7 +370,7 @@ public class RegistryTest {
             layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
 
             // Verify the digest matches SHA-256 of content
-            assertEquals(DigestUtils.sha256(testFile), layer.getDigest());
+            assertEquals(containerRef.getAlgorithm().digest(testFile), layer.getDigest());
             assertEquals(fileSize, layer.getSize());
         }
 
@@ -368,7 +398,7 @@ public class RegistryTest {
         Path testFile = Files.createTempFile("test-data-", ".tmp");
         Files.writeString(testFile, "Test Content");
         long fileSize = Files.size(testFile);
-        String expectedDigest = DigestUtils.sha256(testFile);
+        String expectedDigest = containerRef.getAlgorithm().digest(testFile);
 
         // First push
         Layer firstLayer;
@@ -417,7 +447,7 @@ public class RegistryTest {
     }
 
     @Test
-    void shouldHandleNonExistentBlobInGetStream() {
+    void shouldHandleNonExistentBlobInGetStreamSha256() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -427,6 +457,23 @@ public class RegistryTest {
 
         // Try to get non-existent blob
         String nonExistentDigest = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+        // Verify it throws OrasException
+        assertThrows(OrasException.class, () -> registry.getBlobStream(containerRef.withDigest(nonExistentDigest)));
+    }
+
+    @Test
+    void shouldHandleNonExistentBlobInGetStreamSha512() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+
+        // Try to get non-existent blob
+        String nonExistentDigest =
+                "sha512:0a50261ebd1a390fed2bf326f2673c145582a6342d523204973d0219337f81616a8069b012587cf5635f6925f1b56c360230c19b273500ee013e030601bf2425";
 
         // Verify it throws OrasException
         assertThrows(OrasException.class, () -> registry.getBlobStream(containerRef.withDigest(nonExistentDigest)));

@@ -397,7 +397,7 @@ public final class Registry {
      * @return The layer
      */
     public Layer uploadBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
-        String digest = DigestUtils.sha256(blob);
+        String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
@@ -466,10 +466,10 @@ public final class Registry {
      * @return The layer
      */
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
-        String digest = DigestUtils.sha256(data);
+        String digest = containerRef.getAlgorithm().digest(data);
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
-            return Layer.fromData(data);
+            return Layer.fromData(containerRef, data);
         }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.withDigest(digest).getBlobsUploadDigestPath()));
@@ -486,7 +486,7 @@ public final class Registry {
 
         // Accepted single POST push
         if (response.statusCode() == 201) {
-            return Layer.fromData(data);
+            return Layer.fromData(containerRef, data);
         }
 
         // We need to push via PUT
@@ -510,7 +510,7 @@ public final class Registry {
         }
 
         handleError(response);
-        return Layer.fromData(data);
+        return Layer.fromData(containerRef, data);
     }
 
     /**
@@ -775,7 +775,7 @@ public final class Registry {
 
                 digestInput.transferTo(fileOutput);
                 byte[] digestBytes = digestInput.getMessageDigest().digest();
-                digest = "sha256:" + bytesToHex(digestBytes);
+                digest = "sha256:" + DigestUtils.bytesToHex(digestBytes);
             }
 
             // Check if the blob already exists
@@ -848,22 +848,6 @@ public final class Registry {
                 }
             }
         }
-    }
-
-    /**
-     * Bites to hex string
-     * @param bytes of bytes[]
-     */
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : bytes) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
     }
 
     /**
