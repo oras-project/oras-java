@@ -73,15 +73,14 @@ public final class ArchiveUtils {
 
     /**
      * Extract a tar.gz file to a target directory
-     * @param archive The archive
+     * @param fis The archive stream
      * @param target The target directory
      */
-    public static void extractTarGz(Path archive, Path target) {
+    public static void extractTarGz(InputStream fis, Path target) {
 
         // Open the tar.gz file for reading
         try {
-            try (InputStream fis = Files.newInputStream(archive);
-                    BufferedInputStream bis = new BufferedInputStream(fis);
+            try (BufferedInputStream bis = new BufferedInputStream(fis);
                     GzipCompressorInputStream gzis = new GzipCompressorInputStream(bis);
                     TarArchiveInputStream tais = new TarArchiveInputStream(gzis)) {
 
