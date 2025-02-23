@@ -346,6 +346,40 @@ public final class Registry {
     }
 
     /**
+     * Copy an artifact from one container to another
+     * @param targetRegistry The target registry
+     * @param sourceContainer The source container
+     * @param targetContainer The target container
+     */
+    public void copy(Registry targetRegistry, ContainerRef sourceContainer, ContainerRef targetContainer) {
+
+        // Copy config
+        Manifest sourceManifest = getManifest(sourceContainer);
+        Config sourceConfig = sourceManifest.getConfig();
+        targetRegistry.pushConfig(targetContainer, sourceConfig);
+
+        // Push all layer
+        for (Layer layer : sourceManifest.getLayers()) {
+            try (InputStream is = fetchBlob(sourceContainer.withDigest(layer.getDigest()))) {
+                Layer newLayer = targetRegistry
+                        .pushBlobStream(targetContainer, is, layer.getSize())
+                        .withMediaType(layer.getMediaType())
+                        .withAnnotations(layer.getAnnotations());
+                LOG.debug(
+                        "Copied layer {} from {} to {}",
+                        newLayer.getDigest(),
+                        sourceContainer.getRegistry(),
+                        targetContainer.getRegistry());
+            } catch (IOException e) {
+                throw new OrasException("Failed to copy artifact", e);
+            }
+        }
+
+        // Copy manifest
+        targetRegistry.pushManifest(targetContainer, sourceManifest);
+    }
+
+    /**
      * Push a blob from file
      * @param containerRef The container
      * @param blob The blob

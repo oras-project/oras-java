@@ -199,6 +199,35 @@ public class RegistryTest {
     }
 
     @Test
+    void testShouldCopySingleArtifact() throws IOException {
+        // Copy to same registry
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/artifact-source".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("source.txt");
+        Files.writeString(file1, "foobar");
+
+        // Push
+        registry.pushArtifact(containerSource, file1);
+
+        // Copy to other registry
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+            otherRegistryContainer.start();
+            ContainerRef containerTarget =
+                    ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
+            registry.copy(registry, containerSource, containerTarget);
+
+            // Test pull from target
+            registry.pullArtifact(containerTarget, artifactDir, true);
+            assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+        }
+    }
+
+    @Test
     void testShouldPushAndPullMinimalArtifact() throws IOException {
 
         Registry registry = Registry.Builder.builder()
