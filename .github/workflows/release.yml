@@ -60,8 +60,12 @@ jobs:
           echo "Release tag: $release_tag_name"
           for file in target/checkout/target/*.jar target/checkout/target/*.jar.asc target/checkout/target/*.jar.sigstore.json; do
             if [[ -f "$file" ]]; then
-              echo "Uploading $file"
-              gh release upload "$release_tag_name" "$file" --repo oras-project/oras-java
+              if [[ "$file" != *javadoc* && "$file" != *sources* ]]; then
+                echo "Uploading $file"
+                gh release upload "$release_tag_name" "$file" --repo oras-project/oras-java
+              else
+                echo "Skipping $file"
+              fi
             else
               echo "Skipping missing file: $file"
             fi
