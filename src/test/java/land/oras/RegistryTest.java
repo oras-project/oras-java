@@ -36,6 +36,7 @@ import java.util.Random;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -336,9 +337,12 @@ public class RegistryTest {
         Map<String, String> annotations = layer.getAnnotations();
 
         // Assert annotations of the layer
-        assertEquals(2, annotations.size());
+        assertEquals(3, annotations.size());
         assertEquals(blobDir.getFileName().toString(), annotations.get(Const.ANNOTATION_TITLE));
         assertEquals("true", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
+        assertEquals(
+                SupportedAlgorithm.SHA256,
+                SupportedAlgorithm.fromDigest(annotations.get(Const.ANNOTATION_ORAS_CONTENT_DIGEST)));
 
         // Pull
         registry.pullArtifact(containerRef, extractDir, true);

@@ -105,6 +105,11 @@ public final class Const {
     }
 
     /**
+     * Annotation of the uncompressed dir content
+     */
+    public static final String ANNOTATION_ORAS_CONTENT_DIGEST = "io.deis.oras.content.digest";
+
+    /**
      * Annotation to unpack the content
      */
     public static final String ANNOTATION_ORAS_UNPACK = "io.deis.oras.content.unpack";

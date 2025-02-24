@@ -121,17 +121,17 @@ public enum SupportedAlgorithm {
     }
 
     /**
-     * Get the algorithm from a prefix
-     * @param prefix The prefix
+     * Get the algorithm from a digest
+     * @param digest The digest
      * @return The algorithm
      */
-    public static SupportedAlgorithm fromPrefix(String prefix) {
+    public static SupportedAlgorithm fromDigest(String digest) {
         for (SupportedAlgorithm algorithm : SupportedAlgorithm.values()) {
-            if (algorithm.getPrefix().equals(prefix.toLowerCase())) {
+            if (digest.startsWith(algorithm.getPrefix())) {
                 return algorithm;
             }
         }
-        throw new OrasException("Unsupported algorithm: " + prefix);
+        throw new OrasException("Unsupported digest: " + digest);
     }
 
     /**

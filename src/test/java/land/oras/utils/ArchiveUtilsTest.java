@@ -94,12 +94,14 @@ public class ArchiveUtilsTest {
 
     @Test
     void shouldCreateTarGzAndExtractIt() throws Exception {
-        Path archive = ArchiveUtils.createTarGz(archiveDir);
+        Path archive = ArchiveUtils.createTar(archiveDir);
         LOG.info("Archive created: {}", archive);
+        Path compressedArchive = ArchiveUtils.compressGzip(archive);
 
-        assertTrue(Files.exists(archive), "Archive should exist");
+        assertTrue(Files.exists(compressedArchive), "Archive should exist");
 
-        ArchiveUtils.extractTarGz(Files.newInputStream(archive), targetDir);
+        Path uncompressedArchive = ArchiveUtils.uncompressGzip(Files.newInputStream(compressedArchive));
+        ArchiveUtils.extractTar(Files.newInputStream(uncompressedArchive), targetDir);
 
         // Ensure all files are extracted
         assertTrue(Files.exists(targetDir.resolve("dir1")), "dir1 should exist");
