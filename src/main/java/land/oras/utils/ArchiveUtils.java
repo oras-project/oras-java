@@ -63,9 +63,9 @@ public final class ArchiveUtils {
      * Create a temporary archive when uploading directory layers
      * @return The path to the archive
      */
-    public static Path createTempArchive() {
+    public static Path createTempTar() {
         try {
-            return Files.createTempFile("oras", ".tar.gz");
+            return Files.createTempFile("oras", ".tar");
         } catch (IOException e) {
             throw new OrasException("Failed to create temporary archive", e);
         }
@@ -76,13 +76,12 @@ public final class ArchiveUtils {
      * @param fis The archive stream
      * @param target The target directory
      */
-    public static void extractTarGz(InputStream fis, Path target) {
+    public static void extractTar(InputStream fis, Path target) {
 
         // Open the tar.gz file for reading
         try {
             try (BufferedInputStream bis = new BufferedInputStream(fis);
-                    GzipCompressorInputStream gzis = new GzipCompressorInputStream(bis);
-                    TarArchiveInputStream tais = new TarArchiveInputStream(gzis)) {
+                    TarArchiveInputStream tais = new TarArchiveInputStream(bis)) {
 
                 TarArchiveEntry entry;
                 // Iterate through tar entries
@@ -119,18 +118,56 @@ public final class ArchiveUtils {
     }
 
     /**
+     * Compress a tar file to a tar.gz file
+     * @param tarFile The tar file
+     * @return The path to the tar.gz file
+     */
+    public static Path compressGzip(Path tarFile) {
+        Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
+        try (InputStream fis = Files.newInputStream(tarFile);
+                BufferedInputStream bis = new BufferedInputStream(fis);
+                OutputStream fos = Files.newOutputStream(tarGzFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos);
+                GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(bos)) {
+
+            bis.transferTo(gzos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to compress tar file", e);
+        }
+        return tarGzFile;
+    }
+
+    /**
+     * Uncompress a tar.gz file
+     * @param inputStream The input stream
+     * @return The path to the tar file
+     */
+    public static Path uncompressGzip(InputStream inputStream) {
+        Path tarFile = createTempTar();
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream);
+                GzipCompressorInputStream gzis = new GzipCompressorInputStream(bis);
+                OutputStream fos = Files.newOutputStream(tarFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+
+            gzis.transferTo(bos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to uncompress tar.gz file", e);
+        }
+        return tarFile;
+    }
+
+    /**
      * Create a tar.gz file from a directory
      * @param sourceDir The source directory
      * @return The path to the tar.gz file
      */
-    public static Path createTarGz(Path sourceDir) {
-        Path tarGzFile = createTempArchive();
-        try (OutputStream fos = Files.newOutputStream(tarGzFile);
+    public static Path createTar(Path sourceDir) {
+        Path tarFile = createTempTar();
+        try (OutputStream fos = Files.newOutputStream(tarFile);
 
                 // Output stream chain
                 BufferedOutputStream bos = new BufferedOutputStream(fos);
-                GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(bos);
-                TarArchiveOutputStream taos = new TarArchiveOutputStream(gzos)) {
+                TarArchiveOutputStream taos = new TarArchiveOutputStream(bos)) {
 
             taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
             try (Stream<Path> paths = Files.walk(sourceDir)) {
@@ -184,7 +221,7 @@ public final class ArchiveUtils {
         } catch (IOException e) {
             throw new OrasException("Failed to create tar.gz file", e);
         }
-        return tarGzFile;
+        return tarFile;
     }
 
     /**

@@ -146,7 +146,7 @@ public final class ContainerRef {
             return SupportedAlgorithm.getDefault();
         }
         // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
-        return SupportedAlgorithm.fromPrefix(digest.split(":")[0]);
+        return SupportedAlgorithm.fromDigest(digest);
     }
 
     /**

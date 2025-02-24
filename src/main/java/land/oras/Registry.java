@@ -253,7 +253,23 @@ public final class Registry {
                 // Unpack or just copy blob
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
                     LOG.debug("Extracting blob to: {}", path);
-                    ArchiveUtils.extractTarGz(is, path);
+
+                    // Uncompress the tar.gz archive and verify digest if present
+                    Path tempArchive = ArchiveUtils.uncompressGzip(is);
+                    String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
+                    if (expectedDigest != null) {
+                        LOG.trace("Expected digest: {}", expectedDigest);
+                        String actualDigest = containerRef.getAlgorithm().digest(tempArchive);
+                        LOG.trace("Actual digest: {}", actualDigest);
+                        if (!expectedDigest.equals(actualDigest)) {
+                            throw new OrasException(
+                                    "Digest mismatch: expected %s but got %s".formatted(expectedDigest, actualDigest));
+                        }
+                    }
+
+                    // Extract the tar
+                    ArchiveUtils.extractTar(Files.newInputStream(tempArchive), path);
+
                 } else {
                     Path targetPath = path.resolve(
                             layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
@@ -303,7 +319,9 @@ public final class Registry {
             try {
                 if (Files.isDirectory(path)) {
                     // Create tar.gz archive for directory
-                    Path tempArchive = ArchiveUtils.createTarGz(path);
+                    Path tempTar = ArchiveUtils.createTar(path);
+
+                    Path tempArchive = ArchiveUtils.compressGzip(tempTar);
                     try (InputStream is = Files.newInputStream(tempArchive)) {
                         long size = Files.size(tempArchive);
                         Layer layer = pushBlobStream(containerRef, is, size)
@@ -311,6 +329,8 @@ public final class Registry {
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
                                         path.getFileName().toString(),
+                                        Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                        containerRef.getAlgorithm().digest(tempTar),
                                         Const.ANNOTATION_ORAS_UNPACK,
                                         "true"));
                         layers.add(layer);
