@@ -79,6 +79,11 @@ public final class Const {
     public static final String DEFAULT_EMPTY_MEDIA_TYPE = "application/vnd.oci.empty.v1+json";
 
     /**
+     * Default index media type
+     */
+    public static final String DEFAULT_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json";
+
+    /**
      * The default manifest media type
      */
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";

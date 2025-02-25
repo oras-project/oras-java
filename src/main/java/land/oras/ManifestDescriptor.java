@@ -22,6 +22,7 @@ package land.oras;
 
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Manifest descriptor
@@ -29,20 +30,31 @@ import org.jspecify.annotations.NullMarked;
 @NullMarked
 public final class ManifestDescriptor {
 
+    private final @Nullable String artifactType;
     private final String mediaType;
     private final String digest;
     private final long size;
 
     /**
      * Constructor
+     * @param artifactType The optional artifact type
      * @param mediaType The media type
      * @param digest The digest
      * @param size The size
      */
-    private ManifestDescriptor(String mediaType, String digest, long size) {
+    private ManifestDescriptor(@Nullable String artifactType, String mediaType, String digest, long size) {
+        this.artifactType = artifactType;
         this.mediaType = mediaType;
         this.digest = digest;
         this.size = size;
+    }
+
+    /**
+     * Get the artifact type
+     * @return The artifact type
+     */
+    public @Nullable String getArtifactType() {
+        return artifactType;
     }
 
     /**
@@ -93,6 +105,6 @@ public final class ManifestDescriptor {
      * @return The subject
      */
     public static ManifestDescriptor of(String mediaType, String digest, long size) {
-        return new ManifestDescriptor(mediaType, digest, size);
+        return new ManifestDescriptor(null, mediaType, digest, size);
     }
 }
