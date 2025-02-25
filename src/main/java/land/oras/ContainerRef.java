@@ -20,6 +20,8 @@
 
 package land.oras;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
@@ -166,6 +168,19 @@ public final class ContainerRef {
      */
     public String getTagsPath() {
         return "%s/tags/list".formatted(getApiPrefix());
+    }
+
+    /**
+     * Return the referrers URL for this container referrer
+     * @param artifactType The optional artifact type
+     * @return The referrers URL
+     */
+    public String getReferrersPath(@Nullable String artifactType) {
+        if (artifactType == null) {
+            return "%s/referrers/%s".formatted(getApiPrefix(), digest);
+        }
+        return "%s/referrers/%s?artifactType=%s"
+                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType, StandardCharsets.UTF_8));
     }
 
     /**

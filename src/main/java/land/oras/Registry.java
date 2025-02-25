@@ -153,6 +153,26 @@ public final class Registry {
     }
 
     /**
+     * Get the referrers of a container
+     * @param containerRef The container
+     * @param artifactType The optional artifact type
+     * @return The referrers
+     */
+    public Referrers getReferrers(ContainerRef containerRef, @Nullable String artifactType) {
+        if (containerRef.getDigest() == null) {
+            throw new OrasException("Digest is required to get referrers");
+        }
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getReferrersPath(artifactType)));
+        OrasHttpClient.ResponseWrapper<String> response =
+                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+        if (switchTokenAuth(containerRef, response)) {
+            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+        }
+        handleError(response);
+        return JsonUtils.fromJson(response.response(), Referrers.class);
+    }
+
+    /**
      * Delete a manifest
      * @param containerRef The artifact
      */

@@ -339,7 +339,7 @@ public class RegistryTest {
     }
 
     @Test
-    void shouldPushComplexArtifactWithSecondReference() throws IOException {
+    void shouldListReferrers() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -393,6 +393,47 @@ public class RegistryTest {
         // File should exists
         assertTrue(Files.exists(artifactDir.resolve("file1.txt")), "file1.txt should exist");
         assertTrue(Files.exists(artifactDir.resolve("file2.txt")), "file2.txt should exist");
+
+        Referrers referrers = registry.getReferrers(
+                containerRef1.withDigest(manifest1.getDescriptor().getDigest()), null);
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, referrers.getMediaType());
+        assertEquals(1, referrers.getManifests().size(), "Should have only 1 manifest referrer");
+
+        // Ensure the referrer of manifest1 is manifest2
+        ManifestDescriptor referedManifest = referrers.getManifests().get(0);
+        manifest2 = registry.getManifest(containerRef2);
+        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, referedManifest.getArtifactType(), "Artifact type should match");
+        assertEquals(manifest2.getDescriptor().getSize(), referedManifest.getSize(), "Manifest size should match");
+        assertEquals(
+                manifest2.getDescriptor().getDigest(), referedManifest.getDigest(), "Manifest digest should match");
+
+        // Filter by artifact type
+        referrers = registry.getReferrers(
+                containerRef1.withDigest(manifest1.getDescriptor().getDigest()), Const.DEFAULT_EMPTY_MEDIA_TYPE);
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, referrers.getMediaType());
+        assertEquals(1, referrers.getManifests().size(), "Should have only 1 manifest referrer");
+        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, referedManifest.getArtifactType(), "Artifact type should match");
+        assertEquals(manifest2.getDescriptor().getSize(), referedManifest.getSize(), "Manifest size should match");
+        assertEquals(
+                manifest2.getDescriptor().getDigest(), referedManifest.getDigest(), "Manifest digest should match");
+
+        // Assert JSON serialization
+        assertEquals(Referrers.fromJson(referrers.toJson()).getMediaType(), referrers.getMediaType());
+    }
+
+    @Test
+    void testShouldFailReferrerWithoutDigest() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.getReferrers(
+                            ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry())), null);
+                },
+                "Digest is required to get referrers");
     }
 
     @Test
