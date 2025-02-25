@@ -246,7 +246,7 @@ public final class Registry {
      * @param paths The paths
      * @return The manifest
      */
-    public Manifest pushArtifact(ContainerRef containerRef, Path... paths) {
+    public Manifest pushArtifact(ContainerRef containerRef, LocalPath... paths) {
         return pushArtifact(containerRef, null, Annotations.empty(), Config.empty(), paths);
     }
 
@@ -257,7 +257,7 @@ public final class Registry {
      * @param paths The paths
      * @return The manifest
      */
-    public Manifest pushArtifact(ContainerRef containerRef, String artifactType, Path... paths) {
+    public Manifest pushArtifact(ContainerRef containerRef, String artifactType, LocalPath... paths) {
         return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
     }
 
@@ -270,7 +270,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, Path... paths) {
+            ContainerRef containerRef, String artifactType, Annotations annotations, LocalPath... paths) {
         return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
     }
 
@@ -333,7 +333,7 @@ public final class Registry {
             @Nullable String artifactType,
             Annotations annotations,
             @Nullable Config config,
-            Path... paths) {
+            LocalPath... paths) {
         Manifest manifest = Manifest.empty();
         if (artifactType != null) {
             manifest = manifest.withArtifactType(artifactType);
@@ -351,20 +351,19 @@ public final class Registry {
         }
         List<Layer> layers = new ArrayList<>();
         // Upload all files as blobs
-        for (Path path : paths) {
+        for (LocalPath path : paths) {
             try {
-                if (Files.isDirectory(path)) {
-                    // Create tar.gz archive for directory
-                    Path tempTar = ArchiveUtils.createTar(path);
-
+                // Create tar.gz archive for directory
+                if (Files.isDirectory(path.getPath())) {
+                    Path tempTar = ArchiveUtils.createTar(path.getPath());
                     Path tempArchive = ArchiveUtils.compressGzip(tempTar);
                     try (InputStream is = Files.newInputStream(tempArchive)) {
                         long size = Files.size(tempArchive);
                         Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE) // Use tar+gzip for directories
+                                .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
-                                        path.getFileName().toString(),
+                                        path.getPath().getFileName().toString(),
                                         Const.ANNOTATION_ORAS_CONTENT_DIGEST,
                                         containerRef.getAlgorithm().digest(tempTar),
                                         Const.ANNOTATION_ORAS_UNPACK,
@@ -374,13 +373,13 @@ public final class Registry {
                     }
                     Files.delete(tempArchive);
                 } else {
-                    try (InputStream is = Files.newInputStream(path)) {
-                        long size = Files.size(path);
+                    try (InputStream is = Files.newInputStream(path.getPath())) {
+                        long size = Files.size(path.getPath());
                         Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(Const.DEFAULT_BLOB_MEDIA_TYPE)
+                                .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
-                                        path.getFileName().toString()));
+                                        path.getPath().getFileName().toString()));
                         layers.add(layer);
                         LOG.info("Uploaded: {}", layer.getDigest());
                     }
