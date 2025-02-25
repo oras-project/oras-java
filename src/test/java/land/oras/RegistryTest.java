@@ -454,7 +454,7 @@ public class RegistryTest {
         Files.writeString(file1, "foobar");
 
         // Push
-        registry.pushArtifact(containerSource, file1);
+        registry.pushArtifact(containerSource, LocalPath.of(file1));
 
         // Copy to other registry
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
@@ -483,7 +483,7 @@ public class RegistryTest {
         Files.writeString(file1, "foobar");
 
         // Upload
-        Manifest manifest = registry.pushArtifact(containerRef, file1);
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
         assertEquals(1, manifest.getLayers().size());
         assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, manifest.getArtifactType());
 
@@ -535,7 +535,7 @@ public class RegistryTest {
         Files.writeString(pomFile, "my pom file");
 
         // Push the main OCI artifact
-        Manifest manifest = registry.pushArtifact(containerRef, "maven", pomFile);
+        Manifest manifest = registry.pushArtifact(containerRef, "maven", LocalPath.of(pomFile, "application/xml"));
 
         // Push the signature
         Path signedPomFile = blobDir.resolve("pom.xml.asc");
@@ -595,7 +595,7 @@ public class RegistryTest {
         Files.writeString(file3, "barfoo");
 
         // Upload blob dir
-        Manifest manifest = registry.pushArtifact(containerRef, blobDir);
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(blobDir));
         assertEquals(1, manifest.getLayers().size());
 
         Layer layer = manifest.getLayers().get(0);
