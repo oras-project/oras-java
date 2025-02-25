@@ -33,6 +33,7 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import land.oras.auth.AbstractUsernamePasswordProvider;
@@ -194,6 +195,13 @@ public final class Registry {
      * @return The location
      */
     public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
+
+        Map<String, String> annotations = manifest.getAnnotations();
+        if (!annotations.containsKey(Const.ANNOTATION_CREATED) && containerRef.getDigest() == null) {
+            Map<String, String> manifestAnnotations = new HashMap<>(annotations);
+            manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+            manifest = manifest.withAnnotations(manifestAnnotations);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.put(
                 uri,
@@ -333,7 +341,9 @@ public final class Registry {
             manifest = manifest.withArtifactType(Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
         }
         Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
-        manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+        if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED) && containerRef.getDigest() == null) {
+            manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+        }
         manifest = manifest.withAnnotations(manifestAnnotations);
         if (config != null) {
             config = config.withAnnotations(annotations);
