@@ -125,6 +125,21 @@ public final class Const {
     public static final String CONTENT_TYPE_HEADER = "Content-Type";
 
     /**
+     * Content length header
+     */
+    public static final String CONTENT_LENGTH_HEADER = "Content-Length";
+
+    /**
+     * The Docker content digest header
+     */
+    public static final String DOCKER_CONTENT_DIGEST_HEADER = "Docker-Content-Digest";
+
+    /**
+     * OCI subject header
+     */
+    public static final String OCI_SUBJECT_HEADER = "OCI-Subject";
+
+    /**
      * Accept header
      */
     public static final String ACCEPT_HEADER = "Accept";

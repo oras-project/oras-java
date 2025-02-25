@@ -102,6 +102,20 @@ public final class Config {
     }
 
     /**
+     * Create a new config with media type
+     * @param mediaType The media type
+     * @return The new config
+     */
+    public Config withMediaType(String mediaType) {
+        return new Config(
+                mediaType,
+                digest,
+                size,
+                data,
+                annotations == null ? Annotations.empty() : Annotations.ofConfig(annotations));
+    }
+
+    /**
      * Get the data as bytes
      * @return The data as bytes
      */
@@ -121,7 +135,7 @@ public final class Config {
     }
 
     /**
-     * Return the JSON representation of the manifest
+     * Return the JSON representation of the config
      * @return The JSON string
      */
     public String toJson() {
@@ -129,9 +143,9 @@ public final class Config {
     }
 
     /**
-     * Create a manifest from a JSON string
+     * Create a config from a JSON string
      * @param json The JSON string
-     * @return The manifest
+     * @return The config
      */
     public static Config fromJson(String json) {
         return JsonUtils.fromJson(json, Config.class);

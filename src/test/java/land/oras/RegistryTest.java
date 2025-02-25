@@ -21,6 +21,7 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -197,11 +199,10 @@ public class RegistryTest {
                 ContainerRef.parse("%s/library/empty-manifest".formatted(this.registry.getRegistry()));
         Layer emptyLayer = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
         Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
-        String location = registry.pushManifest(containerRef, emptyManifest);
+        Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
         assertEquals(
-                "http://%s/v2/library/empty-manifest/manifests/sha256:8c9c89ba64282b316bf526d0ea9b803ed5a555e160d924d4830d7dc8e2df25f9"
-                        .formatted(this.registry.getRegistry()),
-                location);
+                "sha256:8c9c89ba64282b316bf526d0ea9b803ed5a555e160d924d4830d7dc8e2df25f9",
+                pushedManifest.getDescriptor().getDigest());
         Manifest manifest = registry.getManifest(containerRef);
 
         // Assert
@@ -216,6 +217,7 @@ public class RegistryTest {
         assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, layer.getMediaType());
 
         assertNull(manifest.getArtifactType());
+        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, manifest.determineArtifactType());
         assertTrue(manifest.getAnnotations().isEmpty());
 
         // Push again
@@ -227,6 +229,170 @@ public class RegistryTest {
         assertThrows(OrasException.class, () -> {
             registry.getManifest(containerRef);
         });
+    }
+
+    @Test
+    void shouldPushComplexArtifactWithConfigMediaType() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Manifest 1
+        ContainerRef containerRef1 = ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest2".formatted(this.registry.getRegistry()));
+
+        String content1 = "hello";
+        String content2 = "world";
+
+        // Push some blobs
+        Layer layer11 = registry.pushBlob(containerRef1, content1.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file11.txt"));
+        Layer layer12 = registry.pushBlob(containerRef1, content2.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file12.txt"));
+        Layer layer21 = registry.pushBlob(containerRef2, content1.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file21.txt"));
+        Layer layer22 = registry.pushBlob(containerRef2, content2.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file22.txt"));
+
+        // Push 2 manifests
+        Manifest manifest1 = Manifest.empty().withLayers(List.of(layer11, layer12));
+        Manifest manifest2 = Manifest.empty().withLayers(List.of(layer21, layer22));
+
+        // Push empty config
+        Config config1 = registry.pushConfig(containerRef1, Config.empty().withMediaType("text/plain"));
+        Config config2 = registry.pushConfig(containerRef2, Config.empty().withMediaType("text/plain"));
+        manifest1 = manifest1.withConfig(config1);
+        manifest2 = manifest2.withConfig(config2);
+
+        registry.pushManifest(containerRef1, manifest1);
+        registry.pushManifest(containerRef2, manifest2);
+
+        registry.pullArtifact(containerRef1, artifactDir, true);
+        registry.pullArtifact(containerRef2, artifactDir, true);
+
+        // Assert all file exists and have correct content
+        assertEquals(content1, Files.readString(artifactDir.resolve("file11.txt")));
+        assertEquals(content2, Files.readString(artifactDir.resolve("file12.txt")));
+        assertEquals(content1, Files.readString(artifactDir.resolve("file21.txt")));
+        assertEquals(content2, Files.readString(artifactDir.resolve("file22.txt")));
+
+        assertNull(manifest1.getArtifactType());
+        assertEquals("text/plain", manifest1.determineArtifactType());
+        assertNull(manifest2.getArtifactType());
+        assertEquals("text/plain", manifest2.determineArtifactType());
+    }
+
+    @Test
+    void shouldPushComplexArtifactWithConfigArtifactType() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Manifest 1
+        ContainerRef containerRef1 = ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest2".formatted(this.registry.getRegistry()));
+
+        String content1 = "hello";
+        String content2 = "world";
+
+        // Push some blobs
+        Layer layer11 = registry.pushBlob(containerRef1, content1.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file11.txt"));
+        Layer layer12 = registry.pushBlob(containerRef1, content2.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file12.txt"));
+        Layer layer21 = registry.pushBlob(containerRef2, content1.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file21.txt"));
+        Layer layer22 = registry.pushBlob(containerRef2, content2.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file22.txt"));
+
+        // Push 2 manifests
+        Manifest manifest1 =
+                Manifest.empty().withLayers(List.of(layer11, layer12)).withArtifactType("text/plain");
+        Manifest manifest2 =
+                Manifest.empty().withLayers(List.of(layer21, layer22)).withArtifactType("text/plain");
+
+        // Push empty config
+        Config config1 = registry.pushConfig(containerRef1, Config.empty());
+        Config config2 = registry.pushConfig(containerRef2, Config.empty());
+        manifest1 = manifest1.withConfig(config1);
+        manifest2 = manifest2.withConfig(config2);
+
+        registry.pushManifest(containerRef1, manifest1);
+        registry.pushManifest(containerRef2, manifest2);
+
+        registry.pullArtifact(containerRef1, artifactDir, true);
+        registry.pullArtifact(containerRef2, artifactDir, true);
+
+        // Assert all file exists and have correct content
+        assertEquals(content1, Files.readString(artifactDir.resolve("file11.txt")));
+        assertEquals(content2, Files.readString(artifactDir.resolve("file12.txt")));
+        assertEquals(content1, Files.readString(artifactDir.resolve("file21.txt")));
+        assertEquals(content2, Files.readString(artifactDir.resolve("file22.txt")));
+
+        // Assert media type
+        assertEquals("text/plain", manifest1.getArtifactType());
+        assertEquals("text/plain", manifest1.determineArtifactType());
+        assertEquals("text/plain", manifest2.getArtifactType());
+        assertEquals("text/plain", manifest2.determineArtifactType());
+    }
+
+    @Test
+    void shouldPushComplexArtifactWithSecondReference() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Manifest 1
+        ContainerRef containerRef1 =
+                ContainerRef.parse("%s/library/manifest1:latest".formatted(this.registry.getRegistry()));
+
+        String content1 = "hello";
+        String content2 = "world";
+
+        // Push some blobs
+        Layer layer11 = registry.pushBlob(containerRef1, content1.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file1.txt"));
+        Layer layer12 = registry.pushBlob(containerRef1, content2.getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file2.txt"));
+
+        // Push empty config
+        Config config1 = registry.pushConfig(containerRef1, Config.empty());
+
+        // Push manifest 1
+        Manifest manifest1 = Manifest.empty()
+                .withLayers(List.of(layer11, layer12))
+                .withConfig(config1)
+                .withArtifactType("text/plain");
+        manifest1 = registry.pushManifest(containerRef1, manifest1);
+
+        // Create manifest 2 with subject
+        Manifest manifest2 = Manifest.empty()
+                .withSubject(manifest1.getDescriptor().toSubject())
+                .withArtifactType("text/plain");
+
+        // Push second manifest with its digest
+        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest1@%s"
+                .formatted(
+                        this.registry.getRegistry(),
+                        SupportedAlgorithm.SHA256.digest(manifest2.toJson().getBytes(StandardCharsets.UTF_8))));
+        registry.pushManifest(containerRef2, manifest2);
+
+        // Pull via artifact 2
+        registry.pullArtifact(containerRef2, artifactDir, true);
+
+        // Assert files doesn't exist since we dont' follow subject
+        assertFalse(Files.exists(artifactDir.resolve("file1.txt")), "file1.txt should not exist");
+        assertFalse(Files.exists(artifactDir.resolve("file2.txt")), "file2.txt should not exist");
+
+        // Pull via artifact 1
+        registry.pullArtifact(containerRef1, artifactDir, true);
+
+        // File should exists
+        assertTrue(Files.exists(artifactDir.resolve("file1.txt")), "file1.txt should exist");
+        assertTrue(Files.exists(artifactDir.resolve("file2.txt")), "file2.txt should exist");
     }
 
     @Test

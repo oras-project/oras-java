@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
 
 /**
@@ -37,28 +38,30 @@ public final class Manifest {
     private final String mediaType;
     private final String artifactType;
     private final Config config;
+    private final Subject subject;
     private final List<Layer> layers;
     private final Map<String, String> annotations;
 
     /**
-     * Constructor
-     * @param schemaVersion The schema version
-     * @param mediaType The media type
-     * @param config The config
-     * @param layers The layers
-     * @param annotations The annotations
+     * The manifest descriptor
      */
+    private transient ManifestDescriptor descriptor;
+
     private Manifest(
             int schemaVersion,
             String mediaType,
             String artifactType,
+            ManifestDescriptor descriptor,
             Config config,
+            Subject subject,
             List<Layer> layers,
             Annotations annotations) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
         this.artifactType = artifactType;
+        this.descriptor = descriptor;
         this.config = config;
+        this.subject = subject;
         this.layers = layers;
         this.annotations = Map.copyOf(annotations.manifestAnnotations());
     }
@@ -88,11 +91,42 @@ public final class Manifest {
     }
 
     /**
+     * Get the descriptor
+     * @return The descriptor
+     */
+    public ManifestDescriptor getDescriptor() {
+        return descriptor;
+    }
+
+    /**
+     * Determine the artifact type from artifact type or config media type
+     * @return The artifact type
+     */
+    public @NonNull String determineArtifactType() {
+        // If artifact type is not set, return the media type from config
+        if (artifactType != null) {
+            return artifactType;
+        }
+        if (config != null) {
+            return config.getMediaType() != null ? config.getMediaType() : Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
+        }
+        return Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
+    }
+
+    /**
      * Get the config
      * @return The config
      */
     public Config getConfig() {
         return config;
+    }
+
+    /**
+     * Get the subject
+     * @return The subject
+     */
+    public Subject getSubject() {
+        return subject;
     }
 
     /**
@@ -121,7 +155,14 @@ public final class Manifest {
      */
     public Manifest withArtifactType(String artifactType) {
         return new Manifest(
-                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
     }
 
     /**
@@ -131,7 +172,14 @@ public final class Manifest {
      */
     public Manifest withLayers(List<Layer> layers) {
         return new Manifest(
-                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
     }
 
     /**
@@ -141,7 +189,31 @@ public final class Manifest {
      */
     public Manifest withConfig(Config config) {
         return new Manifest(
-                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
+    }
+
+    /**
+     * Return a new manifest with the given config
+     * @param subject The subject
+     * @return The manifest
+     */
+    public Manifest withSubject(Subject subject) {
+        return new Manifest(
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
     }
 
     /**
@@ -151,7 +223,31 @@ public final class Manifest {
      */
     public Manifest withAnnotations(Map<String, String> annotations) {
         return new Manifest(
-                schemaVersion, mediaType, artifactType, config, layers, Annotations.ofManifest(annotations));
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
+    }
+
+    /**
+     * Return a new manifest with the given descriptor
+     * @param descriptor The descriptor
+     * @return The manifest
+     */
+    public Manifest withDescriptor(ManifestDescriptor descriptor) {
+        return new Manifest(
+                schemaVersion,
+                mediaType,
+                artifactType,
+                descriptor,
+                config,
+                subject,
+                layers,
+                Annotations.ofManifest(annotations));
     }
 
     /**
@@ -176,6 +272,18 @@ public final class Manifest {
      * @return The empty manifest
      */
     public static Manifest empty() {
-        return new Manifest(2, Const.DEFAULT_MANIFEST_MEDIA_TYPE, null, Config.empty(), List.of(), Annotations.empty());
+        ManifestDescriptor descriptor = ManifestDescriptor.of(
+                Const.DEFAULT_EMPTY_MEDIA_TYPE,
+                "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                2);
+        return new Manifest(
+                2,
+                Const.DEFAULT_MANIFEST_MEDIA_TYPE,
+                null,
+                descriptor,
+                Config.empty(),
+                null,
+                List.of(),
+                Annotations.empty());
     }
 }

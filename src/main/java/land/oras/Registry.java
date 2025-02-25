@@ -173,7 +173,7 @@ public final class Registry {
      * @param manifest The manifest
      * @return The location
      */
-    public String pushManifest(ContainerRef containerRef, Manifest manifest) {
+    public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.put(
                 uri,
@@ -187,7 +187,13 @@ public final class Registry {
         }
         logResponse(response);
         handleError(response);
-        return response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+        if (manifest.getSubject() != null) {
+            // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pushing-manifests-with-subject
+            if (!response.headers().containsKey(Const.OCI_SUBJECT_HEADER.toLowerCase())) {
+                LOG.warn("Subject was set on manifest but not OCI subject header was returned");
+            }
+        }
+        return getManifest(containerRef);
     }
 
     /**
@@ -360,8 +366,10 @@ public final class Registry {
         manifest = manifest.withLayers(layers).withConfig(pushedConfig);
 
         // Push the manifest
-        String location = pushManifest(containerRef, manifest);
-        LOG.debug("Manifest pushed to: {}", location);
+        manifest = pushManifest(containerRef, manifest);
+        LOG.debug(
+                "Manifest pushed to: {}",
+                containerRef.withDigest(manifest.getDescriptor().getDigest()));
         return manifest;
     }
 
@@ -611,9 +619,25 @@ public final class Registry {
     /**
      * Get the manifest of a container
      * @param containerRef The container
-     * @return The manifest
+     * @return The manifest and it's associated descriptor
      */
     public Manifest getManifest(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
+        logResponse(response);
+        handleError(response);
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        return JsonUtils.fromJson(response.response(), Manifest.class)
+                .withDescriptor(ManifestDescriptor.of(contentType, digest, Long.parseLong(size)));
+    }
+
+    /**
+     * Get a manifest response
+     * @param containerRef The container
+     * @return The response
+     */
+    private OrasHttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
@@ -625,10 +649,7 @@ public final class Registry {
             logResponse(response);
         }
         handleError(response);
-        response = client.get(uri, Map.of("Accept", Const.DEFAULT_MANIFEST_MEDIA_TYPE));
-        logResponse(response);
-        handleError(response);
-        return JsonUtils.fromJson(response.response(), Manifest.class);
+        return client.get(uri, Map.of("Accept", Const.DEFAULT_MANIFEST_MEDIA_TYPE));
     }
 
     /**
