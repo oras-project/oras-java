@@ -99,6 +99,7 @@ public class ManifestTest {
      * @return The manifest
      */
     private String sampleManifest() {
+        // language=JSON
         return """
                 {
                   "schemaVersion": 2,
