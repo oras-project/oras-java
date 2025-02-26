@@ -59,7 +59,7 @@
     <zstd-jni.version>1.5.6-10</zstd-jni.version>
 
     <!-- Test dependencies version -->
-    <logback.version>1.5.16</logback.version>
+    <logback.version>1.5.17</logback.version>
     <junit.version>5.12.0</junit.version>
     <testcontainer.version>1.20.5</testcontainer.version>
     <wiremock.version>3.12.0</wiremock.version>
