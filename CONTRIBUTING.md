@@ -13,6 +13,12 @@ This section is specific to the Java SDK.
 - Container engine like Docker or Podman (due to testcontainers)
 - Pre-commit `3.6.2` or later
 
+If using `sdkman` you can install the required versions with:
+
+```bash
+sdk env
+```
+
 ### Before opening a PR
 
 - All commits are signed off with `git commit -s`
