@@ -289,11 +289,11 @@ public final class Registry {
                     LOG.debug("Extracting blob to: {}", path);
 
                     // Uncompress the tar.gz archive and verify digest if present
-                    Path tempArchive = ArchiveUtils.uncompressGzip(is);
+                    LocalPath tempArchive = ArchiveUtils.uncompress(is, layer.getMediaType());
                     String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
                     if (expectedDigest != null) {
                         LOG.trace("Expected digest: {}", expectedDigest);
-                        String actualDigest = containerRef.getAlgorithm().digest(tempArchive);
+                        String actualDigest = containerRef.getAlgorithm().digest(tempArchive.getPath());
                         LOG.trace("Actual digest: {}", actualDigest);
                         if (!expectedDigest.equals(actualDigest)) {
                             throw new OrasException(
@@ -302,7 +302,7 @@ public final class Registry {
                     }
 
                     // Extract the tar
-                    ArchiveUtils.extractTar(Files.newInputStream(tempArchive), path);
+                    ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
 
                 } else {
                     Path targetPath = path.resolve(
@@ -355,23 +355,23 @@ public final class Registry {
             try {
                 // Create tar.gz archive for directory
                 if (Files.isDirectory(path.getPath())) {
-                    Path tempTar = ArchiveUtils.createTar(path.getPath());
-                    Path tempArchive = ArchiveUtils.compressGzip(tempTar);
-                    try (InputStream is = Files.newInputStream(tempArchive)) {
-                        long size = Files.size(tempArchive);
+                    LocalPath tempTar = ArchiveUtils.tar(path);
+                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
+                    try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
+                        long size = Files.size(tempArchive.getPath());
                         Layer layer = pushBlobStream(containerRef, is, size)
                                 .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
                                         path.getPath().getFileName().toString(),
                                         Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                        containerRef.getAlgorithm().digest(tempTar),
+                                        containerRef.getAlgorithm().digest(tempTar.getPath()),
                                         Const.ANNOTATION_ORAS_UNPACK,
                                         "true"));
                         layers.add(layer);
                         LOG.info("Uploaded directory: {}", layer.getDigest());
                     }
-                    Files.delete(tempArchive);
+                    Files.delete(tempArchive.getPath());
                 } else {
                     try (InputStream is = Files.newInputStream(path.getPath())) {
                         long size = Files.size(path.getPath());
