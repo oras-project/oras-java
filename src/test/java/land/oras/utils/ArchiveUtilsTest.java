@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
+import land.oras.LocalPath;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.CleanupMode;
@@ -50,7 +51,10 @@ public class ArchiveUtilsTest {
     private static Path archiveDir;
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
-    private static Path targetDir;
+    private static Path targetGzDir;
+
+    @TempDir(cleanup = CleanupMode.ON_SUCCESS)
+    private static Path targetZstdDir;
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -94,40 +98,87 @@ public class ArchiveUtilsTest {
 
     @Test
     void shouldCreateTarGzAndExtractIt() throws Exception {
-        Path archive = ArchiveUtils.createTar(archiveDir);
+        LocalPath directory = LocalPath.of(archiveDir);
+        LocalPath archive = ArchiveUtils.tar(LocalPath.of(archiveDir));
         LOG.info("Archive created: {}", archive);
-        Path compressedArchive = ArchiveUtils.compressGzip(archive);
+        Path compressedArchive =
+                ArchiveUtils.compress(archive, directory.getMediaType()).getPath();
 
         assertTrue(Files.exists(compressedArchive), "Archive should exist");
 
-        Path uncompressedArchive = ArchiveUtils.uncompressGzip(Files.newInputStream(compressedArchive));
-        ArchiveUtils.extractTar(Files.newInputStream(uncompressedArchive), targetDir);
+        Path uncompressedArchive = ArchiveUtils.uncompress(
+                        Files.newInputStream(compressedArchive), Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                .getPath();
+        ArchiveUtils.untar(Files.newInputStream(uncompressedArchive), targetGzDir);
 
         // Ensure all files are extracted
-        assertTrue(Files.exists(targetDir.resolve("dir1")), "dir1 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir2")), "dir2 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir1").resolve("file1")), "file1 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir2").resolve("file2")), "file2 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir1").resolve("file3")), "file3 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
-        assertTrue(Files.exists(targetDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir1")), "dir1 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir2")), "dir2 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir1").resolve("file1")), "file1 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir2").resolve("file2")), "file2 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
 
         // Empty directory
-        assertTrue(Files.exists(targetDir.resolve("empty")), "empty should exist");
+        assertTrue(Files.exists(targetGzDir.resolve("empty")), "empty should exist");
 
         // Assert file content
         assertTrue(
-                Files.readString(targetDir.resolve("dir1").resolve("file1")).equals("file1"),
+                Files.readString(targetGzDir.resolve("dir1").resolve("file1")).equals("file1"),
                 "file1 content should match");
         assertTrue(
-                Files.readString(targetDir.resolve("dir2").resolve("file2")).equals("file2"),
+                Files.readString(targetGzDir.resolve("dir2").resolve("file2")).equals("file2"),
                 "file2 content should match");
         assertTrue(
-                Files.readString(targetDir.resolve("dir2").resolve("dir3").resolve("file4"))
+                Files.readString(targetGzDir.resolve("dir2").resolve("dir3").resolve("file4"))
                         .equals("file4"),
                 "file4 content should match");
 
         // Ensure symlink is extracted
-        assertTrue(Files.isSymbolicLink(targetDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+        assertTrue(Files.isSymbolicLink(targetGzDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+    }
+
+    @Test
+    void shouldCreateTarZstdAndExtractIt() throws Exception {
+        LocalPath directory = LocalPath.of(archiveDir, Const.BLOB_DIR_ZSTD_MEDIA_TYPE);
+        LocalPath archive = ArchiveUtils.tar(directory);
+        LOG.info("Archive created: {}", archive);
+        Path compressedArchive =
+                ArchiveUtils.compress(archive, directory.getMediaType()).getPath();
+
+        assertTrue(Files.exists(compressedArchive), "Archive should exist");
+
+        Path uncompressedArchive = ArchiveUtils.uncompress(
+                        Files.newInputStream(compressedArchive), Const.BLOB_DIR_ZSTD_MEDIA_TYPE)
+                .getPath();
+        ArchiveUtils.untar(Files.newInputStream(uncompressedArchive), targetZstdDir);
+
+        // Ensure all files are extracted
+        assertTrue(Files.exists(targetZstdDir.resolve("dir1")), "dir1 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir2")), "dir2 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir1").resolve("file1")), "file1 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir2").resolve("file2")), "file2 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
+        assertTrue(Files.exists(targetZstdDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
+
+        // Empty directory
+        assertTrue(Files.exists(targetZstdDir.resolve("empty")), "empty should exist");
+
+        // Assert file content
+        assertTrue(
+                Files.readString(targetZstdDir.resolve("dir1").resolve("file1")).equals("file1"),
+                "file1 content should match");
+        assertTrue(
+                Files.readString(targetZstdDir.resolve("dir2").resolve("file2")).equals("file2"),
+                "file2 content should match");
+        assertTrue(
+                Files.readString(targetZstdDir.resolve("dir2").resolve("dir3").resolve("file4"))
+                        .equals("file4"),
+                "file4 content should match");
+
+        // Ensure symlink is extracted
+        assertTrue(Files.isSymbolicLink(targetZstdDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
     }
 }

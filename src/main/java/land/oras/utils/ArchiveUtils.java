@@ -33,12 +33,15 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Stream;
+import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
 import org.jspecify.annotations.NullMarked;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,96 +75,11 @@ public final class ArchiveUtils {
     }
 
     /**
-     * Extract a tar.gz file to a target directory
-     * @param fis The archive stream
-     * @param target The target directory
-     */
-    public static void extractTar(InputStream fis, Path target) {
-
-        // Open the tar.gz file for reading
-        try {
-            try (BufferedInputStream bis = new BufferedInputStream(fis);
-                    TarArchiveInputStream tais = new TarArchiveInputStream(bis)) {
-
-                TarArchiveEntry entry;
-                // Iterate through tar entries
-                while ((entry = tais.getNextEntry()) != null) {
-
-                    // Prevent path traversal attacks
-                    Path outputPath = target.resolve(entry.getName()).normalize();
-
-                    LOG.trace("Extracting entry: {}", entry.getName());
-
-                    if (entry.isDirectory()) {
-                        LOG.debug("Extracting directory: {}", entry.getName());
-                        Files.createDirectories(outputPath);
-                    } else {
-                        LOG.trace("Creating directories for file: {}", outputPath.getParent());
-                        Files.createDirectories(outputPath.getParent());
-
-                        // Restore file permissions (optional, based on your need)
-                        if (entry.isSymbolicLink()) {
-                            LOG.trace("Extracting symlink {} to: {}", outputPath, entry.getLinkName());
-                            Files.createSymbolicLink(outputPath, Paths.get(entry.getLinkName()));
-                        } else {
-                            try (OutputStream out = Files.newOutputStream(outputPath)) {
-                                tais.transferTo(out);
-                            }
-                            Files.setPosixFilePermissions(outputPath, convertToPosixPermissions(entry.getMode()));
-                        }
-                    }
-                }
-            }
-        } catch (IOException e) {
-            throw new OrasException("Failed to extract tar.gz file", e);
-        }
-    }
-
-    /**
-     * Compress a tar file to a tar.gz file
-     * @param tarFile The tar file
-     * @return The path to the tar.gz file
-     */
-    public static Path compressGzip(Path tarFile) {
-        Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
-        try (InputStream fis = Files.newInputStream(tarFile);
-                BufferedInputStream bis = new BufferedInputStream(fis);
-                OutputStream fos = Files.newOutputStream(tarGzFile);
-                BufferedOutputStream bos = new BufferedOutputStream(fos);
-                GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(bos)) {
-
-            bis.transferTo(gzos);
-        } catch (IOException e) {
-            throw new OrasException("Failed to compress tar file", e);
-        }
-        return tarGzFile;
-    }
-
-    /**
-     * Uncompress a tar.gz file
-     * @param inputStream The input stream
-     * @return The path to the tar file
-     */
-    public static Path uncompressGzip(InputStream inputStream) {
-        Path tarFile = createTempTar();
-        try (BufferedInputStream bis = new BufferedInputStream(inputStream);
-                GzipCompressorInputStream gzis = new GzipCompressorInputStream(bis);
-                OutputStream fos = Files.newOutputStream(tarFile);
-                BufferedOutputStream bos = new BufferedOutputStream(fos)) {
-
-            gzis.transferTo(bos);
-        } catch (IOException e) {
-            throw new OrasException("Failed to uncompress tar.gz file", e);
-        }
-        return tarFile;
-    }
-
-    /**
      * Create a tar.gz file from a directory
      * @param sourceDir The source directory
      * @return The path to the tar.gz file
      */
-    public static Path createTar(Path sourceDir) {
+    public static LocalPath tar(LocalPath sourceDir) {
         Path tarFile = createTempTar();
         try (OutputStream fos = Files.newOutputStream(tarFile);
 
@@ -170,11 +88,11 @@ public final class ArchiveUtils {
                 TarArchiveOutputStream taos = new TarArchiveOutputStream(bos)) {
 
             taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
-            try (Stream<Path> paths = Files.walk(sourceDir)) {
+            try (Stream<Path> paths = Files.walk(sourceDir.getPath())) {
                 paths.forEach(path -> {
                     LOG.trace("Visiting path: {}", path);
                     try {
-                        String entryName = sourceDir.relativize(path).toString();
+                        String entryName = sourceDir.getPath().relativize(path).toString();
 
                         TarArchiveEntry entry = null;
                         BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -221,7 +139,148 @@ public final class ArchiveUtils {
         } catch (IOException e) {
             throw new OrasException("Failed to create tar.gz file", e);
         }
-        return tarFile;
+        return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
+    }
+
+    /**
+     * Extract a tar file to a target directory
+     * @param fis The archive stream
+     * @param target The target directory
+     */
+    public static void untar(InputStream fis, Path target) {
+
+        // Open the tar.gz file for reading
+        try {
+            try (BufferedInputStream bis = new BufferedInputStream(fis);
+                    TarArchiveInputStream tais = new TarArchiveInputStream(bis)) {
+
+                TarArchiveEntry entry;
+                // Iterate through tar entries
+                while ((entry = tais.getNextEntry()) != null) {
+
+                    // Prevent path traversal attacks
+                    Path outputPath = target.resolve(entry.getName()).normalize();
+
+                    LOG.trace("Extracting entry: {}", entry.getName());
+
+                    if (entry.isDirectory()) {
+                        LOG.debug("Extracting directory: {}", entry.getName());
+                        Files.createDirectories(outputPath);
+                    } else {
+                        LOG.trace("Creating directories for file: {}", outputPath.getParent());
+                        Files.createDirectories(outputPath.getParent());
+
+                        // Restore file permissions (optional, based on your need)
+                        if (entry.isSymbolicLink()) {
+                            LOG.trace("Extracting symlink {} to: {}", outputPath, entry.getLinkName());
+                            Files.createSymbolicLink(outputPath, Paths.get(entry.getLinkName()));
+                        } else {
+                            try (OutputStream out = Files.newOutputStream(outputPath)) {
+                                tais.transferTo(out);
+                            }
+                            Files.setPosixFilePermissions(outputPath, convertToPosixPermissions(entry.getMode()));
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to extract tar.gz file", e);
+        }
+    }
+
+    /**
+     * Compress a tar file to a tar.gz or tar.zstd file depending on the requested media type
+     * @param path The tar file
+     * @param mediaType The target media type
+     * @return The path to the tar.gz file or the tar.zstd file
+     */
+    public static LocalPath compress(LocalPath path, String mediaType) {
+        if (!path.getMediaType().equals(Const.DEFAULT_BLOB_MEDIA_TYPE)) {
+            throw new OrasException("Can only compress tar media type. Given " + path.getMediaType());
+        }
+        if (mediaType.equals(Const.BLOB_DIR_ZSTD_MEDIA_TYPE)) {
+            return compressZstd(path);
+        } else if (mediaType.equals(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)) {
+            return compressGzip(path);
+        }
+        throw new OrasException("Unsupported compression type: " + mediaType);
+    }
+
+    /**
+     * Extract a compressed file from a tar.gz or tar.zstd file depending on the requested media type
+     * @param is The compressed input stream
+     * @param mediaType The media type of the stream to select the uncompression method
+     * @return The path to the tar.gz file or the tar.zstd file
+     */
+    public static LocalPath uncompress(InputStream is, String mediaType) {
+        if (mediaType.equals(Const.BLOB_DIR_ZSTD_MEDIA_TYPE)) {
+            return uncompressZstd(is);
+        } else if (mediaType.equals(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)) {
+            return uncompressGzip(is);
+        }
+        throw new OrasException("Unsupported compression type: " + mediaType);
+    }
+
+    private static LocalPath compressZstd(LocalPath tarFile) {
+        LOG.trace("Compressing tar file to zstd archive");
+        Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
+        try (InputStream fis = Files.newInputStream(tarFile.getPath());
+                BufferedInputStream bis = new BufferedInputStream(fis);
+                OutputStream fos = Files.newOutputStream(tarGzFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos);
+                ZstdCompressorOutputStream zstdos = new ZstdCompressorOutputStream(bos)) {
+
+            bis.transferTo(zstdos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to compress tar file to zstd archive", e);
+        }
+        return LocalPath.of(tarGzFile, Const.BLOB_DIR_ZSTD_MEDIA_TYPE);
+    }
+
+    private static LocalPath compressGzip(LocalPath tarFile) {
+        LOG.trace("Compressing tar file to gz archive");
+        Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
+        try (InputStream fis = Files.newInputStream(tarFile.getPath());
+                BufferedInputStream bis = new BufferedInputStream(fis);
+                OutputStream fos = Files.newOutputStream(tarGzFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos);
+                GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(bos)) {
+
+            bis.transferTo(gzos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to compress tar file to gz archive", e);
+        }
+        return LocalPath.of(tarGzFile, Const.DEFAULT_BLOB_DIR_MEDIA_TYPE);
+    }
+
+    private static LocalPath uncompressGzip(InputStream inputStream) {
+        LOG.trace("Uncompressing tar.gz file");
+        Path tarFile = createTempTar();
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream);
+                GzipCompressorInputStream gzis = new GzipCompressorInputStream(bis);
+                OutputStream fos = Files.newOutputStream(tarFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+
+            gzis.transferTo(bos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to uncompress tar.gz file", e);
+        }
+        return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
+    }
+
+    private static LocalPath uncompressZstd(InputStream inputStream) {
+        LOG.trace("Uncompressing zstd file");
+        Path tarFile = createTempTar();
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream);
+                ZstdCompressorInputStream gzis = new ZstdCompressorInputStream(bis);
+                OutputStream fos = Files.newOutputStream(tarFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+
+            gzis.transferTo(bos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to uncompress tar.zstd file", e);
+        }
+        return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
     }
 
     /**
