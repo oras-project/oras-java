@@ -20,18 +20,12 @@
 
 package land.oras;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,7 +39,6 @@ import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
-import land.oras.utils.DigestUtils;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.OrasHttpClient;
 import org.jspecify.annotations.NullMarked;
@@ -218,7 +211,8 @@ public final class Registry {
         if (manifest.getSubject() != null) {
             // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pushing-manifests-with-subject
             if (!response.headers().containsKey(Const.OCI_SUBJECT_HEADER.toLowerCase())) {
-                LOG.warn("Subject was set on manifest but not OCI subject header was returned");
+                throw new OrasException(
+                        "Subject was set on manifest but not OCI subject header was returned. Legecy flow not implemented");
             }
         }
         return getManifest(containerRef);
@@ -442,8 +436,8 @@ public final class Registry {
      * @param blob The blob
      * @return The layer
      */
-    public Layer uploadBlob(ContainerRef containerRef, Path blob) {
-        return uploadBlob(containerRef, blob, Map.of());
+    public Layer pushBlob(ContainerRef containerRef, Path blob) {
+        return pushBlob(containerRef, blob, Map.of());
     }
 
     /**
@@ -453,7 +447,7 @@ public final class Registry {
      * @param annotations The annotations
      * @return The layer
      */
-    public Layer uploadBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
+    public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
         if (hasBlob(containerRef.withDigest(digest))) {
@@ -731,6 +725,35 @@ public final class Registry {
     }
 
     /**
+     * Push a blob using input stream to avoid loading the whole blob in memory
+     * @param containerRef the container ref
+     * @param input the input stream
+     * @param size the size of the blob
+     * @return The Layer containing the uploaded blob information
+     * @throws OrasException if upload fails or digest calculation fails
+     */
+    public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
+        try {
+            // TODO: Replace by chunk upload
+            Path tempFile = Files.createTempFile("oras", "layer");
+            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            return pushBlob(containerRef, tempFile);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
+        }
+    }
+
+    /**
+     * Get blob as stream to avoid loading into memory
+     * @param containerRef The container ref
+     * @return The input stream
+     */
+    public InputStream getBlobStream(ContainerRef containerRef) {
+        // Similar to fetchBlob()
+        return fetchBlob(containerRef);
+    }
+
+    /**
      * Builder for the registry
      */
     public static class Builder {
@@ -820,113 +843,5 @@ public final class Registry {
         public Registry build() {
             return registry.build();
         }
-    }
-
-    /**
-     * Push a blob using input stream to avoid loading the whole blob in memory
-     * @param containerRef the container ref
-     * @param input the input stream
-     * @param size the size of the blob
-     * @return The Layer containing the uploaded blob information
-     * @throws OrasException if upload fails or digest calculation fails
-     */
-    public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
-        Path tempFile = null;
-        try {
-            // Create a temporary file to store the stream content
-            tempFile = Files.createTempFile("oras-upload-", ".tmp");
-
-            // Copy input stream to temp file while calculating digest
-            String digest;
-            try (InputStream bufferedInput = new BufferedInputStream(input);
-                    DigestInputStream digestInput =
-                            new DigestInputStream(bufferedInput, MessageDigest.getInstance("SHA-256"));
-                    OutputStream fileOutput = Files.newOutputStream(tempFile)) {
-
-                digestInput.transferTo(fileOutput);
-                byte[] digestBytes = digestInput.getMessageDigest().digest();
-                digest = "sha256:" + DigestUtils.bytesToHex(digestBytes);
-            }
-
-            // Check if the blob already exists
-            if (hasBlob(containerRef.withDigest(digest))) {
-                LOG.info("Blob already exists: {}", digest);
-                return Layer.fromDigest(digest, size);
-            }
-
-            // Construct the URI for initiating the upload
-            URI baseUri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath()));
-            System.out.println("Initiating blob upload at: " + baseUri);
-
-            // Create an empty input stream for the initial POST request
-            InputStream emptyStream = new ByteArrayInputStream(new byte[0]);
-
-            // Start with a POST request to initiate the upload
-            OrasHttpClient.ResponseWrapper<String> initiateResponse = client.uploadStream(
-                    "POST",
-                    baseUri,
-                    emptyStream,
-                    0,
-                    Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-
-            if (initiateResponse.statusCode() != 202) {
-                throw new OrasException("Failed to initiate blob upload: " + initiateResponse.statusCode());
-            }
-
-            // Get the location URL for the actual upload
-            String locationUrl = initiateResponse.headers().get("location");
-            if (locationUrl == null || locationUrl.isEmpty()) {
-                throw new OrasException("No location URL provided for blob upload");
-            }
-
-            // Ensure the location URL is absolute
-            if (!locationUrl.startsWith("http")) {
-                locationUrl = "%s://%s%s".formatted(getScheme(), containerRef.getRegistry(), locationUrl);
-            }
-
-            // Construct the final upload URI with the digest parameter
-            String separator = locationUrl.contains("?") ? "&" : "?";
-            URI finalizeUri = URI.create(locationUrl + separator + "digest=" + digest);
-
-            // Upload the content from the temporary file
-            try (InputStream uploadStream = Files.newInputStream(tempFile)) {
-                OrasHttpClient.ResponseWrapper<String> uploadResponse = client.uploadStream(
-                        "PUT",
-                        finalizeUri,
-                        uploadStream,
-                        size,
-                        Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-
-                if (uploadResponse.statusCode() != 201 && uploadResponse.statusCode() != 202) {
-                    throw new OrasException("Failed to upload blob: " + uploadResponse.statusCode() + " - Response: "
-                            + uploadResponse.response());
-                }
-
-                return Layer.fromDigest(digest, size);
-            }
-        } catch (IOException | NoSuchAlgorithmException e) {
-            System.err.println("Error during blob upload: " + e.getMessage());
-            e.printStackTrace();
-            throw new OrasException("Failed to push blob stream", e);
-        } finally {
-            // Clean up the temporary file
-            if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                } catch (IOException e) {
-                    LOG.warn("Failed to delete temporary file: {}", tempFile, e);
-                }
-            }
-        }
-    }
-
-    /**
-     * Get blob as stream to avoid loading into memory
-     * @param containerRef The container ref
-     * @return The input stream
-     */
-    public InputStream getBlobStream(ContainerRef containerRef) {
-        // Similar to fetchBlob()
-        return fetchBlob(containerRef);
     }
 }

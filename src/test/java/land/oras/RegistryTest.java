@@ -39,6 +39,7 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
+import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +54,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public class RegistryTest {
 
     @Container
-    private final RegistryContainer registry = new RegistryContainer().withStartupAttempts(3);
+    private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
 
     /**
      * Blob temporary dir
@@ -164,7 +165,7 @@ public class RegistryTest {
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
         Files.createFile(blobDir.resolve("temp.txt"));
         Files.writeString(blobDir.resolve("temp.txt"), "hello");
-        Layer layer = registry.uploadBlob(containerRef, blobDir.resolve("temp.txt"));
+        Layer layer = registry.pushBlob(containerRef, blobDir.resolve("temp.txt"));
         assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", layer.getDigest());
 
         registry.fetchBlob(
@@ -342,7 +343,7 @@ public class RegistryTest {
     }
 
     @Test
-    void shouldListReferrers() throws IOException {
+    void shouldListReferrers() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -406,17 +407,17 @@ public class RegistryTest {
         // Ensure the referrer of manifest1 is manifest2
         ManifestDescriptor referedManifest = referrers.getManifests().get(0);
         manifest2 = registry.getManifest(containerRef2);
-        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, referedManifest.getArtifactType(), "Artifact type should match");
+        assertEquals("text/plain", referedManifest.getArtifactType(), "Artifact type should match");
         assertEquals(manifest2.getDescriptor().getSize(), referedManifest.getSize(), "Manifest size should match");
         assertEquals(
                 manifest2.getDescriptor().getDigest(), referedManifest.getDigest(), "Manifest digest should match");
 
         // Filter by artifact type
         referrers = registry.getReferrers(
-                containerRef1.withDigest(manifest1.getDescriptor().getDigest()), Const.DEFAULT_EMPTY_MEDIA_TYPE);
+                containerRef1.withDigest(manifest1.getDescriptor().getDigest()), null);
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, referrers.getMediaType());
         assertEquals(1, referrers.getManifests().size(), "Should have only 1 manifest referrer");
-        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, referedManifest.getArtifactType(), "Artifact type should match");
+        assertEquals("text/plain", referedManifest.getArtifactType(), "Artifact type should match");
         assertEquals(manifest2.getDescriptor().getSize(), referedManifest.getSize(), "Manifest size should match");
         assertEquals(
                 manifest2.getDescriptor().getDigest(), referedManifest.getDigest(), "Manifest digest should match");
@@ -523,6 +524,8 @@ public class RegistryTest {
     @Test
     void testShouldPushMinimalArtifactThenAttachArtifact() throws IOException {
 
+        String artifactType = "application/vnd.maven+type";
+
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -535,7 +538,7 @@ public class RegistryTest {
         Files.writeString(pomFile, "my pom file");
 
         // Push the main OCI artifact
-        Manifest manifest = registry.pushArtifact(containerRef, "maven", LocalPath.of(pomFile, "application/xml"));
+        Manifest manifest = registry.pushArtifact(containerRef, artifactType, LocalPath.of(pomFile, "application/xml"));
 
         // Push the signature
         Path signedPomFile = blobDir.resolve("pom.xml.asc");
@@ -551,7 +554,7 @@ public class RegistryTest {
                 .withSubject(manifest.getDescriptor().toSubject())
                 .withAnnotations(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()))
                 .withLayers(List.of(layer))
-                .withArtifactType("maven");
+                .withArtifactType(artifactType);
 
         signedPomFileManifest = registry.pushManifest(
                 containerRef.withDigest(SupportedAlgorithm.SHA256.digest(
@@ -566,7 +569,7 @@ public class RegistryTest {
         signedPomFileManifest = Manifest.empty()
                 .withSubject(manifest.getDescriptor().toSubject())
                 .withLayers(List.of(layer))
-                .withArtifactType("maven");
+                .withArtifactType(artifactType);
         signedPomFileManifest = registry.pushManifest(
                 containerRef.withDigest(SupportedAlgorithm.SHA256.digest(
                         signedPomFileManifest.toJson().getBytes(StandardCharsets.UTF_8))),
@@ -776,7 +779,7 @@ public class RegistryTest {
         // Verify exception is wrapped in OrasException
         OrasException exception =
                 assertThrows(OrasException.class, () -> registry.pushBlobStream(containerRef, failingStream, 100));
-        assertEquals("Failed to push blob stream", exception.getMessage());
+        assertEquals("Failed to push blob", exception.getMessage());
         assertTrue(exception.getCause() instanceof IOException);
     }
 
