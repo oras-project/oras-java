@@ -31,35 +31,58 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 @NullMarked
-public class RegistryContainer extends GenericContainer<RegistryContainer> {
+public class ZotContainer extends GenericContainer<ZotContainer> {
 
     /**
      * Logger
      */
-    private Logger LOG = LoggerFactory.getLogger(RegistryContainer.class);
+    private Logger LOG = LoggerFactory.getLogger(ZotContainer.class);
 
     // myuser:mypass
     public static final String AUTH_STRING = "myuser:$2y$05$M1VYs6EzFkXBmuS.BrIreObAnJcWCgzSPeT9/Rh3aVEqTqtSL8XN.";
+    public static final int ZOT_PORT = 5000;
 
     /**
      * Create a new registry container
      */
-    public RegistryContainer() {
-        super("registry:latest");
+    public ZotContainer() {
+        super("ghcr.io/project-zot/zot-linux-amd64:v2.1.2");
         addExposedPort(5000);
-        addEnv("REGISTRY_STORAGE_DELETE_ENABLED", "true");
-        addEnv("REGISTRY_AUTH", "{htpasswd: {realm: localhost, path: /etc/docker/registry/auth.htpasswd}}");
-        setWaitStrategy(Wait.forLogMessage(".*listening on.*", 1));
+        setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(5000).forStatusCode(401));
 
         try {
-            // Create a temporary file with the auth string
-            Path tempFile = Files.createTempFile("auth", ".htpasswd");
-            Files.writeString(tempFile, AUTH_STRING);
+            // Auth file
+            Path authFile = Files.createTempFile("auth", ".htpasswd");
+            Files.writeString(authFile, AUTH_STRING);
+
+            // Zot config file
+            Path configFile = Files.createTempFile("zot-config", ".json");
+            // language=JSON
+            String configJson =
+                    """
+                    {
+                      "storage": { "rootDirectory": "/var/lib/registry" },
+                      "http": {
+                        "address": "0.0.0.0",
+                        "port": 5000,
+                        "auth": {
+                          "htpasswd": { "path": "/etc/zot/auth.htpasswd" }
+                        }
+                      },
+                      "extensions": {
+                        "search": { "enable": true }
+                      }
+                    }
+              """;
+
+            Files.writeString(configFile, configJson);
 
             // Copy it into the container
             withCopyFileToContainer(
-                    MountableFile.forHostPath(tempFile.toAbsolutePath().toString()),
-                    "/etc/docker/registry/auth.htpasswd");
+                    MountableFile.forHostPath(authFile.toAbsolutePath().toString()), "/etc/zot/auth.htpasswd");
+            withCopyFileToContainer(
+                    MountableFile.forHostPath(configFile.toAbsolutePath().toString()), "/etc/zot/config.json");
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to create auth.htpasswd", e);
         }
@@ -73,7 +96,7 @@ public class RegistryContainer extends GenericContainer<RegistryContainer> {
         return getHost() + ":" + getMappedPort(5000);
     }
 
-    public RegistryContainer withFollowOutput() {
+    public ZotContainer withFollowOutput() {
         followOutput(new Slf4jLogConsumer(LOG));
         return this;
     }
