@@ -77,6 +77,14 @@ public class ManifestTest {
                 Manifest.fromJson(emptyManifest()).toJson(), Manifest.empty().toJson());
     }
 
+    @Test
+    void shouldGetArtifactTest() {
+        Manifest manifest1 = Manifest.empty().withArtifactType(ArtifactType.from("test/plain"));
+        assertEquals("test/plain", manifest1.getArtifactType().getMediaType());
+        Manifest manifest2 = Manifest.empty().withConfig(Config.empty().withMediaType("test/plain"));
+        assertEquals("test/plain", manifest2.getArtifactType().getMediaType());
+    }
+
     private String emptyManifest() {
         return """
             {

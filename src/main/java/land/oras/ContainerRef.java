@@ -175,12 +175,12 @@ public final class ContainerRef {
      * @param artifactType The optional artifact type
      * @return The referrers URL
      */
-    public String getReferrersPath(@Nullable String artifactType) {
+    public String getReferrersPath(@Nullable ArtifactType artifactType) {
         if (artifactType == null) {
             return "%s/referrers/%s".formatted(getApiPrefix(), digest);
         }
         return "%s/referrers/%s?artifactType=%s"
-                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType, StandardCharsets.UTF_8));
+                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
     }
 
     /**

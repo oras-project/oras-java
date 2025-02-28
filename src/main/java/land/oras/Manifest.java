@@ -27,6 +27,7 @@ import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class for manifest
@@ -50,7 +51,7 @@ public final class Manifest {
     private Manifest(
             int schemaVersion,
             String mediaType,
-            String artifactType,
+            ArtifactType artifactType,
             ManifestDescriptor descriptor,
             Config config,
             Subject subject,
@@ -58,7 +59,7 @@ public final class Manifest {
             Annotations annotations) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
-        this.artifactType = artifactType;
+        this.artifactType = artifactType != null ? artifactType.getMediaType() : null;
         this.descriptor = descriptor;
         this.config = config;
         this.subject = subject;
@@ -86,8 +87,15 @@ public final class Manifest {
      * Get the artifact type
      * @return The artifact type
      */
-    public String getArtifactType() {
-        return artifactType;
+    public @NonNull ArtifactType getArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        if (config != null) {
+            return ArtifactType.from(
+                    config.getMediaType() != null ? config.getMediaType() : Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
+        }
+        return ArtifactType.unknown();
     }
 
     /**
@@ -96,21 +104,6 @@ public final class Manifest {
      */
     public ManifestDescriptor getDescriptor() {
         return descriptor;
-    }
-
-    /**
-     * Determine the artifact type from artifact type or config media type
-     * @return The artifact type
-     */
-    public @NonNull String determineArtifactType() {
-        // If artifact type is not set, return the media type from config
-        if (artifactType != null) {
-            return artifactType;
-        }
-        if (config != null) {
-            return config.getMediaType() != null ? config.getMediaType() : Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
-        }
-        return Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
     }
 
     /**
@@ -153,7 +146,7 @@ public final class Manifest {
      * @param artifactType The artifact type
      * @return The manifest
      */
-    public Manifest withArtifactType(String artifactType) {
+    public Manifest withArtifactType(ArtifactType artifactType) {
         return new Manifest(
                 schemaVersion,
                 mediaType,
@@ -174,7 +167,7 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
@@ -191,7 +184,7 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
@@ -208,7 +201,7 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
@@ -225,7 +218,7 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
@@ -242,7 +235,7 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
@@ -265,6 +258,13 @@ public final class Manifest {
      */
     public static Manifest fromJson(String json) {
         return JsonUtils.fromJson(json, Manifest.class);
+    }
+
+    private @Nullable ArtifactType getTopLevelArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        return null;
     }
 
     /**

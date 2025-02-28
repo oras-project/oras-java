@@ -221,8 +221,7 @@ public class RegistryTest {
         assertEquals(2, layer.getSize());
         assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, layer.getMediaType());
 
-        assertNull(manifest.getArtifactType());
-        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, manifest.determineArtifactType());
+        assertEquals(Const.DEFAULT_EMPTY_MEDIA_TYPE, manifest.getArtifactType().getMediaType());
 
         // Push again
         registry.pushManifest(containerRef, manifest);
@@ -281,10 +280,14 @@ public class RegistryTest {
         assertEquals(content1, Files.readString(artifactDir.resolve("file21.txt")));
         assertEquals(content2, Files.readString(artifactDir.resolve("file22.txt")));
 
-        assertNull(manifest1.getArtifactType());
-        assertEquals("text/plain", manifest1.determineArtifactType());
-        assertNull(manifest2.getArtifactType());
-        assertEquals("text/plain", manifest2.determineArtifactType());
+        // pull manifest
+        manifest1 = registry.getManifest(containerRef1);
+        manifest2 = registry.getManifest(containerRef2);
+
+        assertEquals("text/plain", manifest1.getArtifactType().getMediaType());
+        assertEquals("text/plain", manifest2.getArtifactType().getMediaType());
+        assertEquals("text/plain", manifest1.getConfig().getMediaType());
+        assertEquals("text/plain", manifest2.getConfig().getMediaType());
     }
 
     @Test
@@ -312,10 +315,12 @@ public class RegistryTest {
                 .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file22.txt"));
 
         // Push 2 manifests
-        Manifest manifest1 =
-                Manifest.empty().withLayers(List.of(layer11, layer12)).withArtifactType("text/plain");
-        Manifest manifest2 =
-                Manifest.empty().withLayers(List.of(layer21, layer22)).withArtifactType("text/plain");
+        Manifest manifest1 = Manifest.empty()
+                .withLayers(List.of(layer11, layer12))
+                .withArtifactType(ArtifactType.from("text/plain"));
+        Manifest manifest2 = Manifest.empty()
+                .withLayers(List.of(layer21, layer22))
+                .withArtifactType(ArtifactType.from("text/plain"));
 
         // Push empty config
         Config config1 = registry.pushConfig(containerRef1, Config.empty());
@@ -336,10 +341,7 @@ public class RegistryTest {
         assertEquals(content2, Files.readString(artifactDir.resolve("file22.txt")));
 
         // Assert media type
-        assertEquals("text/plain", manifest1.getArtifactType());
-        assertEquals("text/plain", manifest1.determineArtifactType());
-        assertEquals("text/plain", manifest2.getArtifactType());
-        assertEquals("text/plain", manifest2.determineArtifactType());
+        assertEquals("text/plain", manifest1.getArtifactType().getMediaType());
     }
 
     @Test
@@ -369,14 +371,14 @@ public class RegistryTest {
         Manifest manifest1 = Manifest.empty()
                 .withLayers(List.of(layer11, layer12))
                 .withConfig(config1)
-                .withArtifactType("text/plain");
+                .withArtifactType(ArtifactType.from("text/plain"));
         manifest1 = registry.pushManifest(containerRef1, manifest1);
 
         // Create manifest 2 with subject
         Manifest manifest2 = Manifest.empty()
                 .withSubject(manifest1.getDescriptor().toSubject())
                 .withAnnotations(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()))
-                .withArtifactType("text/plain");
+                .withArtifactType(ArtifactType.from("text/plain"));
 
         // Push second manifest with its digest
         ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest1@%s"
@@ -486,7 +488,8 @@ public class RegistryTest {
         // Upload
         Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
         assertEquals(1, manifest.getLayers().size());
-        assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, manifest.getArtifactType());
+        assertEquals(
+                Const.DEFAULT_ARTIFACT_MEDIA_TYPE, manifest.getArtifactType().getMediaType());
 
         // Ensure one annotation (created by the SDK)
         Map<String, String> manifestAnnotations = manifest.getAnnotations();
@@ -538,7 +541,7 @@ public class RegistryTest {
         Files.writeString(pomFile, "my pom file");
 
         // Push the main OCI artifact
-        registry.pushArtifact(containerRef, artifactType, LocalPath.of(pomFile, "application/xml"));
+        registry.pushArtifact(containerRef, ArtifactType.from(artifactType), LocalPath.of(pomFile, "application/xml"));
 
         // Create fake signature
         Path signedPomFile = blobDir.resolve("pom.xml.asc");
@@ -546,19 +549,46 @@ public class RegistryTest {
 
         // Attach artifact
         Manifest signedPomFileManifest =
-                registry.attachArtifact(containerRef, artifactType, LocalPath.of(signedPomFile));
+                registry.attachArtifact(containerRef, ArtifactType.from(artifactType), LocalPath.of(signedPomFile));
 
         assertEquals(1, signedPomFileManifest.getLayers().size());
         assertEquals(1, signedPomFileManifest.getAnnotations().size());
         assertNotNull(signedPomFileManifest.getAnnotations().get(Const.ANNOTATION_CREATED));
 
         // No created annotation
-        signedPomFileManifest =
-                registry.attachArtifact(containerRef, artifactType, Annotations.empty(), LocalPath.of(signedPomFile));
+        signedPomFileManifest = registry.attachArtifact(
+                containerRef, ArtifactType.from(artifactType), Annotations.empty(), LocalPath.of(signedPomFile));
 
         assertEquals(1, signedPomFileManifest.getLayers().size());
         assertEquals(1, signedPomFileManifest.getAnnotations().size());
         assertNotNull(signedPomFileManifest.getAnnotations().get(Const.ANNOTATION_CREATED));
+    }
+
+    @Test
+    void testShouldArtifactWithAnnotations() throws IOException {
+
+        String artifactType = "application/vnd.maven+type";
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-maven".formatted(this.registry.getRegistry()));
+
+        Path pomFile = blobDir.resolve("pom.xml");
+        Files.writeString(pomFile, "my pom file");
+
+        // Push the main OCI artifact
+        Annotations annotations = Annotations.ofManifest(Map.of("foo", "bar"));
+        Manifest manifest = registry.pushArtifact(
+                containerRef, ArtifactType.from(artifactType), annotations, LocalPath.of(pomFile, "application/xml"));
+
+        // Check annotations
+        assertEquals(2, manifest.getAnnotations().size());
+        assertEquals("bar", manifest.getAnnotations().get("foo"));
+        assertNotNull(manifest.getAnnotations().get(Const.ANNOTATION_CREATED));
     }
 
     @Test
