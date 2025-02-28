@@ -606,6 +606,50 @@ public class RegistryTest {
     }
 
     @Test
+    void testShouldPushAndPullUncompressedTarDirectory() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-not-compressed".formatted(this.registry.getRegistry()));
+
+        Path file1 = blobDir.resolve("file1.txt");
+        Path file2 = blobDir.resolve("file2.txt");
+        Path file3 = blobDir.resolve("file3.txt");
+        Files.writeString(file1, "foobar");
+        Files.writeString(file2, "test1234");
+        Files.writeString(file3, "barfoo");
+
+        // Upload blob dir
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(blobDir, Const.DEFAULT_BLOB_MEDIA_TYPE));
+        assertEquals(1, manifest.getLayers().size());
+
+        Layer layer = manifest.getLayers().get(0);
+
+        // A compressed directory file
+        assertEquals(Const.DEFAULT_BLOB_MEDIA_TYPE, layer.getMediaType());
+        Map<String, String> annotations = layer.getAnnotations();
+
+        // Assert annotations of the layer
+        assertEquals(3, annotations.size());
+        assertEquals(blobDir.getFileName().toString(), annotations.get(Const.ANNOTATION_TITLE));
+        assertEquals("true", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
+        assertEquals(
+                SupportedAlgorithm.SHA256,
+                SupportedAlgorithm.fromDigest(annotations.get(Const.ANNOTATION_ORAS_CONTENT_DIGEST)));
+
+        // Pull
+        registry.pullArtifact(containerRef, extractDir, true);
+
+        // Assert extracted files
+        assertEquals("foobar", Files.readString(extractDir.resolve("file1.txt")));
+        assertEquals("test1234", Files.readString(extractDir.resolve("file2.txt")));
+        assertEquals("barfoo", Files.readString(extractDir.resolve("file3.txt")));
+    }
+
+    @Test
     void testShouldPushAndPullCompressedZstdDirectory() throws IOException {
 
         Registry registry = Registry.Builder.builder()

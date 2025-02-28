@@ -195,15 +195,7 @@ public final class ArchiveUtils {
      * @return The path to the tar.gz file or the tar.zstd file
      */
     public static LocalPath compress(LocalPath path, String mediaType) {
-        if (!path.getMediaType().equals(Const.DEFAULT_BLOB_MEDIA_TYPE)) {
-            throw new OrasException("Can only compress tar media type. Given " + path.getMediaType());
-        }
-        if (mediaType.equals(Const.BLOB_DIR_ZSTD_MEDIA_TYPE)) {
-            return compressZstd(path);
-        } else if (mediaType.equals(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)) {
-            return compressGzip(path);
-        }
-        throw new OrasException("Unsupported compression type: " + mediaType);
+        return SupportedCompression.fromMediaType(mediaType).compress(path);
     }
 
     /**
@@ -213,15 +205,10 @@ public final class ArchiveUtils {
      * @return The path to the tar.gz file or the tar.zstd file
      */
     public static LocalPath uncompress(InputStream is, String mediaType) {
-        if (mediaType.equals(Const.BLOB_DIR_ZSTD_MEDIA_TYPE)) {
-            return uncompressZstd(is);
-        } else if (mediaType.equals(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)) {
-            return uncompressGzip(is);
-        }
-        throw new OrasException("Unsupported compression type: " + mediaType);
+        return SupportedCompression.fromMediaType(mediaType).uncompress(is);
     }
 
-    private static LocalPath compressZstd(LocalPath tarFile) {
+    static LocalPath compressZstd(LocalPath tarFile) {
         LOG.trace("Compressing tar file to zstd archive");
         Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
         try (InputStream fis = Files.newInputStream(tarFile.getPath());
@@ -237,7 +224,7 @@ public final class ArchiveUtils {
         return LocalPath.of(tarGzFile, Const.BLOB_DIR_ZSTD_MEDIA_TYPE);
     }
 
-    private static LocalPath compressGzip(LocalPath tarFile) {
+    static LocalPath compressGzip(LocalPath tarFile) {
         LOG.trace("Compressing tar file to gz archive");
         Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
         try (InputStream fis = Files.newInputStream(tarFile.getPath());
@@ -253,7 +240,7 @@ public final class ArchiveUtils {
         return LocalPath.of(tarGzFile, Const.DEFAULT_BLOB_DIR_MEDIA_TYPE);
     }
 
-    private static LocalPath uncompressGzip(InputStream inputStream) {
+    static LocalPath uncompressGzip(InputStream inputStream) {
         LOG.trace("Uncompressing tar.gz file");
         Path tarFile = createTempTar();
         try (BufferedInputStream bis = new BufferedInputStream(inputStream);
@@ -268,7 +255,7 @@ public final class ArchiveUtils {
         return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
     }
 
-    private static LocalPath uncompressZstd(InputStream inputStream) {
+    static LocalPath uncompressZstd(InputStream inputStream) {
         LOG.trace("Uncompressing zstd file");
         Path tarFile = createTempTar();
         try (BufferedInputStream bis = new BufferedInputStream(inputStream);
