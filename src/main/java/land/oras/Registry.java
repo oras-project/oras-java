@@ -154,7 +154,7 @@ public final class Registry {
      * @param artifactType The optional artifact type
      * @return The referrers
      */
-    public Referrers getReferrers(ContainerRef containerRef, @Nullable String artifactType) {
+    public Referrers getReferrers(ContainerRef containerRef, @Nullable ArtifactType artifactType) {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
         }
@@ -243,7 +243,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(ContainerRef containerRef, LocalPath... paths) {
-        return pushArtifact(containerRef, null, Annotations.empty(), Config.empty(), paths);
+        return pushArtifact(containerRef, ArtifactType.unknown(), Annotations.empty(), Config.empty(), paths);
     }
 
     /**
@@ -253,7 +253,7 @@ public final class Registry {
      * @param paths The paths
      * @return The manifest
      */
-    public Manifest pushArtifact(ContainerRef containerRef, String artifactType, LocalPath... paths) {
+    public Manifest pushArtifact(ContainerRef containerRef, ArtifactType artifactType, LocalPath... paths) {
         return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
     }
 
@@ -266,7 +266,7 @@ public final class Registry {
      * @return The manifest
      */
     public Manifest pushArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, LocalPath... paths) {
+            ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
         return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
     }
 
@@ -326,17 +326,12 @@ public final class Registry {
      */
     public Manifest pushArtifact(
             ContainerRef containerRef,
-            @Nullable String artifactType,
+            ArtifactType artifactType,
             Annotations annotations,
             @Nullable Config config,
             LocalPath... paths) {
-        Manifest manifest = Manifest.empty();
-        if (artifactType != null) {
-            manifest = manifest.withArtifactType(artifactType);
-        } else {
-            manifest = manifest.withArtifactType(Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
-        }
-        Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
+        Manifest manifest = Manifest.empty().withArtifactType(artifactType);
+        Map<String, String> manifestAnnotations = new HashMap<>(annotations.manifestAnnotations());
         if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED) && containerRef.getDigest() == null) {
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
         }
@@ -404,7 +399,7 @@ public final class Registry {
      * @param paths The paths
      * @return The manifest of the new artifact
      */
-    public Manifest attachArtifact(ContainerRef containerRef, String artifactType, LocalPath... paths) {
+    public Manifest attachArtifact(ContainerRef containerRef, ArtifactType artifactType, LocalPath... paths) {
         return attachArtifact(containerRef, artifactType, Annotations.empty(), paths);
     }
 
@@ -417,7 +412,7 @@ public final class Registry {
      * @return The manifest of the new artifact
      */
     public Manifest attachArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, LocalPath... paths) {
+            ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
 
         // Push layers
         List<Layer> layers = pushLayers(containerRef, paths);
