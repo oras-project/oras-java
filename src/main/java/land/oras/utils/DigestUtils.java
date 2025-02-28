@@ -113,21 +113,4 @@ public final class DigestUtils {
             throw new OrasException("Failed to calculate digest", e);
         }
     }
-
-    /**
-     * Bytes to hex string
-     * @param bytes of bytes[]
-     * @return hex string
-     */
-    public static String bytesToHex(byte[] bytes) {
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : bytes) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
-    }
 }

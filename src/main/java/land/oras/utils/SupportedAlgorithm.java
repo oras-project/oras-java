@@ -64,14 +64,6 @@ public enum SupportedAlgorithm {
     }
 
     /**
-     * Get the algorithm
-     * @return The algorithm
-     */
-    public String getAlgorithm() {
-        return algorithm;
-    }
-
-    /**
      * Get the prefix
      * @return The prefix
      */
