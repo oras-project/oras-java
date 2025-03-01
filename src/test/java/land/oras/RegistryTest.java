@@ -729,7 +729,7 @@ public class RegistryTest {
         // Test pushBlobStream using file input stream
         Layer layer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            layer = registry.pushChunks(containerRef, inputStream, fileSize);
 
             // Verify the digest matches SHA-256 of content
             assertEquals(containerRef.getAlgorithm().digest(testFile), layer.getDigest());
@@ -765,13 +765,13 @@ public class RegistryTest {
         // First push
         Layer firstLayer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            firstLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            firstLayer = registry.pushChunks(containerRef, inputStream, fileSize);
         }
 
         // Second push of same content should detect existing blob
         Layer secondLayer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            secondLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            secondLayer = registry.pushChunks(containerRef, inputStream, fileSize);
         }
 
         // Verify both operations return same digest
@@ -803,7 +803,7 @@ public class RegistryTest {
 
         // Verify exception is wrapped in OrasException
         OrasException exception =
-                assertThrows(OrasException.class, () -> registry.pushBlobStream(containerRef, failingStream, 100));
+                assertThrows(OrasException.class, () -> registry.pushChunks(containerRef, failingStream, 100));
         assertEquals("Failed to push blob", exception.getMessage());
         assertTrue(exception.getCause() instanceof IOException);
     }
@@ -860,7 +860,7 @@ public class RegistryTest {
         // Push large content
         Layer layer;
         try (InputStream inputStream = Files.newInputStream(largeFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            layer = registry.pushChunks(containerRef, inputStream, fileSize);
         }
 
         // Verify content with stream

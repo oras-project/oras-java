@@ -274,6 +274,23 @@ public final class OrasHttpClient {
     }
 
     /**
+     * Perform a PATCH request
+     * @param uri The URI
+     * @param body The body
+     * @param headers The headers
+     * @return The response
+     */
+    public ResponseWrapper<String> patch(URI uri, byte[] body, Map<String, String> headers) {
+        return executeRequest(
+                "PATCH",
+                uri,
+                headers,
+                body,
+                HttpResponse.BodyHandlers.ofString(),
+                HttpRequest.BodyPublishers.ofByteArray(body));
+    }
+
+    /**
      * Perform a PUT request
      * @param uri The URI
      * @param body The body

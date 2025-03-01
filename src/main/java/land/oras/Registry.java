@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -27,7 +28,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +62,16 @@ public final class Registry {
      * The logger
      */
     private static final Logger LOG = LoggerFactory.getLogger(Registry.class);
+
+    /**
+     * The chunk size for uploading blobs
+     */
+    private static final int CHUNK_SIZE = 5 * 1024 * 1024;
+
+    /**
+     * The digest calculation limit
+     */
+    private static final int DIGEST_CALCULATION_LIMIT = 16 * 1024 * 1024;
 
     /**
      * The HTTP client
@@ -380,7 +394,7 @@ public final class Registry {
         for (Layer layer : sourceManifest.getLayers()) {
             try (InputStream is = fetchBlob(sourceContainer.withDigest(layer.getDigest()))) {
                 Layer newLayer = targetRegistry
-                        .pushBlobStream(targetContainer, is, layer.getSize())
+                        .pushChunks(targetContainer, is, layer.getSize())
                         .withMediaType(layer.getMediaType())
                         .withAnnotations(layer.getAnnotations());
                 LOG.debug(
@@ -739,19 +753,170 @@ public final class Registry {
     }
 
     /**
-     * Push a blob using input stream to avoid loading the whole blob in memory
+     * Push a blob using input stream in chunks to avoid loading the whole blob in memory
      * @param containerRef the container ref
      * @param input the input stream
      * @param size the size of the blob
      * @return The Layer containing the uploaded blob information
      * @throws OrasException if upload fails or digest calculation fails
      */
-    public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
+    public Layer pushChunks(ContainerRef containerRef, InputStream input, long size) {
+        // We Initilase the Message Digest first
+        MessageDigest digest;
         try {
-            // TODO: Replace by chunk upload
-            Path tempFile = Files.createTempFile("oras", "layer");
-            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            return pushBlob(containerRef, tempFile);
+            digest = MessageDigest.getInstance(
+                    containerRef.getAlgorithm() == SupportedAlgorithm.SHA256 ? "SHA-256" : "SHA-512");
+        } catch (NoSuchAlgorithmException e) {
+            throw new OrasException("Failed to get message digest", e);
+        }
+
+        // check if blob already exists by calculating digest first
+        byte[] buffer = new byte[CHUNK_SIZE];
+        ByteArrayOutputStream firstChunk = new ByteArrayOutputStream();
+        int bytesRead;
+        long totalBytesRead = 0;
+        String contentDigest = null;
+
+        try {
+            // Reading first chunk to calculate digest
+            while ((bytesRead = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+                firstChunk.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+
+                //  read enough for digest calculation
+                if (totalBytesRead >= DIGEST_CALCULATION_LIMIT) {
+                    break;
+                }
+            }
+
+            // If we read the entire stream, we can get digest now
+            if (totalBytesRead >= size) {
+                contentDigest = containerRef.getAlgorithm().digest(digest.digest());
+                // Check if blob already exists
+                if (hasBlob(containerRef.withDigest(contentDigest))) {
+                    LOG.info("Blob already exists: {}", contentDigest);
+                    return Layer.fromDigest(contentDigest, totalBytesRead);
+                }
+            }
+
+            // Phase 1: Initialize upload session
+            URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath()));
+            OrasHttpClient.ResponseWrapper<String> response =
+                    client.post(uri, new byte[0], Map.of("Content-Length", "0"));
+
+            if (switchTokenAuth(containerRef, response)) {
+                response = client.post(uri, new byte[0], Map.of("Content-Length", "0"));
+            }
+
+            handleError(response);
+            if (response.statusCode() != 202) {
+                throw new OrasException("Failed to initiate blob upload: " + response.statusCode());
+            }
+
+            String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+            // Ensure location is absolute URI
+            if (!location.startsWith("http") && !location.startsWith("https")) {
+                location = "%s://%s/%s"
+                        .formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+            }
+
+            // Phase 2: Upload chunks
+            // Starting with first chunk we already read
+            long startRange = 0;
+            long endRange = totalBytesRead - 1;
+
+            // Upload first chunk
+            if (totalBytesRead > 0) {
+                Map<String, String> headers = Map.of(
+                        "Content-Type",
+                        "application/octet-stream",
+                        "Content-Range",
+                        startRange + "-" + endRange,
+                        "Content-Length",
+                        String.valueOf(totalBytesRead));
+
+                response = client.patch(URI.create(location), firstChunk.toByteArray(), headers);
+                handleError(response);
+
+                if (response.statusCode() != 202) {
+                    throw new OrasException("Failed to upload chunk: " + response.statusCode());
+                }
+
+                location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+                if (location == null) {
+                    throw new OrasException("No location header in response");
+                }
+
+                // Updating ranges for next chunk
+                String rangeHeader = response.headers().get("range");
+                if (rangeHeader != null) {
+                    String[] parts = rangeHeader.split("-");
+                    if (parts.length == 2) {
+                        endRange = Long.parseLong(parts[1]);
+                    }
+                }
+                startRange = endRange + 1;
+            }
+
+            // Uploading remaining chunks
+            while ((bytesRead = input.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+
+                endRange = startRange + bytesRead - 1;
+
+                Map<String, String> headers = Map.of(
+                        "Content-Type",
+                        "application/octet-stream",
+                        "Content-Range",
+                        startRange + "-" + endRange,
+                        "Content-Length",
+                        String.valueOf(bytesRead));
+
+                response = client.patch(URI.create(location), Arrays.copyOf(buffer, bytesRead), headers);
+                handleError(response);
+
+                if (response.statusCode() != 202) {
+                    throw new OrasException("Failed to upload chunk: " + response.statusCode());
+                }
+
+                location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+                if (location == null) {
+                    throw new OrasException("No location header in response");
+                }
+
+                // Updating range for next chunk
+                String rangeHeader = response.headers().get("range");
+                if (rangeHeader != null) {
+                    String[] parts = rangeHeader.split("-");
+                    if (parts.length == 2) {
+                        endRange = Long.parseLong(parts[1]);
+                    }
+                }
+
+                startRange = endRange + 1;
+                totalBytesRead += bytesRead;
+            }
+
+            // Calculating final digest if not already calculated
+            if (contentDigest == null) {
+                contentDigest = containerRef.getAlgorithm().digest(digest.digest());
+            }
+
+            // Phase 3: Complete upload
+            Map<String, String> headers = Map.of(
+                    "Content-Type", "application/octet-stream",
+                    "Content-Length", "0");
+
+            response = client.put(URI.create(location + "?digest=" + contentDigest), new byte[0], headers);
+            handleError(response);
+
+            if (response.statusCode() != 201) {
+                throw new OrasException("Failed to complete blob upload: " + response.statusCode());
+            }
+
+            return Layer.fromDigest(contentDigest, totalBytesRead);
+
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);
         }
@@ -767,7 +932,7 @@ public final class Registry {
                     LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
                     try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
                         long size = Files.size(tempArchive.getPath());
-                        Layer layer = pushBlobStream(containerRef, is, size)
+                        Layer layer = pushChunks(containerRef, is, size)
                                 .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
@@ -783,7 +948,7 @@ public final class Registry {
                 } else {
                     try (InputStream is = Files.newInputStream(path.getPath())) {
                         long size = Files.size(path.getPath());
-                        Layer layer = pushBlobStream(containerRef, is, size)
+                        Layer layer = pushChunks(containerRef, is, size)
                                 .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
