@@ -127,6 +127,14 @@ public final class Config {
     }
 
     /**
+     * Get the data as a string
+     * @return The data as a string
+     */
+    public @Nullable String getData() {
+        return data;
+    }
+
+    /**
      * Get the annotations
      * @return The annotations
      */
@@ -162,5 +170,15 @@ public final class Config {
                 2,
                 "e30=",
                 Annotations.empty());
+    }
+
+    /**
+     * A config with referrence on a blob (too large for data)
+     * @param mediaType The media type
+     * @param layer The layer
+     * @return The config
+     */
+    public static Config fromBlob(String mediaType, Layer layer) {
+        return new Config(mediaType, layer.getDigest(), layer.getSize(), null, Annotations.empty());
     }
 }

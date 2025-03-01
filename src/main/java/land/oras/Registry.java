@@ -160,9 +160,9 @@ public final class Registry {
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getReferrersPath(artifactType)));
         OrasHttpClient.ResponseWrapper<String> response =
-                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
-            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
         }
         handleError(response);
         return JsonUtils.fromJson(response.response(), Referrers.class);
@@ -356,6 +356,84 @@ public final class Registry {
                 "Manifest pushed to: {}",
                 containerRef.withDigest(manifest.getDescriptor().getDigest()));
         return manifest;
+    }
+
+    /**
+     * Copy the container ref into oci-layout
+     * @param containerRef The container
+     * @param folder The folder
+     */
+    public void copy(ContainerRef containerRef, Path folder) {
+        if (!Files.isDirectory(folder)) {
+            throw new OrasException("Folder does not exist: %s".formatted(folder));
+        }
+
+        try {
+            Manifest manifest = getManifest(containerRef);
+            ManifestDescriptor descriptor = manifest.getDescriptor();
+            Config sourceConfig = manifest.getConfig();
+
+            // Create blobs directory
+            Path blobs = folder.resolve("blobs");
+            Files.createDirectories(blobs);
+            OciLayout ociLayout = OciLayout.fromJson("{\"imageLayoutVersion\":\"1.0.0\"}");
+
+            // Write oci layout
+            Files.writeString(folder.resolve("oci-layout"), ociLayout.toJson());
+
+            // Write manifest as any blob
+            String manifestDigest = descriptor.getDigest();
+            SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
+            Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
+                    .resolve(SupportedAlgorithm.getDigest(descriptor.getDigest()));
+            Path manifestPrefixDirectory = blobs.resolve(manifestAlgorithm.getPrefix());
+            if (!Files.exists(manifestPrefixDirectory)) {
+                Files.createDirectory(manifestPrefixDirectory);
+            }
+            Files.writeString(manifestFile, JsonUtils.toJson(manifest));
+
+            // Write the index.json
+            Index index = Index.fromManifests(List.of(descriptor));
+            Path indexFile = folder.resolve("index.json");
+            Files.writeString(indexFile, index.toJson());
+
+            // Write config as any blob
+            String configDigest = sourceConfig.getDigest();
+            SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
+            Path configFile = blobs.resolve(configAlgorithm.getPrefix())
+                    .resolve(SupportedAlgorithm.getDigest(sourceConfig.getDigest()));
+            Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
+            if (!Files.exists(configPrefixDirectory)) {
+                Files.createDirectory(configPrefixDirectory);
+            }
+            // Write the data from data or fetch the blob
+            if (sourceConfig.getData() != null) {
+                Files.write(configFile, sourceConfig.getDataBytes());
+            } else {
+                try (InputStream is = fetchBlob(containerRef.withDigest(configDigest))) {
+                    Files.copy(is, configFile);
+                }
+            }
+
+            // Write all layer
+            for (Layer layer : manifest.getLayers()) {
+                try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
+
+                    // Algorithm
+                    SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(layer.getDigest());
+
+                    Path prefixDirectory = blobs.resolve(algorithm.getPrefix());
+                    if (!Files.exists(prefixDirectory)) {
+                        Files.createDirectory(prefixDirectory);
+                    }
+                    Path blobFile = prefixDirectory.resolve(SupportedAlgorithm.getDigest(layer.getDigest()));
+                    Files.copy(is, blobFile);
+                    LOG.debug("Copied blob to {}", blobFile);
+                }
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to copy container", e);
+        }
     }
 
     /**

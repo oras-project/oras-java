@@ -37,11 +37,13 @@ import java.util.Map;
 import java.util.Random;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
+import land.oras.utils.JsonUtils;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -61,6 +63,9 @@ public class RegistryTest {
      */
     @TempDir
     private Path blobDir;
+
+    @TempDir
+    private Path ociLayout;
 
     @TempDir
     private Path artifactDir;
@@ -470,6 +475,131 @@ public class RegistryTest {
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
         }
+    }
+
+    @Test
+    void testShouldCopyArtifactIntoOciLayout() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("artifact-oci-layout.txt");
+        Files.writeString(file1, "artifact-oci-layout");
+
+        // Push
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
+
+        // Cannot copy if directory doesn't exists
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.copy(containerRef, ociLayout.resolve("not-exists"));
+                },
+                "Directory not found");
+
+        // Copy to oci layout
+        registry.copy(containerRef, ociLayout);
+
+        assertTrue(Files.exists(ociLayout.resolve("oci-layout")));
+
+        OciLayout layoutFile = JsonUtils.fromJson(ociLayout.resolve("oci-layout"), OciLayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+
+        // Assert the empty config
+        assertEquals(
+                "{}",
+                Files.readString(ociLayout
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
+
+        // Check index exists
+        assertTrue(Files.exists(ociLayout.resolve("index.json")));
+        Index index = JsonUtils.fromJson(ociLayout.resolve("index.json"), Index.class);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        assertEquals(
+                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+    }
+
+    @Test
+    @Disabled("Not supported yet")
+    void testShouldCopyImageIntoOciLayout() throws IOException {
+        Registry registry = Registry.Builder.builder().defaults().build();
+
+        // Use zot image
+        ContainerRef containerRef = ContainerRef.parse("ghcr.io/project-zot/zot-linux-amd64");
+
+        // Copy to oci layout
+        registry.copy(containerRef, ociLayout);
+
+        assertTrue(Files.exists(ociLayout.resolve("oci-layout")));
+
+        OciLayout layoutFile = JsonUtils.fromJson(ociLayout.resolve("oci-layout"), OciLayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+
+        // Assert the empty config
+        assertEquals(
+                "{}",
+                Files.readString(ociLayout
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
+
+        // Check index exists
+        assertTrue(Files.exists(ociLayout.resolve("index.json")));
+        Index index = JsonUtils.fromJson(ociLayout.resolve("index.json"), Index.class);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+    }
+
+    @Test
+    void testShouldCopyIntoOciLayoutWithBlobConfig() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("artifact-oci-layout.txt");
+        Files.writeString(file1, "artifact-oci-layout");
+
+        // Push
+        Layer layer = registry.pushBlob(containerRef, "foobartest".getBytes(StandardCharsets.UTF_8));
+        Config config = Config.fromBlob("text/plain", layer);
+        Manifest manifest = registry.pushArtifact(
+                containerRef, ArtifactType.from("my/artifact"), Annotations.empty(), config, LocalPath.of(file1));
+
+        // Copy to oci layout
+        registry.copy(containerRef, ociLayout);
+
+        assertTrue(Files.exists(ociLayout.resolve("oci-layout")));
+
+        OciLayout layoutFile = JsonUtils.fromJson(ociLayout.resolve("oci-layout"), OciLayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+
+        // Assert the config
+        assertEquals(
+                "foobartest",
+                Files.readString(ociLayout
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(layer.getDigest()))));
+
+        // Check index exists
+        assertTrue(Files.exists(ociLayout.resolve("index.json")));
+        Index index = JsonUtils.fromJson(ociLayout.resolve("index.json"), Index.class);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        assertEquals(
+                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
     }
 
     @Test

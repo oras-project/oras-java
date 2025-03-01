@@ -133,4 +133,14 @@ public enum SupportedAlgorithm {
     public static SupportedAlgorithm getDefault() {
         return SupportedAlgorithm.SHA256;
     }
+
+    /**
+     * Return  the digest without the prefix
+     * @param digest The digest
+     * @return The digest without the prefix
+     */
+    public static String getDigest(String digest) {
+        SupportedAlgorithm algorithm = fromDigest(digest);
+        return digest.substring(algorithm.getPrefix().length() + 1);
+    }
 }
