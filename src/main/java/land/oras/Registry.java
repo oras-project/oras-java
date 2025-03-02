@@ -459,8 +459,8 @@ public final class Registry {
                 LOG.debug(
                         "Copied layer {} from {} to {}",
                         newLayer.getDigest(),
-                        sourceContainer.getRegistry(),
-                        targetContainer.getRegistry());
+                        sourceContainer.getApiRegistry(),
+                        targetContainer.getApiRegistry());
             } catch (IOException e) {
                 throw new OrasException("Failed to copy artifact", e);
             }
@@ -565,7 +565,7 @@ public final class Registry {
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
                 location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+                        .formatted(getScheme(), containerRef.getApiRegistry(), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
             response = client.upload(
@@ -633,7 +633,7 @@ public final class Registry {
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
                 location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+                        .formatted(getScheme(), containerRef.getApiRegistry(), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
             response = client.put(
@@ -739,7 +739,7 @@ public final class Registry {
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
         return JsonUtils.fromJson(response.response(), Manifest.class)
-                .withDescriptor(ManifestDescriptor.of(contentType, digest, Long.parseLong(size)));
+                .withDescriptor(ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size)));
     }
 
     /**

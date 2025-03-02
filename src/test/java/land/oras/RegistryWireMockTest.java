@@ -86,6 +86,38 @@ public class RegistryWireMockTest {
     }
 
     @Test
+    void shouldRedirectWhenPushingBlob(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+
+        // Return location without domain when pushing blob
+        wireMock.register(WireMock.head(WireMock.urlPathMatching("/v2/library/artifact-redirect/blobs/.*"))
+                .willReturn(WireMock.status(404)));
+        wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/artifact-redirect/blobs/uploads/.*"))
+                .willReturn(WireMock.status(202).withHeader("Location", "/foobar")));
+
+        // Push is on foobar
+        wireMock.register(WireMock.put(WireMock.urlPathMatching("/foobar.*")).willReturn(WireMock.status(201)));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse(
+                "localhost:%d/library/artifact-redirect@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                        .formatted(wmRuntimeInfo.getHttpPort()));
+        registry.pushBlob(containerRef, "hello".getBytes());
+
+        // Via file
+        Path testFile = configDir.resolve("test-data.temp");
+        Files.writeString(testFile, "Test Content");
+        registry.pushBlob(containerRef, testFile);
+    }
+
+    @Test
     void shouldListTags(WireMockRuntimeInfo wmRuntimeInfo) {
 
         // Return data from wiremock
@@ -169,6 +201,16 @@ public class RegistryWireMockTest {
 
         // Get exception and assert
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
+        assertEquals(500, exception.getStatusCode());
+
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/error-artifact/manifests/latest"))
+                .willReturn(WireMock.noContent()));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/error-artifact/manifests/latest"))
+                .willReturn(WireMock.okJson(Manifest.empty().toJson())));
+        wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/error-artifact/blobs/uploads/.*"))
+                .willReturn(WireMock.serverError().withBody("Internal Server Error")));
+
+        exception = assertThrows(OrasException.class, () -> registry.copy(registry, ref, ref));
         assertEquals(500, exception.getStatusCode());
     }
 

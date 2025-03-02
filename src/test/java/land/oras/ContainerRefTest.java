@@ -36,6 +36,7 @@ public class ContainerRefTest {
         ContainerRef containerRef =
                 ContainerRef.parse("docker.io/library/foo/hello-world:latest@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("registry-1.docker.io", containerRef.getApiRegistry());
         assertEquals("library/foo", containerRef.getNamespace());
         assertEquals("hello-world", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
@@ -85,6 +86,7 @@ public class ContainerRefTest {
     void shouldParseImageWithNoRegistry() {
         ContainerRef containerRef = ContainerRef.parse("hello-world:latest");
         assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("registry-1.docker.io", containerRef.getApiRegistry());
         assertNull(containerRef.getNamespace());
         assertEquals("hello-world", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
