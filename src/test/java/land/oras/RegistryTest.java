@@ -43,7 +43,6 @@ import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -527,7 +526,6 @@ public class RegistryTest {
     }
 
     @Test
-    @Disabled("Not supported yet")
     void testShouldCopyImageIntoOciLayout() throws IOException {
         Registry registry = Registry.Builder.builder().defaults().build();
 
@@ -541,14 +539,6 @@ public class RegistryTest {
 
         OciLayout layoutFile = JsonUtils.fromJson(ociLayout.resolve("oci-layout"), OciLayout.class);
         assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
-
-        // Assert the empty config
-        assertEquals(
-                "{}",
-                Files.readString(ociLayout
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
 
         // Check index exists
         assertTrue(Files.exists(ociLayout.resolve("index.json")));

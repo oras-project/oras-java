@@ -22,6 +22,7 @@ package land.oras.auth;
 
 import java.net.URI;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,13 +62,13 @@ public final class BearerTokenProvider implements AuthProvider {
     /**
      * The provider for username and password in case of refresh token done
      */
-    private final AbstractUsernamePasswordProvider provider;
+    private final AuthProvider provider;
 
     /**
      * Create a new bearer token provider
      * @param provider The provider for username and password
      */
-    public BearerTokenProvider(AbstractUsernamePasswordProvider provider) {
+    public BearerTokenProvider(AuthProvider provider) {
         this.provider = provider;
     }
 
@@ -104,8 +105,12 @@ public final class BearerTokenProvider implements AuthProvider {
         // Perform the request to get the token
         OrasHttpClient httpClient =
                 OrasHttpClient.Builder.builder().withAuthentication(provider).build();
-        OrasHttpClient.ResponseWrapper<String> responseWrapper =
-                httpClient.get(uri, Map.of(Const.AUTHORIZATION_HEADER, provider.getAuthHeader(containerRef)));
+        Map<String, String> headers = new HashMap<>();
+        String authHeader = provider.getAuthHeader(containerRef);
+        if (authHeader != null) {
+            headers.put(Const.AUTHORIZATION_HEADER, authHeader);
+        }
+        OrasHttpClient.ResponseWrapper<String> responseWrapper = httpClient.get(uri, headers);
 
         // Log the response
         LOG.debug(

@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import land.oras.auth.AbstractUsernamePasswordProvider;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.BearerTokenProvider;
 import land.oras.auth.FileStoreAuthenticationProvider;
@@ -767,10 +766,9 @@ public final class Registry {
      * @param response The response
      */
     private boolean switchTokenAuth(ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
-        if (response.statusCode() == 401 && authProvider instanceof AbstractUsernamePasswordProvider) {
+        if (response.statusCode() == 401 && !(authProvider instanceof BearerTokenProvider)) {
             LOG.debug("Requesting token with token flow");
-            setAuthProvider(new BearerTokenProvider((AbstractUsernamePasswordProvider) authProvider)
-                    .refreshToken(containerRef, response));
+            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(containerRef, response));
             return true;
         }
         // Need token refresh (expired or wrong scope)
