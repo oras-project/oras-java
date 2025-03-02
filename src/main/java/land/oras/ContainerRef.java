@@ -114,6 +114,10 @@ public final class ContainerRef {
      * @return The namespace
      */
     public @Nullable String getNamespace() {
+        String registry = getRegistry();
+        if (namespace == null && registry.equals("docker.io")) {
+            return "library";
+        }
         return namespace;
     }
 
@@ -147,7 +151,7 @@ public final class ContainerRef {
      * @return The new container reference
      */
     public ContainerRef withDigest(String digest) {
-        return new ContainerRef(registry, namespace, repository, tag, digest);
+        return new ContainerRef(registry, getNamespace(), repository, tag, digest);
     }
 
     /**
@@ -169,9 +173,9 @@ public final class ContainerRef {
      */
     private String getApiPrefix() {
         if (namespace != null) {
-            return "%s/v2/%s/%s".formatted(registry, namespace, repository);
+            return "%s/v2/%s/%s".formatted(getApiRegistry(), getNamespace(), repository);
         }
-        return "%s/v2/%s".formatted(registry, repository);
+        return "%s/v2/%s".formatted(getApiRegistry(), repository);
     }
 
     /**
