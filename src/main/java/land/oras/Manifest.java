@@ -46,7 +46,7 @@ public final class Manifest {
     /**
      * The manifest descriptor
      */
-    private transient ManifestDescriptor descriptor;
+    private final transient ManifestDescriptor descriptor;
 
     private Manifest(
             int schemaVersion,
@@ -127,7 +127,7 @@ public final class Manifest {
      * @return The layers
      */
     public List<Layer> getLayers() {
-        return Collections.unmodifiableList(layers);
+        return layers != null ? Collections.unmodifiableList(layers) : List.of();
     }
 
     /**

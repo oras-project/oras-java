@@ -44,6 +44,14 @@ public class AnnotationsTest {
     }
 
     @Test
+    public void nullAnnotations() {
+        Annotations annotations = Annotations.ofManifest(null);
+        assertEquals(0, annotations.configAnnotations().size());
+        assertEquals(0, annotations.manifestAnnotations().size());
+        assertEquals(0, annotations.filesAnnotations().size());
+    }
+
+    @Test
     public void toJson() {
         Annotations annotations = new Annotations(
                 Map.of("hello", "world"), Map.of("foo", "bar"), Map.of("cake.txt", Map.of("fun", "more cream")));

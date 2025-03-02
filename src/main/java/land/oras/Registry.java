@@ -397,20 +397,22 @@ public final class Registry {
             Files.writeString(indexFile, index.toJson());
 
             // Write config as any blob
-            String configDigest = sourceConfig.getDigest();
-            SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
-            Path configFile = blobs.resolve(configAlgorithm.getPrefix())
-                    .resolve(SupportedAlgorithm.getDigest(sourceConfig.getDigest()));
-            Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
-            if (!Files.exists(configPrefixDirectory)) {
-                Files.createDirectory(configPrefixDirectory);
-            }
-            // Write the data from data or fetch the blob
-            if (sourceConfig.getData() != null) {
-                Files.write(configFile, sourceConfig.getDataBytes());
-            } else {
-                try (InputStream is = fetchBlob(containerRef.withDigest(configDigest))) {
-                    Files.copy(is, configFile);
+            if (sourceConfig != null) {
+                String configDigest = sourceConfig.getDigest();
+                SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
+                Path configFile = blobs.resolve(configAlgorithm.getPrefix())
+                        .resolve(SupportedAlgorithm.getDigest(sourceConfig.getDigest()));
+                Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
+                if (!Files.exists(configPrefixDirectory)) {
+                    Files.createDirectory(configPrefixDirectory);
+                }
+                // Write the data from data or fetch the blob
+                if (sourceConfig.getData() != null) {
+                    Files.write(configFile, sourceConfig.getDataBytes());
+                } else {
+                    try (InputStream is = fetchBlob(containerRef.withDigest(configDigest))) {
+                        Files.copy(is, configFile);
+                    }
                 }
             }
 
@@ -737,8 +739,9 @@ public final class Registry {
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-        return JsonUtils.fromJson(response.response(), Manifest.class)
-                .withDescriptor(ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size)));
+        ManifestDescriptor descriptor =
+                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
+        return JsonUtils.fromJson(response.response(), Manifest.class).withDescriptor(descriptor);
     }
 
     /**

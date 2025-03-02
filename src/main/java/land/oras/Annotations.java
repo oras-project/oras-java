@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Record for annotations
@@ -44,7 +45,10 @@ public record Annotations(
      * @param manifestAnnotations The manifest annotations
      * @return The annotations
      */
-    public static Annotations ofManifest(Map<String, String> manifestAnnotations) {
+    public static Annotations ofManifest(@Nullable Map<String, String> manifestAnnotations) {
+        if (manifestAnnotations == null) {
+            return empty();
+        }
         return new Annotations(new HashMap<>(), manifestAnnotations, new HashMap<>());
     }
 

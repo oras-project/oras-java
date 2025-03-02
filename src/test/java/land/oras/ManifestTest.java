@@ -78,6 +78,14 @@ public class ManifestTest {
     }
 
     @Test
+    void shouldHaveNoLayerForIndex() {
+        String json =
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"annotations\":{}}";
+        Manifest manifest = Manifest.fromJson(json);
+        assertEquals(0, manifest.getLayers().size());
+    }
+
+    @Test
     void shouldGetArtifactTest() {
         Manifest manifest1 = Manifest.empty().withArtifactType(ArtifactType.from("test/plain"));
         assertEquals("test/plain", manifest1.getArtifactType().getMediaType());
