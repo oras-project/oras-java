@@ -34,9 +34,20 @@ public class Index {
     private final String artifactType;
     private final List<ManifestDescriptor> manifests;
 
-    private Index(int schemaVersion, String mediaType, String artifactType, List<ManifestDescriptor> manifests) {
+    /**
+     * The manifest descriptor
+     */
+    private final transient ManifestDescriptor descriptor;
+
+    private Index(
+            int schemaVersion,
+            String mediaType,
+            String artifactType,
+            List<ManifestDescriptor> manifests,
+            ManifestDescriptor descriptor) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
+        this.descriptor = descriptor;
         this.artifactType = artifactType;
         this.manifests = manifests;
     }
@@ -74,6 +85,23 @@ public class Index {
     }
 
     /**
+     * Get the descriptor
+     * @return The descriptor
+     */
+    public ManifestDescriptor getDescriptor() {
+        return descriptor;
+    }
+
+    /**
+     * Return a new index with the given descriptor
+     * @param descriptor The descriptor
+     * @return The manifest
+     */
+    public Index withDescriptor(ManifestDescriptor descriptor) {
+        return new Index(schemaVersion, mediaType, artifactType, manifests, descriptor);
+    }
+
+    /**
      * Return the JSON representation of the index
      * @return The JSON string
      */
@@ -96,6 +124,6 @@ public class Index {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors);
+        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null);
     }
 }
