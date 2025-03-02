@@ -98,6 +98,18 @@ public final class ContainerRef {
     }
 
     /**
+     * Get the API registry
+     * @return The API registry
+     */
+    public String getApiRegistry() {
+        String registry = getRegistry();
+        if (registry.equals("docker.io")) {
+            return "registry-1.docker.io";
+        }
+        return registry;
+    }
+
+    /**
      * Get the namespace
      * @return The namespace
      */
