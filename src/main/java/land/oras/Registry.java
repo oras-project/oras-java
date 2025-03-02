@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import land.oras.auth.AuthProvider;
@@ -220,6 +221,29 @@ public final class Registry {
     }
 
     /**
+     * Push a manifest
+     * @param containerRef The container
+     * @param index The index
+     * @return The location
+     */
+    public Index pushIndex(ContainerRef containerRef, Index index) {
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        OrasHttpClient.ResponseWrapper<String> response = client.put(
+                uri,
+                JsonUtils.toJson(index).getBytes(),
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
+        if (switchTokenAuth(containerRef, response)) {
+            response = client.put(
+                    uri,
+                    JsonUtils.toJson(index).getBytes(),
+                    Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
+        }
+        logResponse(response);
+        handleError(response);
+        return getIndex(containerRef);
+    }
+
+    /**
      * Delete a blob
      * @param containerRef The container
      */
@@ -276,8 +300,14 @@ public final class Registry {
      * @param overwrite Overwrite
      */
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
-        Manifest manifest = getManifest(containerRef);
-        for (Layer layer : manifest.getLayers()) {
+
+        // Only collect layer that are files
+        List<Layer> layers = collectLayers(containerRef, false);
+        if (layers.isEmpty()) {
+            LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
+            return;
+        }
+        for (Layer layer : layers) {
             try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
                 // Unpack or just copy blob
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
@@ -357,6 +387,49 @@ public final class Registry {
         return manifest;
     }
 
+    private void writeManifest(Manifest manifest, ManifestDescriptor descriptor, Path folder) throws IOException {
+        Path blobs = folder.resolve("blobs");
+        String manifestDigest = descriptor.getDigest();
+        SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
+        Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
+                .resolve(SupportedAlgorithm.getDigest(descriptor.getDigest()));
+        Path manifestPrefixDirectory = blobs.resolve(manifestAlgorithm.getPrefix());
+        if (!Files.exists(manifestPrefixDirectory)) {
+            Files.createDirectory(manifestPrefixDirectory);
+        }
+        // Skip if already exists
+        if (Files.exists(manifestFile)) {
+            LOG.debug("Manifest already exists: {}", manifestFile);
+            return;
+        }
+        Files.writeString(manifestFile, JsonUtils.toJson(manifest));
+    }
+
+    private void writeConfig(ContainerRef containerRef, Config config, Path folder) throws IOException {
+        Path blobs = folder.resolve("blobs");
+        String configDigest = config.getDigest();
+        SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
+        Path configFile =
+                blobs.resolve(configAlgorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(config.getDigest()));
+        Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
+        if (!Files.exists(configPrefixDirectory)) {
+            Files.createDirectory(configPrefixDirectory);
+        }
+        // Skip if already exists
+        if (Files.exists(configFile)) {
+            LOG.debug("Config already exists: {}", configFile);
+            return;
+        }
+        // Write the data from data or fetch the blob
+        if (config.getData() != null) {
+            Files.write(configFile, config.getDataBytes());
+        } else {
+            try (InputStream is = fetchBlob(containerRef.withDigest(configDigest))) {
+                Files.copy(is, configFile);
+            }
+        }
+    }
+
     /**
      * Copy the container ref into oci-layout
      * @param containerRef The container
@@ -368,11 +441,8 @@ public final class Registry {
         }
 
         try {
-            Manifest manifest = getManifest(containerRef);
-            ManifestDescriptor descriptor = manifest.getDescriptor();
-            Config sourceConfig = manifest.getConfig();
 
-            // Create blobs directory
+            // Create blobs directory if needed
             Path blobs = folder.resolve("blobs");
             Files.createDirectories(blobs);
             OciLayout ociLayout = OciLayout.fromJson("{\"imageLayoutVersion\":\"1.0.0\"}");
@@ -380,44 +450,44 @@ public final class Registry {
             // Write oci layout
             Files.writeString(folder.resolve("oci-layout"), ociLayout.toJson());
 
-            // Write manifest as any blob
-            String manifestDigest = descriptor.getDigest();
-            SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
-            Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
-                    .resolve(SupportedAlgorithm.getDigest(descriptor.getDigest()));
-            Path manifestPrefixDirectory = blobs.resolve(manifestAlgorithm.getPrefix());
-            if (!Files.exists(manifestPrefixDirectory)) {
-                Files.createDirectory(manifestPrefixDirectory);
+            String contentType = getContentType(containerRef);
+
+            // Single manifest
+            if (contentType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)) {
+
+                // Write manifest as any blob
+                Manifest manifest = getManifest(containerRef);
+                ManifestDescriptor descriptor = manifest.getDescriptor();
+                Config sourceConfig = manifest.getConfig();
+                writeManifest(manifest, descriptor, folder);
+
+                // Write the index.json
+                Index index = Index.fromManifests(List.of(descriptor));
+                Path indexFile = folder.resolve("index.json");
+                Files.writeString(indexFile, index.toJson());
+
+                // Write config as any blob
+                writeConfig(containerRef, sourceConfig, folder);
             }
-            Files.writeString(manifestFile, JsonUtils.toJson(manifest));
+            // Index
+            else {
+                Index index = getIndex(containerRef);
 
-            // Write the index.json
-            Index index = Index.fromManifests(List.of(descriptor));
-            Path indexFile = folder.resolve("index.json");
-            Files.writeString(indexFile, index.toJson());
+                // Write all manifests and their config
+                for (ManifestDescriptor descriptor : index.getManifests()) {
+                    Manifest manifest = getManifest(containerRef.withDigest(descriptor.getDigest()));
+                    writeManifest(manifest, descriptor, folder);
+                    Config config = manifest.getConfig();
+                    writeConfig(containerRef, config, folder);
+                }
 
-            // Write config as any blob
-            if (sourceConfig != null) {
-                String configDigest = sourceConfig.getDigest();
-                SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
-                Path configFile = blobs.resolve(configAlgorithm.getPrefix())
-                        .resolve(SupportedAlgorithm.getDigest(sourceConfig.getDigest()));
-                Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
-                if (!Files.exists(configPrefixDirectory)) {
-                    Files.createDirectory(configPrefixDirectory);
-                }
-                // Write the data from data or fetch the blob
-                if (sourceConfig.getData() != null) {
-                    Files.write(configFile, sourceConfig.getDataBytes());
-                } else {
-                    try (InputStream is = fetchBlob(containerRef.withDigest(configDigest))) {
-                        Files.copy(is, configFile);
-                    }
-                }
+                // Write index
+                Path indexFile = folder.resolve("index.json");
+                Files.writeString(indexFile, index.toJson());
             }
 
             // Write all layer
-            for (Layer layer : manifest.getLayers()) {
+            for (Layer layer : collectLayers(containerRef, true)) {
                 try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
 
                     // Algorithm
@@ -428,6 +498,11 @@ public final class Registry {
                         Files.createDirectory(prefixDirectory);
                     }
                     Path blobFile = prefixDirectory.resolve(SupportedAlgorithm.getDigest(layer.getDigest()));
+                    // Skip if already exists
+                    if (Files.exists(blobFile)) {
+                        LOG.debug("Blob already exists: {}", blobFile);
+                        continue;
+                    }
                     Files.copy(is, blobFile);
                     LOG.debug("Copied blob to {}", blobFile);
                 }
@@ -737,11 +812,35 @@ public final class Registry {
         logResponse(response);
         handleError(response);
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        if (contentType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE)) {
+            throw new OrasException(
+                    "Expected manifest but got index. Probably a multi-platform image instead of artifact");
+        }
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
         ManifestDescriptor descriptor =
                 ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
         return JsonUtils.fromJson(response.response(), Manifest.class).withDescriptor(descriptor);
+    }
+
+    /**
+     * Get the index of a container
+     * @param containerRef The container
+     * @return The index and it's associated descriptor
+     */
+    public Index getIndex(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
+        logResponse(response);
+        handleError(response);
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        if (!contentType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE)) {
+            throw new OrasException("Expected index but got %s".formatted(contentType));
+        }
+        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        ManifestDescriptor descriptor =
+                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
+        return JsonUtils.fromJson(response.response(), Index.class).withDescriptor(descriptor);
     }
 
     /**
@@ -752,16 +851,16 @@ public final class Registry {
     private OrasHttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
-                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
         if (switchTokenAuth(containerRef, response)) {
-            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
             logResponse(response);
         }
         handleError(response);
-        return client.get(uri, Map.of("Accept", Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+        return client.get(uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE));
     }
 
     /**
@@ -881,6 +980,53 @@ public final class Registry {
     public InputStream getBlobStream(ContainerRef containerRef) {
         // Similar to fetchBlob()
         return fetchBlob(containerRef);
+    }
+
+    private String getContentType(ContainerRef containerRef) {
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        OrasHttpClient.ResponseWrapper<String> response =
+                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
+        logResponse(response);
+
+        // Switch to bearer auth if needed and retry first request
+        if (switchTokenAuth(containerRef, response)) {
+            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
+            logResponse(response);
+        }
+        handleError(response);
+        return response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+    }
+
+    /**
+     * Collect layers from the container
+     * @param containerRef The container
+     * @param includeAll Include all layers or only the ones with title annotation
+     * @return The layers
+     */
+    private List<Layer> collectLayers(ContainerRef containerRef, boolean includeAll) {
+        List<Layer> layers = new LinkedList<>();
+        String contentType = getContentType(containerRef);
+        if (contentType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)) {
+            return getManifest(containerRef).getLayers();
+        }
+        Index index = getIndex(containerRef);
+        for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+            List<Layer> manifestLayers = getManifest(containerRef.withDigest(manifestDescriptor.getDigest()))
+                    .getLayers();
+            for (Layer manifestLayer : manifestLayers) {
+                if (manifestLayer.getAnnotations().isEmpty()
+                        || !manifestLayer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
+                    if (includeAll) {
+                        LOG.debug("Including layer without title annotation: {}", manifestLayer.getDigest());
+                        layers.add(manifestLayer);
+                    }
+                    LOG.debug("Skipping layer without title annotation: {}", manifestLayer.getDigest());
+                    continue;
+                }
+                layers.add(manifestLayer);
+            }
+        }
+        return layers;
     }
 
     /**

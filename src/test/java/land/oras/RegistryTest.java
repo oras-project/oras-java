@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Random;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
+import land.oras.utils.DigestUtils;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
@@ -65,6 +66,9 @@ public class RegistryTest {
 
     @TempDir
     private Path ociLayout;
+
+    @TempDir
+    private Path ociLayoutWithIndex;
 
     @TempDir
     private Path artifactDir;
@@ -231,6 +235,34 @@ public class RegistryTest {
         registry.pushManifest(containerRef, manifest);
 
         // Delete manifest
+        registry.deleteManifest(containerRef);
+        // Ensure the blob is deleted
+        assertThrows(OrasException.class, () -> {
+            registry.getManifest(containerRef);
+        });
+    }
+
+    @Test
+    void shouldPushManifest() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Empty manifest
+        ContainerRef containerRef = ContainerRef.parse("%s/library/empty-index".formatted(this.registry.getRegistry()));
+        Index emptyIndex = Index.fromManifests(List.of());
+        Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
+
+        // Assert
+        assertEquals(2, pushIndex.getSchemaVersion());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, pushIndex.getMediaType());
+        assertEquals(0, pushIndex.getManifests().size());
+
+        // Push again
+        registry.pushIndex(containerRef, emptyIndex);
+
+        // Delete index
         registry.deleteManifest(containerRef);
         // Ensure the blob is deleted
         assertThrows(OrasException.class, () -> {
@@ -526,6 +558,40 @@ public class RegistryTest {
     }
 
     @Test
+    void testNotFailToPullArtifactFromImage() {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
+
+        Layer emptyLayer = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
+
+        Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
+        String manifestDigest =
+                SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest =
+                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+
+        // Push config and manifest
+        registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
+        Manifest pushedManifest = registry.pushManifest(containerRef.withDigest(manifestDigest), emptyManifest);
+
+        Index emptyIndex = Index.fromManifests(List.of(pushedManifest.getDescriptor()));
+        Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
+
+        // Copy to oci layout
+        registry.pullArtifact(containerRef, artifactDir, true);
+
+        assertEquals(1, pushIndex.getManifests().size());
+        assertEquals(2, pushIndex.getSchemaVersion());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, pushIndex.getMediaType());
+    }
+
+    @Test
     void testShouldCopyImageIntoOciLayout() throws IOException {
         Registry registry = Registry.Builder.builder().defaults().build();
 
@@ -546,6 +612,79 @@ public class RegistryTest {
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+    }
+
+    @Test
+    void testShouldCopyImageIntoOciLayoutWithIndex() {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
+
+        Layer layer1 = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
+        Layer layer2 = registry.pushBlob(containerRef, "foobar".getBytes());
+
+        Manifest emptyManifest = Manifest.empty()
+                .withLayers(List.of(Layer.fromDigest(layer1.getDigest(), 2), Layer.fromDigest(layer2.getDigest(), 6)));
+        String manifestDigest =
+                SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest =
+                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+
+        // Push config and manifest
+        registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
+        Manifest pushedManifest = registry.pushManifest(containerRef.withDigest(manifestDigest), emptyManifest);
+        registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
+
+        // Copy to oci layout
+        registry.copy(containerRef, ociLayoutWithIndex);
+
+        assertTrue(Files.exists(ociLayoutWithIndex.resolve("oci-layout")));
+
+        OciLayout layoutFile = JsonUtils.fromJson(ociLayoutWithIndex.resolve("oci-layout"), OciLayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+
+        // Check index exists
+        assertTrue(Files.exists(ociLayoutWithIndex.resolve("index.json")));
+        Index index = JsonUtils.fromJson(ociLayoutWithIndex.resolve("index.json"), Index.class);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+
+        // Check manifest exists
+        assertTrue(Files.exists(ociLayoutWithIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest()))));
+
+        // Ensure manifest serialized correctly (check sha256)
+        String computedManifestDigest = DigestUtils.digest(
+                "sha256",
+                ociLayoutWithIndex
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(
+                                pushedManifest.getDescriptor().getDigest())));
+        assertEquals(
+                SupportedAlgorithm.getDigest(pushedManifest.getDescriptor().getDigest()),
+                SupportedAlgorithm.getDigest(computedManifestDigest),
+                "Manifest digest should match");
+
+        // Ensure layer1 is copied
+        assertTrue(Files.exists(ociLayoutWithIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(layer1.getDigest()))));
+        // Ensure layer2 is copied
+        assertTrue(Files.exists(ociLayoutWithIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
     }
 
     @Test

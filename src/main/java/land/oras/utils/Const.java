@@ -89,9 +89,20 @@ public final class Const {
     public static final String DEFAULT_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json";
 
     /**
+     * The artifact manifest media type
+     */
+    public static final String ARTIFACT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.artifact.manifest.v1+json";
+
+    /**
      * The default manifest media type
      */
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
+
+    /**
+     * The default accept type for the manifest
+     */
+    public static final String MANIFEST_ACCEPT_TYPE =
+            "%s, %s, %s".formatted(DEFAULT_INDEX_MEDIA_TYPE, DEFAULT_MANIFEST_MEDIA_TYPE, ARTIFACT_MANIFEST_MEDIA_TYPE);
 
     /**
      * Annotation for the title

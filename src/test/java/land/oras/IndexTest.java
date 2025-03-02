@@ -39,6 +39,7 @@ public class IndexTest {
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertNull(index.getArtifactType());
+        assertNull(index.getDescriptor());
         assertEquals(
                 "sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27",
                 index.getManifests().get(0).getDigest());
