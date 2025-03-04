@@ -20,9 +20,20 @@ OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conforma
 
 ## Consuming SDK
 
-SNAPSHOT version are published on GitHub Maven package.
+SNAPSHOT version are published on GitHub Maven packages.
+Releases are published on Maven Central
 
 Javadoc is published from main branch into: https://oras-project.github.io/oras-java/
+
+```xml
+<dependency>
+    <groupId>land.oras</groupId>
+    <artifactId>oras-java-sdk</artifactId>
+    <version>VERSION_HERE</version>
+</dependency>
+```
+
+### Only for SNAPSHOTS (only for testing)
 
 GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
 
@@ -79,19 +90,13 @@ Registry registry = Registry.Builder.builder().insecure().build();
 registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"));
 ```
 
-### Deploy to GitHub Packages
+### Deploy SNAPSHOTS
 
-This is temporary until published to Maven Central with a proper workflow.
-
-The maven resolver must be switched to `wagon` to deploy to GitHub Packages.
-
-```shell
-mvn -Dmaven.resolver.transport=wagon -DskipTests -Poras-java clean deploy
-```
+SNAPSHOTS are automatically deployed when the `main` branch is updated. See the [GitHub Actions](.github/workflows/deploy-snapshots.yml) for more details.
 
 ### Perform release
 
-- Ensure the draft release version correspond to the version on the `pom.xml`
+- Ensure the draft release version correspond to the version on the `pom.xml`. Specially if changing the major or minor version. Patch releases are automatically updated.
 - Run the release workflow
 
 ## Code of Conduct
