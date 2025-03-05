@@ -274,10 +274,7 @@ public final class ContainerRef {
 
         // Validate digest algorithm
         if (digest != null) {
-            String prefix = digest.split(":")[0];
-            if (!SupportedAlgorithm.isSupported(prefix)) {
-                throw new OrasException("Unsupported digest algorithm: " + prefix);
-            }
+            SupportedAlgorithm.fromDigest(digest);
         }
 
         return new ContainerRef(registry, namespace, repository, tag, digest);

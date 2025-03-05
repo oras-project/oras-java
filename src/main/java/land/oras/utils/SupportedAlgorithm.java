@@ -22,6 +22,7 @@ package land.oras.utils;
 
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 
@@ -52,6 +53,12 @@ public enum SupportedAlgorithm {
      * The prefix
      */
     private final String prefix;
+
+    /**
+     * Regex for a digest
+     * <a href="https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests">Digests</a>
+     */
+    private static final Pattern DIGEST_REGEX = Pattern.compile("^[a-z0-9]+(?:[+._-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$");
 
     /**
      * Get the algorithm
@@ -99,25 +106,14 @@ public enum SupportedAlgorithm {
     }
 
     /**
-     * Check if the algorithm is supported
-     * @param prefix The algorithm prefix
-     * @return True if supported
-     */
-    public static boolean isSupported(String prefix) {
-        for (SupportedAlgorithm supportedAlgorithm : SupportedAlgorithm.values()) {
-            if (supportedAlgorithm.getPrefix().equals(prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Get the algorithm from a digest
      * @param digest The digest
      * @return The algorithm
      */
     public static SupportedAlgorithm fromDigest(String digest) {
+        if (!DIGEST_REGEX.matcher(digest).matches()) {
+            throw new OrasException("Invalid digest: " + digest);
+        }
         for (SupportedAlgorithm algorithm : SupportedAlgorithm.values()) {
             if (digest.startsWith(algorithm.getPrefix())) {
                 return algorithm;
