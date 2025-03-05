@@ -391,6 +391,14 @@ public final class Registry {
     private void writeIndex(Index index, Path folder) throws IOException {
         Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
         Files.writeString(indexFile, index.getJson() != null ? index.getJson() : index.toJson());
+        if (index.getJson() != null) {
+            Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
+            String indexDigest = index.getDescriptor().getDigest();
+            SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(indexDigest);
+            Files.writeString(
+                    blobs.resolve(manifestAlgorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(indexDigest)),
+                    index.getJson());
+        }
     }
 
     private void writeManifest(Manifest manifest, Path folder) throws IOException {

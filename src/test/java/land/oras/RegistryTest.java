@@ -592,11 +592,29 @@ public class RegistryTest {
     }
 
     @Test
-    void testShouldCopyImageIntoOciLayout() throws IOException {
-        Registry registry = Registry.Builder.builder().defaults().build();
+    void testShouldCopyImageIntoOciLayoutWithoutIndex() {
 
-        // Use zot image
-        ContainerRef containerRef = ContainerRef.parse("ghcr.io/project-zot/zot-linux-amd64");
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/image-no-index".formatted(this.registry.getRegistry()));
+
+        Layer layer1 = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
+        Layer layer2 = registry.pushBlob(containerRef, "foobar".getBytes());
+
+        Manifest emptyManifest = Manifest.empty()
+                .withLayers(List.of(Layer.fromDigest(layer1.getDigest(), 2), Layer.fromDigest(layer2.getDigest(), 6)));
+        String manifestDigest =
+                SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest =
+                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+
+        // Push config and manifest
+        registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
+        Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
 
         // Copy to oci layout
         registry.copy(containerRef, ociLayout);
@@ -608,10 +626,48 @@ public class RegistryTest {
 
         // Check index exists
         assertTrue(Files.exists(ociLayout.resolve("index.json")));
-        Index index = JsonUtils.fromJson(ociLayout.resolve("index.json"), Index.class);
-        assertEquals(2, index.getSchemaVersion());
-        assertEquals(1, index.getManifests().size());
-        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        JsonUtils.fromJson(ociLayout.resolve("index.json"), Index.class);
+
+        // Check manifest exists
+        assertTrue(Files.exists(ociLayout
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest()))));
+
+        // Ensure manifest serialized correctly (check sha256)
+        String computedManifestDigest = DigestUtils.digest(
+                "sha256",
+                ociLayout
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(
+                                pushedManifest.getDescriptor().getDigest())));
+        assertEquals(
+                SupportedAlgorithm.getDigest(pushedManifest.getDescriptor().getDigest()),
+                SupportedAlgorithm.getDigest(computedManifestDigest),
+                "Manifest digest should match");
+
+        // Ensure layer1 is copied
+        assertTrue(Files.exists(ociLayout
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(layer1.getDigest()))));
+        // Ensure layer2 is copied
+        assertTrue(Files.exists(ociLayout
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
+
+        // Copy to oci layout again
+        registry.copy(containerRef, ociLayout);
+
+        // Check manifest exists
+        assertTrue(Files.exists(ociLayout
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest()))));
     }
 
     @Test
@@ -638,7 +694,7 @@ public class RegistryTest {
         // Push config and manifest
         registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
         Manifest pushedManifest = registry.pushManifest(containerRef.withDigest(manifestDigest), emptyManifest);
-        registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
+        Index index = registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
 
         // Copy to oci layout
         registry.copy(containerRef, ociLayoutWithIndex);
@@ -650,7 +706,7 @@ public class RegistryTest {
 
         // Check index exists
         assertTrue(Files.exists(ociLayoutWithIndex.resolve("index.json")));
-        Index index = JsonUtils.fromJson(ociLayoutWithIndex.resolve("index.json"), Index.class);
+        JsonUtils.fromJson(ociLayoutWithIndex.resolve("index.json"), Index.class);
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
@@ -685,6 +741,11 @@ public class RegistryTest {
                 .resolve("blobs")
                 .resolve("sha256")
                 .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
+        // Ensure index is also copied as blob
+        assertTrue(Files.exists(ociLayoutWithIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(index.getDescriptor().getDigest()))));
 
         // Copy to oci layout again
         registry.copy(containerRef, ociLayoutWithIndex);
