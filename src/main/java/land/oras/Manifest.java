@@ -48,6 +48,11 @@ public final class Manifest {
      */
     private final transient ManifestDescriptor descriptor;
 
+    /**
+     * Original json
+     */
+    private transient String json;
+
     private Manifest(
             int schemaVersion,
             String mediaType,
@@ -56,7 +61,8 @@ public final class Manifest {
             Config config,
             Subject subject,
             List<Layer> layers,
-            Annotations annotations) {
+            Annotations annotations,
+            String json) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
         this.artifactType = artifactType != null ? artifactType.getMediaType() : null;
@@ -65,6 +71,7 @@ public final class Manifest {
         this.subject = subject;
         this.layers = layers;
         this.annotations = Map.copyOf(annotations.manifestAnnotations());
+        this.json = json;
     }
 
     /**
@@ -155,7 +162,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -172,7 +180,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -189,7 +198,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -206,7 +216,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -223,7 +234,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -240,7 +252,18 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
+    }
+
+    /**
+     * Return same instance but with original JSON
+     * @param json The original JSON
+     * @return The index
+     */
+    private Manifest withJson(String json) {
+        this.json = json;
+        return this;
     }
 
     /**
@@ -257,7 +280,15 @@ public final class Manifest {
      * @return The manifest
      */
     public static Manifest fromJson(String json) {
-        return JsonUtils.fromJson(json, Manifest.class);
+        return JsonUtils.fromJson(json, Manifest.class).withJson(json);
+    }
+
+    /**
+     * Return the original JSON
+     * @return The original JSON
+     */
+    public String getJson() {
+        return json;
     }
 
     private @Nullable ArtifactType getTopLevelArtifactType() {
@@ -284,6 +315,7 @@ public final class Manifest {
                 Config.empty(),
                 null,
                 List.of(),
-                Annotations.empty());
+                Annotations.empty(),
+                null);
     }
 }

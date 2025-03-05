@@ -685,6 +685,16 @@ public class RegistryTest {
                 .resolve("blobs")
                 .resolve("sha256")
                 .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
+
+        // Copy to oci layout again
+        registry.copy(containerRef, ociLayoutWithIndex);
+
+        // Check manifest exists
+        assertTrue(Files.exists(ociLayoutWithIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest()))));
     }
 
     @Test

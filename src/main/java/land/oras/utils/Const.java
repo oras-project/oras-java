@@ -49,6 +49,21 @@ public final class Const {
     public static final String DEFAULT_TAG = "latest";
 
     /**
+     * Index file in OCI layout
+     */
+    public static final String OCI_LAYOUT_INDEX = "index.json";
+
+    /**
+     * Layout folder in OCI layout
+     */
+    public static final String OCI_LAYOUT_FOLDER = "oci-layout";
+
+    /**
+     * Blobs folder in OCI layout
+     */
+    public static final String OCI_LAYOUT_BLOBS = "blobs";
+
+    /**
      * The default blob directory media type
      */
     public static final String DEFAULT_BLOB_DIR_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+gzip";

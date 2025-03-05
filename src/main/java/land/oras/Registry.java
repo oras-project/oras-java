@@ -388,7 +388,7 @@ public final class Registry {
     }
 
     private void writeManifest(Manifest manifest, ManifestDescriptor descriptor, Path folder) throws IOException {
-        Path blobs = folder.resolve("blobs");
+        Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
         String manifestDigest = descriptor.getDigest();
         SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
         Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
@@ -402,11 +402,17 @@ public final class Registry {
             LOG.debug("Manifest already exists: {}", manifestFile);
             return;
         }
-        Files.writeString(manifestFile, JsonUtils.toJson(manifest));
+        if (manifest.getJson() == null) {
+            LOG.debug("Writing new manifest: {}", manifestFile);
+            Files.writeString(manifestFile, manifest.toJson());
+        } else {
+            LOG.debug("Writing existing manifest: {}", manifestFile);
+            Files.writeString(manifestFile, manifest.getJson());
+        }
     }
 
     private void writeConfig(ContainerRef containerRef, Config config, Path folder) throws IOException {
-        Path blobs = folder.resolve("blobs");
+        Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
         String configDigest = config.getDigest();
         SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
         Path configFile =
@@ -443,12 +449,12 @@ public final class Registry {
         try {
 
             // Create blobs directory if needed
-            Path blobs = folder.resolve("blobs");
+            Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
             Files.createDirectories(blobs);
             OciLayout ociLayout = OciLayout.fromJson("{\"imageLayoutVersion\":\"1.0.0\"}");
 
             // Write oci layout
-            Files.writeString(folder.resolve("oci-layout"), ociLayout.toJson());
+            Files.writeString(folder.resolve(Const.OCI_LAYOUT_FOLDER), ociLayout.toJson());
 
             String contentType = getContentType(containerRef);
 
@@ -463,7 +469,7 @@ public final class Registry {
 
                 // Write the index.json
                 Index index = Index.fromManifests(List.of(descriptor));
-                Path indexFile = folder.resolve("index.json");
+                Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
                 Files.writeString(indexFile, index.toJson());
 
                 // Write config as any blob
@@ -481,9 +487,9 @@ public final class Registry {
                     writeConfig(containerRef, config, folder);
                 }
 
-                // Write index
-                Path indexFile = folder.resolve("index.json");
-                Files.writeString(indexFile, index.toJson());
+                // Write index as is
+                Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
+                Files.writeString(indexFile, index.getJson());
             }
 
             // Write all layer
@@ -820,7 +826,7 @@ public final class Registry {
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
         ManifestDescriptor descriptor =
                 ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
-        return JsonUtils.fromJson(response.response(), Manifest.class).withDescriptor(descriptor);
+        return Manifest.fromJson(response.response()).withDescriptor(descriptor);
     }
 
     /**
@@ -840,7 +846,7 @@ public final class Registry {
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
         ManifestDescriptor descriptor =
                 ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
-        return JsonUtils.fromJson(response.response(), Index.class).withDescriptor(descriptor);
+        return Index.fromJson(response.response()).withDescriptor(descriptor);
     }
 
     /**
