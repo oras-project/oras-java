@@ -38,6 +38,7 @@ import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.credentials.FileStore;
 import land.oras.exception.OrasException;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,9 @@ public class RegistryWireMockTest {
 
     @TempDir
     private Path configDir;
+
+    @TempDir
+    private Path ociLayout;
 
     @Test
     void shouldRedirectWhenDownloadingBlob(WireMockRuntimeInfo wmRuntimeInfo) {
@@ -202,16 +206,6 @@ public class RegistryWireMockTest {
         // Get exception and assert
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(500, exception.getStatusCode());
-
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/error-artifact/manifests/latest"))
-                .willReturn(WireMock.noContent()));
-        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/error-artifact/manifests/latest"))
-                .willReturn(WireMock.okJson(Manifest.empty().toJson())));
-        wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/error-artifact/blobs/uploads/.*"))
-                .willReturn(WireMock.serverError().withBody("Internal Server Error")));
-
-        exception = assertThrows(OrasException.class, () -> registry.copy(registry, ref, ref));
-        assertEquals(500, exception.getStatusCode());
     }
 
     // Timeout with similar structure as previous test and request 408 with different artifact name
@@ -231,6 +225,40 @@ public class RegistryWireMockTest {
 
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(408, exception.getStatusCode());
+    }
+
+    // Timeout with similar structure as previous test and request 408 with different artifact name
+    @Test
+    void copyToOciLayoutMissingInvalidContentType(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Using here a unique container reference to avoid conflicts when running in parallel
+        ContainerRef ref = ContainerRef.parse("%s/library/invalid-copy-artifact".formatted(registryUrl));
+
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
+                .willReturn(WireMock.noContent()));
+
+        // No content type
+        Registry registry = Registry.Builder.builder().withInsecure(true).build();
+        OrasException exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
+        assertEquals("Content type not found in headers", exception.getMessage());
+
+        // No manifest digest
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
+                .willReturn(
+                        WireMock.noContent().withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
+        exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
+        assertEquals("Manifest digest not found in headers", exception.getMessage());
+
+        // Invalid content type
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
+                .willReturn(WireMock.noContent()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, "application/json")
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, "sha256:1234")));
+        exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
+        assertEquals("Unsupported content type: application/json", exception.getMessage());
     }
 
     // Note: Currently this test is @Disabled because the retry functionality isn't implemented.

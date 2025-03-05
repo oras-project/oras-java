@@ -109,6 +109,21 @@ public final class Const {
     public static final String ARTIFACT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.artifact.manifest.v1+json";
 
     /**
+     * Docker distribution manifest type
+     */
+    public static final String DOCKER_MANIFEST_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v2+json";
+
+    /**
+     * Docker index media type (manifest list or fat manifest)
+     */
+    public static final String DOCKER_INDEX_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.list.v2+json";
+
+    /**
+     * Docker legacy media type
+     */
+    public static final String DOCKER_LEGACY_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v1+prettyjws";
+
+    /**
      * The default manifest media type
      */
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
@@ -116,8 +131,13 @@ public final class Const {
     /**
      * The default accept type for the manifest
      */
-    public static final String MANIFEST_ACCEPT_TYPE =
-            "%s, %s, %s".formatted(DEFAULT_INDEX_MEDIA_TYPE, DEFAULT_MANIFEST_MEDIA_TYPE, ARTIFACT_MANIFEST_MEDIA_TYPE);
+    public static final String MANIFEST_ACCEPT_TYPE = "%s, %s, %s, %s, %s"
+            .formatted(
+                    DEFAULT_INDEX_MEDIA_TYPE,
+                    DEFAULT_MANIFEST_MEDIA_TYPE,
+                    ARTIFACT_MANIFEST_MEDIA_TYPE,
+                    DOCKER_INDEX_MEDIA_TYPE,
+                    DOCKER_MANIFEST_MEDIA_TYPE);
 
     /**
      * Annotation for the title

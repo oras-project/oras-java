@@ -302,7 +302,8 @@ public final class Registry {
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
 
         // Only collect layer that are files
-        List<Layer> layers = collectLayers(containerRef, false);
+        String contentType = getContentType(containerRef);
+        List<Layer> layers = collectLayers(containerRef, contentType, false);
         if (layers.isEmpty()) {
             LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
             return;
@@ -387,8 +388,14 @@ public final class Registry {
         return manifest;
     }
 
-    private void writeManifest(Manifest manifest, ManifestDescriptor descriptor, Path folder) throws IOException {
+    private void writeIndex(Index index, Path folder) throws IOException {
+        Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
+        Files.writeString(indexFile, index.getJson() != null ? index.getJson() : index.toJson());
+    }
+
+    private void writeManifest(Manifest manifest, Path folder) throws IOException {
         Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
+        ManifestDescriptor descriptor = manifest.getDescriptor();
         String manifestDigest = descriptor.getDigest();
         SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
         Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
@@ -456,44 +463,54 @@ public final class Registry {
             // Write oci layout
             Files.writeString(folder.resolve(Const.OCI_LAYOUT_FOLDER), ociLayout.toJson());
 
-            String contentType = getContentType(containerRef);
+            Map<String, String> headers = getHeaders(containerRef);
+            String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+            if (contentType == null) {
+                throw new OrasException("Content type not found in headers");
+            }
+            String manifestDigest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+            if (manifestDigest == null) {
+                throw new OrasException("Manifest digest not found in headers");
+            }
+
+            LOG.debug("Content type: {}", contentType);
+            LOG.debug("Manifest digest: {}", manifestDigest);
 
             // Single manifest
-            if (contentType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)) {
+            if (isManifestMediaType(contentType)) {
 
                 // Write manifest as any blob
                 Manifest manifest = getManifest(containerRef);
-                ManifestDescriptor descriptor = manifest.getDescriptor();
-                Config sourceConfig = manifest.getConfig();
-                writeManifest(manifest, descriptor, folder);
+                writeManifest(manifest, folder);
 
-                // Write the index.json
-                Index index = Index.fromManifests(List.of(descriptor));
-                Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
-                Files.writeString(indexFile, index.toJson());
+                // Write the index.json containing this manifest
+                Index index = Index.fromManifests(List.of(manifest.getDescriptor()));
+                writeIndex(index, folder);
 
                 // Write config as any blob
-                writeConfig(containerRef, sourceConfig, folder);
+                writeConfig(containerRef, manifest.getConfig(), folder);
             }
             // Index
-            else {
+            else if (isIndexMediaType(contentType)) {
+
                 Index index = getIndex(containerRef);
 
                 // Write all manifests and their config
                 for (ManifestDescriptor descriptor : index.getManifests()) {
                     Manifest manifest = getManifest(containerRef.withDigest(descriptor.getDigest()));
-                    writeManifest(manifest, descriptor, folder);
-                    Config config = manifest.getConfig();
-                    writeConfig(containerRef, config, folder);
+                    writeManifest(manifest.withDescriptor(descriptor), folder);
+                    writeConfig(containerRef, manifest.getConfig(), folder);
                 }
 
-                // Write index as is
-                Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
-                Files.writeString(indexFile, index.getJson());
+                // Write the index
+                writeIndex(index, folder);
+
+            } else {
+                throw new OrasException("Unsupported content type: %s".formatted(contentType));
             }
 
             // Write all layer
-            for (Layer layer : collectLayers(containerRef, true)) {
+            for (Layer layer : collectLayers(containerRef, contentType, true)) {
                 try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
 
                     // Algorithm
@@ -818,7 +835,7 @@ public final class Registry {
         logResponse(response);
         handleError(response);
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        if (contentType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE)) {
+        if (!isManifestMediaType(contentType)) {
             throw new OrasException(
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
@@ -839,7 +856,7 @@ public final class Registry {
         logResponse(response);
         handleError(response);
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        if (!contentType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE)) {
+        if (!isIndexMediaType(contentType)) {
             throw new OrasException("Expected index but got %s".formatted(contentType));
         }
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
@@ -988,7 +1005,40 @@ public final class Registry {
         return fetchBlob(containerRef);
     }
 
+    /**
+     * Return if a media type is an index media type
+     * @param mediaType The media type
+     * @return True if it is a index media type
+     */
+    private boolean isIndexMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE) || mediaType.equals(Const.DOCKER_INDEX_MEDIA_TYPE);
+    }
+
+    /**
+     * Return if a media type is a manifest media type
+     * @param mediaType The media type
+     * @return True if it is a manifest media type
+     */
+    private boolean isManifestMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE);
+    }
+
+    /**
+     * Get the content type of the container
+     * @param containerRef The container
+     * @return The content type
+     */
     private String getContentType(ContainerRef containerRef) {
+        return getHeaders(containerRef).get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+    }
+
+    /**
+     * Execute a head request on the manifest URL and return the headers
+     * @param containerRef The container
+     * @return The headers
+     */
+    private Map<String, String> getHeaders(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
@@ -1000,7 +1050,7 @@ public final class Registry {
             logResponse(response);
         }
         handleError(response);
-        return response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        return response.headers();
     }
 
     /**
@@ -1009,10 +1059,9 @@ public final class Registry {
      * @param includeAll Include all layers or only the ones with title annotation
      * @return The layers
      */
-    private List<Layer> collectLayers(ContainerRef containerRef, boolean includeAll) {
+    private List<Layer> collectLayers(ContainerRef containerRef, String contentType, boolean includeAll) {
         List<Layer> layers = new LinkedList<>();
-        String contentType = getContentType(containerRef);
-        if (contentType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)) {
+        if (isManifestMediaType(contentType)) {
             return getManifest(containerRef).getLayers();
         }
         Index index = getIndex(containerRef);
