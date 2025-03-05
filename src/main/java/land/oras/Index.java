@@ -35,6 +35,11 @@ public class Index {
     private final List<ManifestDescriptor> manifests;
 
     /**
+     * Original json
+     */
+    private transient String json;
+
+    /**
      * The manifest descriptor
      */
     private final transient ManifestDescriptor descriptor;
@@ -44,12 +49,14 @@ public class Index {
             String mediaType,
             String artifactType,
             List<ManifestDescriptor> manifests,
-            ManifestDescriptor descriptor) {
+            ManifestDescriptor descriptor,
+            String json) {
         this.schemaVersion = schemaVersion;
         this.mediaType = mediaType;
         this.descriptor = descriptor;
         this.artifactType = artifactType;
         this.manifests = manifests;
+        this.json = json;
     }
 
     /**
@@ -98,7 +105,17 @@ public class Index {
      * @return The manifest
      */
     public Index withDescriptor(ManifestDescriptor descriptor) {
-        return new Index(schemaVersion, mediaType, artifactType, manifests, descriptor);
+        return new Index(schemaVersion, mediaType, artifactType, manifests, descriptor, json);
+    }
+
+    /**
+     * Return same instance but with original JSON
+     * @param json The original JSON
+     * @return The index
+     */
+    private Index withJson(String json) {
+        this.json = json;
+        return this;
     }
 
     /**
@@ -110,12 +127,20 @@ public class Index {
     }
 
     /**
+     * Return the original JSON
+     * @return The original JSON
+     */
+    public String getJson() {
+        return json;
+    }
+
+    /**
      * Create a manifest from a JSON string
      * @param json The JSON string
      * @return The index
      */
     public static Index fromJson(String json) {
-        return JsonUtils.fromJson(json, Index.class);
+        return JsonUtils.fromJson(json, Index.class).withJson(json);
     }
 
     /**
@@ -124,6 +149,6 @@ public class Index {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null);
+        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null);
     }
 }
