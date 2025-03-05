@@ -49,6 +49,10 @@ public class ContainerRefTest {
                 OrasException.class,
                 () -> ContainerRef.parse("docker.io/library/foo/alpine:latest@test:1234567890abcdef"),
                 "Unsupported algorithm: test");
+        assertThrows(
+                OrasException.class,
+                () -> ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:sha256:1234567890abcdef"),
+                "Unsupported algorithm: test");
     }
 
     @Test
