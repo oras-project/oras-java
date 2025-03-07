@@ -75,11 +75,12 @@ public final class BearerTokenProvider implements AuthProvider {
     /**
      * Retrieve
      * @param response The response
+     * @param client The original client
      * @param containerRef The container reference
      * @return The token
      */
     public BearerTokenProvider refreshToken(
-            ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
+            ContainerRef containerRef, OrasHttpClient client, OrasHttpClient.ResponseWrapper<String> response) {
 
         String wwwAuthHeader = response.headers().getOrDefault(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "");
         LOG.debug("WWW-Authenticate header: {}", wwwAuthHeader);
@@ -103,14 +104,12 @@ public final class BearerTokenProvider implements AuthProvider {
         URI uri = URI.create(realm + "?scope=" + scope + "&service=" + service);
 
         // Perform the request to get the token
-        OrasHttpClient httpClient =
-                OrasHttpClient.Builder.builder().withAuthentication(provider).build();
         Map<String, String> headers = new HashMap<>();
         String authHeader = provider.getAuthHeader(containerRef);
         if (authHeader != null) {
             headers.put(Const.AUTHORIZATION_HEADER, authHeader);
         }
-        OrasHttpClient.ResponseWrapper<String> responseWrapper = httpClient.get(uri, headers);
+        OrasHttpClient.ResponseWrapper<String> responseWrapper = client.get(uri, headers);
 
         // Log the response
         LOG.debug(
@@ -143,9 +142,9 @@ public final class BearerTokenProvider implements AuthProvider {
     }
 
     @Override
-    public String getAuthHeader(ContainerRef registry) {
+    public @Nullable String getAuthHeader(ContainerRef registry) {
         if (token == null) {
-            throw new OrasException("No token available");
+            return null;
         }
         return "Bearer " + token.token;
     }

@@ -33,7 +33,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
 import java.util.List;
+import land.oras.auth.BearerTokenProvider;
 import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.credentials.FileStore;
@@ -300,5 +302,83 @@ public class RegistryWireMockTest {
             assertNotNull(layer);
             assertNotNull(layer.getDigest());
         }
+    }
+
+    @Test
+    void shouldGetToken(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/sha256:one"))
+                .inScenario("get token")
+                .willReturn(WireMock.unauthorized()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/get-token:pull\""
+                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+
+        // Return token
+        wireMock.register(
+                WireMock.any(WireMock.urlEqualTo("/token?scope=repository:library/get-token:pull&service=localhost"))
+                        .inScenario("get token")
+                        .willSetStateTo("get")
+                        .willReturn(WireMock.okJson(JsonUtils.toJson(new BearerTokenProvider.TokenResponse(
+                                "fake-token", "access-token", 300, ZonedDateTime.now())))));
+
+        // On the second call we return ok
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/sha256:one"))
+                .inScenario("get token")
+                .whenScenarioStateIs("get")
+                .willReturn(WireMock.ok().withBody("blob-data")));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/get-token".formatted(wmRuntimeInfo.getHttpPort()));
+        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldRefreshExpiredToken(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/sha256:one"))
+                .inScenario("get token")
+                .willReturn(WireMock.forbidden()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/refresh-token:pull\""
+                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+
+        // Return token
+        wireMock.register(WireMock.any(
+                        WireMock.urlEqualTo("/token?scope=repository:library/refresh-token:pull&service=localhost"))
+                .inScenario("get token")
+                .willSetStateTo("get")
+                .willReturn(WireMock.okJson(JsonUtils.toJson(new BearerTokenProvider.TokenResponse(
+                        "fake-token", "access-token", 300, ZonedDateTime.now())))));
+
+        // On the second call we return ok
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/sha256:one"))
+                .inScenario("get token")
+                .whenScenarioStateIs("get")
+                .willReturn(WireMock.ok().withBody("blob-data")));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(new BearerTokenProvider(authProvider)) // Already bearer token
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/refresh-token".formatted(wmRuntimeInfo.getHttpPort()));
+        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        assertEquals("blob-data", new String(blob));
     }
 }

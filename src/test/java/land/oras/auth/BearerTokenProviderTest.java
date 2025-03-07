@@ -21,6 +21,7 @@
 package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doReturn;
 
@@ -54,7 +55,7 @@ public class BearerTokenProviderTest {
 
     @Test
     @SuppressWarnings({"unchecked", "rawtypes"})
-    void shouldTestToken(WireMockRuntimeInfo wmRuntimeInfo) {
+    void shouldRefreshToken(WireMockRuntimeInfo wmRuntimeInfo) {
 
         // Mock responses
         OrasHttpClient.ResponseWrapper mockResponse = Mockito.mock(OrasHttpClient.ResponseWrapper.class);
@@ -75,7 +76,43 @@ public class BearerTokenProviderTest {
 
         // Test
         BearerTokenProvider provider = new BearerTokenProvider(new UsernamePasswordProvider("user", "password"));
-        provider.refreshToken(containerRef, mockResponse);
+        provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
+        BearerTokenProvider.TokenResponse token = provider.getToken();
+
+        // Assert tokens
+        assertEquals("fake-token", token.token());
+        assertEquals("access-token", token.access_token());
+        assertEquals(300, token.expire_in());
+        assertEquals(tokenResponse.issued_at(), token.issued_at());
+
+        // Check the token header is set
+        assertEquals("Bearer fake-token", provider.getAuthHeader(containerRef));
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void shouldTestTokenWithNoAuth(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Mock responses
+        OrasHttpClient.ResponseWrapper mockResponse = Mockito.mock(OrasHttpClient.ResponseWrapper.class);
+        BearerTokenProvider.TokenResponse tokenResponse =
+                new BearerTokenProvider.TokenResponse("fake-token", "access-token", 300, ZonedDateTime.now());
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(
+                        "/token?scope=repository:library/test:pull&service=%s".formatted(registry.getRegistry())))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(tokenResponse))));
+
+        // Return WWW-Authenticate header from registry
+        Mockito.when(mockResponse.headers())
+                .thenReturn(Map.of(
+                        Const.WWW_AUTHENTICATE_HEADER.toLowerCase(),
+                        String.format(
+                                "Bearer realm=\"%s/token\",service=\"%s\",scope=\"repository:library/test:pull\"",
+                                wmRuntimeInfo.getHttpBaseUrl(), registry.getRegistry())));
+
+        // Test
+        BearerTokenProvider provider = new BearerTokenProvider(new NoAuthProvider());
+        provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
         BearerTokenProvider.TokenResponse token = provider.getToken();
 
         // Assert tokens
@@ -91,9 +128,7 @@ public class BearerTokenProviderTest {
     @Test
     void testNoRefreshedToken() {
         BearerTokenProvider provider = new BearerTokenProvider(new UsernamePasswordProvider("user", "password"));
-        assertThrows(OrasException.class, () -> {
-            provider.getAuthHeader(containerRef);
-        });
+        assertNull(provider.getAuthHeader(containerRef), "No token should be returned");
     }
 
     @Test
@@ -103,13 +138,13 @@ public class BearerTokenProviderTest {
         BearerTokenProvider provider = new BearerTokenProvider(new UsernamePasswordProvider("user", "password"));
         ContainerRef containerRef = ContainerRef.parse("localhost:5000/library/test:latest");
         assertThrows(OrasException.class, () -> {
-            provider.refreshToken(containerRef, mockResponse);
+            provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
         });
         doReturn(Map.of(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "invalid"))
                 .when(mockResponse)
                 .headers();
         assertThrows(OrasException.class, () -> {
-            provider.refreshToken(containerRef, mockResponse);
+            provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
         });
     }
 
@@ -126,7 +161,7 @@ public class BearerTokenProviderTest {
 
         BearerTokenProvider provider = new BearerTokenProvider(new UsernamePasswordProvider("user", "password"));
         assertThrows(OrasException.class, () -> {
-            provider.refreshToken(containerRef, mockResponse);
+            provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
         });
 
         // Without error
@@ -137,7 +172,7 @@ public class BearerTokenProviderTest {
                 .when(mockResponse)
                 .headers();
         // No exception should be thrown
-        provider.refreshToken(containerRef, mockResponse);
+        provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
 
         // With error
         doReturn(Map.of(
@@ -147,6 +182,6 @@ public class BearerTokenProviderTest {
                 .when(mockResponse)
                 .headers();
         // No exception should be thrown
-        provider.refreshToken(containerRef, mockResponse);
+        provider.refreshToken(containerRef, OrasHttpClient.Builder.builder().build(), mockResponse);
     }
 }
