@@ -901,14 +901,14 @@ public final class Registry {
     private boolean switchTokenAuth(ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
         if (response.statusCode() == 401 && !(authProvider instanceof BearerTokenProvider)) {
             LOG.debug("Requesting token with token flow");
-            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(containerRef, response));
+            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(containerRef, client, response));
             return true;
         }
         // Need token refresh (expired or wrong scope)
         if ((response.statusCode() == 401 || response.statusCode() == 403)
                 && authProvider instanceof BearerTokenProvider) {
             LOG.debug("Requesting new token with username password flow");
-            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, response));
+            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, client, response));
             return true;
         }
         return false;
