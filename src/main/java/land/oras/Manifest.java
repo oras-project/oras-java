@@ -33,15 +33,13 @@ import org.jspecify.annotations.Nullable;
  * Class for manifest
  */
 @NullUnmarked
-public final class Manifest {
+public final class Manifest extends Descriptor {
 
     private final int schemaVersion;
-    private final String mediaType;
     private final String artifactType;
     private final Config config;
     private final Subject subject;
     private final List<Layer> layers;
-    private final Map<String, String> annotations;
 
     /**
      * The manifest descriptor
@@ -63,14 +61,13 @@ public final class Manifest {
             List<Layer> layers,
             Annotations annotations,
             String json) {
+        super(mediaType, Map.copyOf(annotations.manifestAnnotations()));
         this.schemaVersion = schemaVersion;
-        this.mediaType = mediaType;
         this.artifactType = artifactType != null ? artifactType.getMediaType() : null;
         this.descriptor = descriptor;
         this.config = config;
         this.subject = subject;
         this.layers = layers;
-        this.annotations = Map.copyOf(annotations.manifestAnnotations());
         this.json = json;
     }
 
@@ -80,14 +77,6 @@ public final class Manifest {
      */
     public int getSchemaVersion() {
         return schemaVersion;
-    }
-
-    /**
-     * Get the media type
-     * @return The media type
-     */
-    public String getMediaType() {
-        return mediaType;
     }
 
     /**
@@ -135,17 +124,6 @@ public final class Manifest {
      */
     public List<Layer> getLayers() {
         return layers != null ? Collections.unmodifiableList(layers) : List.of();
-    }
-
-    /**
-     * Get the annotations
-     * @return The annotations
-     */
-    public Map<String, String> getAnnotations() {
-        if (annotations == null) {
-            return Map.of();
-        }
-        return annotations;
     }
 
     /**
@@ -264,14 +242,6 @@ public final class Manifest {
     private Manifest withJson(String json) {
         this.json = json;
         return this;
-    }
-
-    /**
-     * Return the JSON representation of the manifest
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
     }
 
     /**

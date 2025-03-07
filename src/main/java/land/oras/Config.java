@@ -32,17 +32,10 @@ import org.jspecify.annotations.Nullable;
  * Class for config
  */
 @NullUnmarked
-public final class Config {
+public final class Config extends Descriptor {
 
-    private final String mediaType;
     private final String digest;
     private final long size;
-
-    /**
-     * Annotations for the layer
-     * Can be nullable due to serialization
-     */
-    private final @Nullable Map<String, String> annotations;
 
     /**
      * The base 64 encoded data
@@ -56,24 +49,21 @@ public final class Config {
      * @param size The size
      */
     private Config(String mediaType, String digest, long size, @Nullable String data, Annotations annotations) {
-        this.mediaType = mediaType;
+        super(
+                mediaType,
+                !annotations.configAnnotations().isEmpty() ? Map.copyOf(annotations.configAnnotations()) : null);
         this.digest = digest;
         this.size = size;
         this.data = data;
-        // Config annotation are generally empty since not default annotations are added by ORAS
-        if (!annotations.configAnnotations().isEmpty()) {
-            this.annotations = Map.copyOf(annotations.configAnnotations());
-        } else {
-            this.annotations = null;
-        }
     }
 
     /**
-     * Get the media type
-     * @return The media type
+     * Get the annotations
+     * @return The annotations
      */
-    public String getMediaType() {
-        return mediaType;
+    @Override
+    public @Nullable Map<String, String> getAnnotations() {
+        return annotations;
     }
 
     /**
@@ -132,22 +122,6 @@ public final class Config {
      */
     public @Nullable String getData() {
         return data;
-    }
-
-    /**
-     * Get the annotations
-     * @return The annotations
-     */
-    public @Nullable Map<String, String> getAnnotations() {
-        return annotations;
-    }
-
-    /**
-     * Return the JSON representation of the config
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
     }
 
     /**

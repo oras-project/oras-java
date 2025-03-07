@@ -85,11 +85,21 @@ public final class OCILayout extends OCI {
     }
 
     /**
-     * Copy the container ref from registry into oci-layout
+     * Copy the direct container ref from registry into oci-layout
      * @param registry The registry
      * @param containerRef The container
      */
     public void copy(Registry registry, ContainerRef containerRef) {
+        copy(registry, containerRef, false);
+    }
+
+    /**
+     * Copy the container ref from registry into oci-layout
+     * @param registry The registry
+     * @param containerRef The container
+     * @param recursive True if references should be copied
+     */
+    public void copy(Registry registry, ContainerRef containerRef, boolean recursive) {
 
         try {
 
@@ -97,7 +107,9 @@ public final class OCILayout extends OCI {
             Files.createDirectories(getBlobPath());
 
             // Write oci layout JSON
-            Files.writeString(getOciLayoutPath(), toJson());
+            if (!Files.exists(getOciLayoutPath())) {
+                Files.writeString(getOciLayoutPath(), toJson());
+            }
 
             Map<String, String> headers = registry.getHeaders(containerRef);
             String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
@@ -118,6 +130,15 @@ public final class OCILayout extends OCI {
                 // Write manifest as any blob
                 Manifest manifest = registry.getManifest(containerRef);
                 writeManifest(manifest);
+
+                if (recursive) {
+                    LOG.debug("Recursively copy referrers");
+                    Referrers referrers = registry.getReferrers(containerRef.withDigest(manifestDigest), null);
+                    for (ManifestDescriptor referer : referrers.getManifests()) {
+                        LOG.info("Copy reference {}", referer.getDigest());
+                        copy(registry, containerRef.withDigest(referer.getDigest()), recursive);
+                    }
+                }
 
                 // Write the index.json containing this manifest
                 Index index = Index.fromManifests(List.of(manifest.getDescriptor()));

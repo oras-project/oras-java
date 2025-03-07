@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -37,12 +36,7 @@ import org.jspecify.annotations.Nullable;
  * Class for layer
  */
 @NullMarked
-public final class Layer {
-
-    /**
-     * The media type of the layer
-     */
-    private final String mediaType;
+public final class Layer extends Descriptor {
 
     /**
      * The digest of the layer
@@ -65,11 +59,6 @@ public final class Layer {
     private final transient @Nullable Path blobPath;
 
     /**
-     * Annotations for the layer
-     */
-    private final @Nullable Map<String, String> annotations;
-
-    /**
      * Constructor that can directly set the data
      * Not adapted for large blob due to memory usage but convenient for small data
      * @param mediaType The media type
@@ -82,12 +71,11 @@ public final class Layer {
             long size,
             @Nullable String data,
             @Nullable Map<String, String> annotations) {
-        this.mediaType = mediaType;
+        super(mediaType, annotations);
         this.digest = digest;
         this.size = size;
         this.data = data;
         this.blobPath = null;
-        this.annotations = annotations;
     }
 
     /**
@@ -98,20 +86,11 @@ public final class Layer {
      * @param blobPath The path to the blob
      */
     private Layer(String mediaType, String digest, long size, Path blobPath, Map<String, String> annotations) {
-        this.mediaType = mediaType;
+        super(mediaType, annotations);
         this.digest = digest;
         this.size = size;
         this.data = null;
         this.blobPath = blobPath;
-        this.annotations = annotations;
-    }
-
-    /**
-     * Get the media type
-     * @return The media type
-     */
-    public String getMediaType() {
-        return mediaType;
     }
 
     /**
@@ -147,17 +126,6 @@ public final class Layer {
     }
 
     /**
-     * Get the annotations
-     * @return The annotations
-     */
-    public Map<String, String> getAnnotations() {
-        if (annotations == null) {
-            return Map.of();
-        }
-        return Collections.unmodifiableMap(annotations);
-    }
-
-    /**
      * Create a new layer with annotations
      * @param annotations The annotations
      * @return The new layer
@@ -190,14 +158,6 @@ public final class Layer {
             }
         }
         throw new OrasException("No data or blob path set");
-    }
-
-    /**
-     * Return the JSON representation of the manifest
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
     }
 
     /**

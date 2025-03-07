@@ -28,7 +28,6 @@ import land.oras.utils.JsonUtils;
  */
 public class Referrers {
 
-    private int schemaVersion;
     private String mediaType;
     private List<ManifestDescriptor> manifests;
 
@@ -43,14 +42,6 @@ public class Referrers {
      */
     public String getMediaType() {
         return mediaType;
-    }
-
-    /**
-     * Get the schema version
-     * @return The schema version
-     */
-    public int getSchemaVersion() {
-        return schemaVersion;
     }
 
     /**
