@@ -61,9 +61,6 @@ public class RegistryWireMockTest {
     @TempDir
     private Path configDir;
 
-    @TempDir
-    private Path ociLayout;
-
     @Test
     void shouldRedirectWhenDownloadingBlob(WireMockRuntimeInfo wmRuntimeInfo) {
 
@@ -227,40 +224,6 @@ public class RegistryWireMockTest {
 
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(408, exception.getStatusCode());
-    }
-
-    // Timeout with similar structure as previous test and request 408 with different artifact name
-    @Test
-    void copyToOciLayoutMissingInvalidContentType(WireMockRuntimeInfo wmRuntimeInfo) {
-
-        WireMock wireMock = wmRuntimeInfo.getWireMock();
-        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
-
-        // Using here a unique container reference to avoid conflicts when running in parallel
-        ContainerRef ref = ContainerRef.parse("%s/library/invalid-copy-artifact".formatted(registryUrl));
-
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
-                .willReturn(WireMock.noContent()));
-
-        // No content type
-        Registry registry = Registry.Builder.builder().withInsecure(true).build();
-        OrasException exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
-        assertEquals("Content type not found in headers", exception.getMessage());
-
-        // No manifest digest
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
-                .willReturn(
-                        WireMock.noContent().withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
-        exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
-        assertEquals("Manifest digest not found in headers", exception.getMessage());
-
-        // Invalid content type
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
-                .willReturn(WireMock.noContent()
-                        .withHeader(Const.CONTENT_TYPE_HEADER, "application/json")
-                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, "sha256:1234")));
-        exception = assertThrows(OrasException.class, () -> registry.copy(ref, ociLayout));
-        assertEquals("Unsupported content type: application/json", exception.getMessage());
     }
 
     // Note: Currently this test is @Disabled because the retry functionality isn't implemented.
