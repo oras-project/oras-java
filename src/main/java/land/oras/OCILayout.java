@@ -43,7 +43,7 @@ public final class OCILayout extends OCI {
      */
     private static final Logger LOG = LoggerFactory.getLogger(OCILayout.class);
 
-    private String imageLayoutVersion;
+    private final String imageLayoutVersion = "1.0.0";
 
     /**
      * Path on the file system of the OCI Layout
@@ -57,14 +57,6 @@ public final class OCILayout extends OCI {
 
     private void setPath(Path path) {
         this.path = path;
-    }
-
-    /**
-     * Get the image layout version
-     * @return The image layout version
-     */
-    public String getImageLayoutVersion() {
-        return imageLayoutVersion;
     }
 
     /**
@@ -85,25 +77,27 @@ public final class OCILayout extends OCI {
     }
 
     /**
+     * Return the image layout version
+     * @return The image layout version
+     */
+    public String getImageLayoutVersion() {
+        return imageLayoutVersion;
+    }
+
+    /**
      * Copy the container ref from registry into oci-layout
      * @param registry The registry
      * @param containerRef The container
-     * @param folder The folder
      */
-    public void copy(Registry registry, ContainerRef containerRef, Path folder) {
-        if (!Files.isDirectory(folder)) {
-            throw new OrasException("Folder does not exist: %s".formatted(folder));
-        }
+    public void copy(Registry registry, ContainerRef containerRef) {
 
         try {
 
             // Create blobs directory if needed
-            Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
-            Files.createDirectories(blobs);
-            OCILayout ociLayout = OCILayout.fromJson("{\"imageLayoutVersion\":\"1.0.0\"}");
+            Files.createDirectories(getBlobPath());
 
-            // Write oci layout
-            Files.writeString(folder.resolve(Const.OCI_LAYOUT_FOLDER), ociLayout.toJson());
+            // Write oci layout JSON
+            Files.writeString(getOciLayoutPath(), toJson());
 
             Map<String, String> headers = registry.getHeaders(containerRef);
             String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
@@ -123,14 +117,14 @@ public final class OCILayout extends OCI {
 
                 // Write manifest as any blob
                 Manifest manifest = registry.getManifest(containerRef);
-                writeManifest(manifest, folder);
+                writeManifest(manifest);
 
                 // Write the index.json containing this manifest
                 Index index = Index.fromManifests(List.of(manifest.getDescriptor()));
-                writeIndex(index, folder);
+                writeIndex(index);
 
                 // Write config as any blob
-                writeConfig(registry, containerRef, manifest.getConfig(), folder);
+                writeConfig(registry, containerRef, manifest.getConfig());
             }
             // Index
             else if (registry.isIndexMediaType(contentType)) {
@@ -140,12 +134,12 @@ public final class OCILayout extends OCI {
                 // Write all manifests and their config
                 for (ManifestDescriptor descriptor : index.getManifests()) {
                     Manifest manifest = registry.getManifest(containerRef.withDigest(descriptor.getDigest()));
-                    writeManifest(manifest.withDescriptor(descriptor), folder);
-                    writeConfig(registry, containerRef, manifest.getConfig(), folder);
+                    writeManifest(manifest.withDescriptor(descriptor));
+                    writeConfig(registry, containerRef, manifest.getConfig());
                 }
 
                 // Write the index
-                writeIndex(index, folder);
+                writeIndex(index);
 
             } else {
                 throw new OrasException("Unsupported content type: %s".formatted(contentType));
@@ -155,14 +149,13 @@ public final class OCILayout extends OCI {
             for (Layer layer : registry.collectLayers(containerRef, contentType, true)) {
                 try (InputStream is = registry.fetchBlob(containerRef.withDigest(layer.getDigest()))) {
 
-                    // Algorithm
-                    SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(layer.getDigest());
-
-                    Path prefixDirectory = blobs.resolve(algorithm.getPrefix());
+                    Path prefixDirectory = getBlobAlgorithmPath(layer.getDigest());
                     if (!Files.exists(prefixDirectory)) {
                         Files.createDirectory(prefixDirectory);
                     }
-                    Path blobFile = prefixDirectory.resolve(SupportedAlgorithm.getDigest(layer.getDigest()));
+
+                    Path blobFile = getBlobPath(layer);
+
                     // Skip if already exists
                     if (Files.exists(blobFile)) {
                         LOG.debug("Blob already exists: {}", blobFile);
@@ -177,27 +170,60 @@ public final class OCILayout extends OCI {
         }
     }
 
-    private void writeIndex(Index index, Path folder) throws IOException {
-        Path indexFile = folder.resolve(Const.OCI_LAYOUT_INDEX);
+    private Path getOciLayoutPath() {
+        return path.resolve(Const.OCI_LAYOUT_FILE);
+    }
+
+    private Path getBlobPath() {
+        return path.resolve(Const.OCI_LAYOUT_BLOBS);
+    }
+
+    private Path getBlobPath(ManifestDescriptor manifestDescriptor) {
+        String digest = manifestDescriptor.getDigest();
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
+        return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(digest));
+    }
+
+    private Path getBlobPath(Config config) {
+        String digest = config.getDigest();
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
+        return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(digest));
+    }
+
+    private Path getBlobPath(Layer layer) {
+        String digest = layer.getDigest();
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
+        return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(digest));
+    }
+
+    private Path getIndexPath() {
+        return path.resolve(Const.OCI_LAYOUT_INDEX);
+    }
+
+    private Path getIndexBlobPath(Index index) {
+        String digest = index.getDescriptor().getDigest();
+        return getBlobAlgorithmPath(digest).resolve(SupportedAlgorithm.getDigest(digest));
+    }
+
+    private Path getBlobAlgorithmPath(String digest) {
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
+        return getBlobPath().resolve(algorithm.getPrefix());
+    }
+
+    private void writeIndex(Index index) throws IOException {
+        Path indexFile = getIndexPath();
         Files.writeString(indexFile, index.getJson() != null ? index.getJson() : index.toJson());
         if (index.getJson() != null) {
-            Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
-            String indexDigest = index.getDescriptor().getDigest();
-            SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(indexDigest);
-            Files.writeString(
-                    blobs.resolve(manifestAlgorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(indexDigest)),
-                    index.getJson());
+            Files.writeString(getIndexBlobPath(index), index.getJson());
         }
     }
 
-    private void writeManifest(Manifest manifest, Path folder) throws IOException {
-        Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
+    private void writeManifest(Manifest manifest) throws IOException {
         ManifestDescriptor descriptor = manifest.getDescriptor();
-        String manifestDigest = descriptor.getDigest();
-        SupportedAlgorithm manifestAlgorithm = SupportedAlgorithm.fromDigest(manifestDigest);
-        Path manifestFile = blobs.resolve(manifestAlgorithm.getPrefix())
-                .resolve(SupportedAlgorithm.getDigest(descriptor.getDigest()));
-        Path manifestPrefixDirectory = blobs.resolve(manifestAlgorithm.getPrefix());
+        Path manifestFile = getBlobPath(descriptor);
+        Path manifestPrefixDirectory =
+                getBlobAlgorithmPath(manifest.getDescriptor().getDigest());
+
         if (!Files.exists(manifestPrefixDirectory)) {
             Files.createDirectory(manifestPrefixDirectory);
         }
@@ -215,14 +241,11 @@ public final class OCILayout extends OCI {
         }
     }
 
-    private void writeConfig(Registry registry, ContainerRef containerRef, Config config, Path folder)
-            throws IOException {
-        Path blobs = folder.resolve(Const.OCI_LAYOUT_BLOBS);
+    private void writeConfig(Registry registry, ContainerRef containerRef, Config config) throws IOException {
         String configDigest = config.getDigest();
-        SupportedAlgorithm configAlgorithm = SupportedAlgorithm.fromDigest(configDigest);
-        Path configFile =
-                blobs.resolve(configAlgorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(config.getDigest()));
-        Path configPrefixDirectory = blobs.resolve(configAlgorithm.getPrefix());
+        Path configFile = getBlobPath(config);
+
+        Path configPrefixDirectory = getBlobAlgorithmPath(configDigest);
         if (!Files.exists(configPrefixDirectory)) {
             Files.createDirectory(configPrefixDirectory);
         }
@@ -278,7 +301,9 @@ public final class OCILayout extends OCI {
          * @return The registry
          */
         public OCILayout build() {
-
+            if (!Files.isDirectory(layout.path)) {
+                throw new OrasException("Folder does not exist: %s".formatted(layout.path));
+            }
             return layout;
         }
     }

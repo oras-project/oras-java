@@ -56,7 +56,7 @@ public final class Const {
     /**
      * Layout folder in OCI layout
      */
-    public static final String OCI_LAYOUT_FOLDER = "oci-layout";
+    public static final String OCI_LAYOUT_FILE = "oci-layout";
 
     /**
      * Blobs folder in OCI layout
