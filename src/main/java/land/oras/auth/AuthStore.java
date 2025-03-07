@@ -18,7 +18,7 @@
  * =LICENSEEND=
  */
 
-package land.oras.credentials;
+package land.oras.auth;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,14 +36,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * FileStore implements a credentials store using a configuration file
+ * Implements a credentials store using a configuration file
  * to keep the credentials in plain-text.
  * Reference: <a href="https://docs.docker.com/engine/reference/commandline/cli/#docker-cli-configuration-file-configjson-properties">Docker config</a>
  */
 @NullMarked
-public class FileStore {
+public class AuthStore {
 
-    private static final Logger LOG = LoggerFactory.getLogger(FileStore.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AuthStore.class);
 
     /**
      * The internal config
@@ -61,7 +61,7 @@ public class FileStore {
      *
      * @param config configuration instance.
      */
-    FileStore(Config config) {
+    AuthStore(Config config) {
         this.config = Objects.requireNonNull(config, "Config cannot be null");
     }
 
@@ -71,7 +71,7 @@ public class FileStore {
      * @param configPaths Path to the configuration files.
      * @return FileStore instance.
      */
-    public static FileStore newFileStore(List<Path> configPaths) {
+    public static AuthStore newStore(List<Path> configPaths) {
         List<ConfigFile> files = new ArrayList<>();
         for (Path configPath : configPaths) {
             if (Files.exists(configPath)) {
@@ -80,19 +80,19 @@ public class FileStore {
                 files.add(configFile);
             }
         }
-        return new FileStore(Config.load(files));
+        return new AuthStore(Config.load(files));
     }
 
     /**
      * Creates a new FileStore from default location
      * @return FileStore instance.
      */
-    public static FileStore newFileStore() {
+    public static AuthStore newStore() {
         List<Path> paths = List.of(
                 Path.of(System.getProperty("user.home"), ".docker", "config.json"), // Docker
                 Path.of(System.getenv("XDG_RUNTIME_DIR"), "containers", "auth.json") // Podman
                 );
-        return newFileStore(paths);
+        return newStore(paths);
     }
 
     /**
@@ -103,40 +103,6 @@ public class FileStore {
      */
     public @Nullable Credential get(ContainerRef containerRef) throws OrasException {
         return config.getCredential(containerRef);
-    }
-
-    /**
-     * Saves credentials for the given ContainerRef.
-     *
-     * @param containerRef ContainerRef.
-     * @param credential Credential object.
-     * @throws Exception if saving fails.
-     */
-    public void put(ContainerRef containerRef, Credential credential) throws Exception {
-        validateCredentialFormat(credential);
-        config.putCredential(containerRef, credential);
-    }
-
-    /**
-     * Deletes credentials for the given container.
-     *
-     * @param containerRef .
-     * @throws OrasException if deletion fails.
-     */
-    public void delete(ContainerRef containerRef) throws OrasException {
-        config.deleteCredential(containerRef);
-    }
-
-    /**
-     * Validates the format of the credential.
-     *
-     * @param credential Credential object.
-     * @throws Exception if the credential format is invalid.
-     */
-    private void validateCredentialFormat(Credential credential) throws Exception {
-        if (credential.username().contains(":")) {
-            throw new IllegalArgumentException(ERR_BAD_CREDENTIAL_FORMAT + ": colons(:) are not allowed in username");
-        }
     }
 
     /**
@@ -209,28 +175,6 @@ public class FileStore {
          */
         public @Nullable Credential getCredential(ContainerRef containerRef) throws OrasException {
             return credentialStore.getOrDefault(containerRef.getRegistry(), null);
-        }
-
-        /**
-         * Associates the specified {@code Credential} with the given containerRef.
-         * If a credential already exists for the containerRef, it will be replaced.
-         *
-         * @param containerRef The containerRef to associate with the credential.
-         * @param credential    The {@code Credential} to store. Must not be {@code null}.
-         * @throws NullPointerException If the provided credential is {@code null}.
-         */
-        public void putCredential(ContainerRef containerRef, Credential credential) {
-            credentialStore.put(containerRef.getRegistry(), credential);
-        }
-
-        /**
-         * Removes the {@code Credential} associated with the specified containerRef.
-         * If no credential is associated with the containerRef, this method does nothing.
-         *
-         * @param containerRef The containerRef whose credential is to be removed.
-         */
-        public void deleteCredential(ContainerRef containerRef) {
-            credentialStore.remove(containerRef.toString());
         }
     }
 

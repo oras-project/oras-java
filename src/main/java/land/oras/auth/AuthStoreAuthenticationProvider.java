@@ -21,40 +21,39 @@
 package land.oras.auth;
 
 import land.oras.ContainerRef;
-import land.oras.credentials.FileStore;
-import land.oras.credentials.FileStore.Credential;
+import land.oras.auth.AuthStore.Credential;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * FileStoreAuthenticationProvider is an implementation of the AuthProvider interface.
- * It retrieves credentials from a FileStore and generates a Basic Authentication header.
+ * AuthStoreAuthenticationProvider is an implementation of the {@link AuthProvider} interface.
+ * It retrieves credentials from a {@link AuthStore} and generates a Basic Authentication header.
  */
 @NullMarked
-public final class FileStoreAuthenticationProvider implements AuthProvider {
+public final class AuthStoreAuthenticationProvider implements AuthProvider {
 
-    private final FileStore fileStore;
+    private final AuthStore authStore;
 
     /**
      * Default constructor
      */
-    public FileStoreAuthenticationProvider() {
-        this(FileStore.newFileStore());
+    public AuthStoreAuthenticationProvider() {
+        this(AuthStore.newStore());
     }
 
     /**
-     * Constructor for FileStoreAuthenticationProvider.
+     * Constructor.
      *
-     * @param fileStore The FileStore instance to retrieve credentials from.
+     * @param authStore The FileStore instance to retrieve credentials from.
      */
-    public FileStoreAuthenticationProvider(FileStore fileStore) {
-        this.fileStore = fileStore;
+    public AuthStoreAuthenticationProvider(AuthStore authStore) {
+        this.authStore = authStore;
     }
 
     @Override
     @Nullable
     public String getAuthHeader(ContainerRef registry) {
-        Credential credential = fileStore.get(registry);
+        Credential credential = authStore.get(registry);
         if (credential == null) {
             return null;
         }

@@ -23,4 +23,10 @@ package land.oras;
 /**
  * Abstract class for OCI operation on remote registry or layout
  */
-public abstract sealed class OCI permits Registry, OCILayout {}
+public abstract sealed class OCI permits Registry, OCILayout {
+
+    /**
+     * Default constructor
+     */
+    public OCI() {}
+}

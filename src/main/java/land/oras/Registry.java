@@ -33,8 +33,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import land.oras.auth.AuthProvider;
+import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
-import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.NoAuthProvider;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
@@ -932,7 +932,7 @@ public final class Registry extends OCI {
          * @return The builder
          */
         public Builder defaults() {
-            registry.setAuthProvider(new FileStoreAuthenticationProvider());
+            registry.setAuthProvider(new AuthStoreAuthenticationProvider());
             return this;
         }
 
