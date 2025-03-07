@@ -58,14 +58,14 @@ public class OCILayoutWireMockTest {
         Registry registry = Registry.Builder.builder().withInsecure(true).build();
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
 
-        OrasException exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref, layoutPath));
+        OrasException exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref));
         assertEquals("Content type not found in headers", exception.getMessage());
 
         // No manifest digest
         wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/invalid-copy-artifact/manifests/latest"))
                 .willReturn(
                         WireMock.noContent().withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
-        exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref, layoutPath));
+        exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref));
         assertEquals("Manifest digest not found in headers", exception.getMessage());
 
         // Invalid content type
@@ -73,7 +73,7 @@ public class OCILayoutWireMockTest {
                 .willReturn(WireMock.noContent()
                         .withHeader(Const.CONTENT_TYPE_HEADER, "application/json")
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, "sha256:1234")));
-        exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref, layoutPath));
+        exception = assertThrows(OrasException.class, () -> ociLayout.copy(registry, ref));
         assertEquals("Unsupported content type: application/json", exception.getMessage());
     }
 }

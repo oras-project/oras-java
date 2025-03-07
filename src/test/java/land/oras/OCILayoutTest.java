@@ -80,12 +80,15 @@ public class OCILayoutTest {
         assertThrows(
                 OrasException.class,
                 () -> {
-                    ociLayout.copy(registry, containerRef, layoutPath.resolve("not-exists"));
+                    OCILayout.Builder.builder()
+                            .defaults(layoutPath.resolve("not exists"))
+                            .build()
+                            .copy(registry, containerRef);
                 },
                 "Directory not found");
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, layoutPath);
+        ociLayout.copy(registry, containerRef);
 
         assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
 
@@ -138,7 +141,7 @@ public class OCILayoutTest {
         Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, layoutPath);
+        ociLayout.copy(registry, containerRef);
 
         assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
 
@@ -181,7 +184,7 @@ public class OCILayoutTest {
                 .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
 
         // Copy to oci layout again
-        ociLayout.copy(registry, containerRef, layoutPath);
+        ociLayout.copy(registry, containerRef);
 
         // Check manifest exists
         assertTrue(Files.exists(layoutPath
@@ -199,7 +202,8 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutPathIndex).build();
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
@@ -220,9 +224,9 @@ public class OCILayoutTest {
         Index index = registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, layoutPathIndex);
+        ociLayout.copy(registry, containerRef);
 
-        assertTrue(Files.exists(layoutPathIndex.resolve("oci-layout")));
+        assertTrue(Files.exists(layoutPathIndex.resolve(Const.OCI_LAYOUT_FILE)), "Expect oci-layout file to exist");
 
         OCILayout layoutFile = JsonUtils.fromJson(layoutPathIndex.resolve("oci-layout"), OCILayout.class);
         assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
@@ -271,7 +275,7 @@ public class OCILayoutTest {
                 .resolve(SupportedAlgorithm.getDigest(index.getDescriptor().getDigest()))));
 
         // Copy to oci layout again
-        ociLayout.copy(registry, containerRef, layoutPathIndex);
+        ociLayout.copy(registry, containerRef);
 
         // Check manifest exists
         assertTrue(Files.exists(layoutPathIndex
@@ -302,7 +306,7 @@ public class OCILayoutTest {
                 containerRef, ArtifactType.from("my/artifact"), Annotations.empty(), config, LocalPath.of(file1));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, layoutPath);
+        ociLayout.copy(registry, containerRef);
 
         assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
 
