@@ -35,10 +35,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.List;
+import land.oras.auth.AuthStore;
+import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
-import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.UsernamePasswordProvider;
-import land.oras.credentials.FileStore;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -163,8 +163,8 @@ public class RegistryWireMockTest {
         Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
 
         ContainerRef containerRef = ContainerRef.forRegistry("localhost:%d".formatted(wmRuntimeInfo.getHttpPort()));
-        FileStoreAuthenticationProvider authProvider =
-                new FileStoreAuthenticationProvider(FileStore.newFileStore(List.of(configDir.resolve("config.json"))));
+        AuthStoreAuthenticationProvider authProvider =
+                new AuthStoreAuthenticationProvider(AuthStore.newStore(List.of(configDir.resolve("config.json"))));
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();

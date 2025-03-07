@@ -31,7 +31,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A OCI artifact
+ * A referer of a container on a {@link Registry}.
  */
 @NullMarked
 public final class ContainerRef {
