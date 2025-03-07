@@ -150,6 +150,11 @@ public final class Const {
     public static final String ANNOTATION_CREATED = "org.opencontainers.image.created";
 
     /**
+     * Annotation for the ref name
+     */
+    public static final String ANNOTATION_REF = "org.opencontainers.image.ref.name";
+
+    /**
      * Get the current timestamp for the created annotation
      * @return The current timestamp
      */

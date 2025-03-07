@@ -106,6 +106,15 @@ public enum SupportedAlgorithm {
     }
 
     /**
+     * Check if the algorithm is supported
+     * @param digest The digest
+     * @return True if supported
+     */
+    public static boolean isSupported(String digest) {
+        return DIGEST_REGEX.matcher(digest).matches();
+    }
+
+    /**
      * Get the algorithm from a digest
      * @param digest The digest
      * @return The algorithm

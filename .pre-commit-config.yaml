@@ -4,3 +4,4 @@ repos:
   hooks:
   - id: end-of-file-fixer
   - id: trailing-whitespace
+exclude: ^src/test/resources/oci/artifact/

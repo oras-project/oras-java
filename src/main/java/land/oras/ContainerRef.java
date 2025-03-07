@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * A referer of a container on a {@link Registry}.
  */
 @NullMarked
-public final class ContainerRef {
+public final class ContainerRef extends Ref {
 
     /**
      * The regex pattern to parse the container name including the registry, namespace, repository, tag and digest.
@@ -63,11 +63,6 @@ public final class ContainerRef {
     private final @Nullable String namespace;
 
     /**
-     * The tag of the container.
-     */
-    private final String tag;
-
-    /**
      * The digest of the container.
      */
     private final @Nullable String digest;
@@ -82,10 +77,10 @@ public final class ContainerRef {
      */
     private ContainerRef(
             String registry, @Nullable String namespace, String repository, String tag, @Nullable String digest) {
+        super(tag);
         this.registry = registry;
         this.namespace = namespace;
         this.repository = repository;
-        this.tag = tag;
         this.digest = digest;
     }
 
@@ -127,14 +122,6 @@ public final class ContainerRef {
      */
     public String getRepository() {
         return repository;
-    }
-
-    /**
-     * Get the tag
-     * @return The tag
-     */
-    public String getTag() {
-        return tag;
     }
 
     /**

@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -251,6 +252,15 @@ public final class Manifest extends Descriptor {
      */
     public static Manifest fromJson(String json) {
         return JsonUtils.fromJson(json, Manifest.class).withJson(json);
+    }
+
+    /**
+     * Create a manifest from a path
+     * @param path The path
+     * @return The manifest
+     */
+    public static Manifest fromPath(Path path) {
+        return JsonUtils.fromJson(path, Manifest.class);
     }
 
     /**
