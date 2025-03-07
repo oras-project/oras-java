@@ -34,7 +34,7 @@ public class ConfigTest {
     void shouldSerializeEmptyConfig() {
         Config config = Config.empty();
         assertEquals(
-                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2,\"data\":\"e30=\"}",
+                "{\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2,\"data\":\"e30=\",\"mediaType\":\"application/vnd.oci.empty.v1+json\"}",
                 config.toJson());
     }
 

@@ -21,6 +21,7 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,10 +72,13 @@ public class OCILayoutTest {
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-oci-layout.txt");
+        Path file2 = blobDir.resolve("artifact-recursive-oci-attached.txt");
         Files.writeString(file1, "artifact-oci-layout");
+        Files.writeString(file2, "reference");
 
         // Push
         Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
+        registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
 
         // Cannot copy if directory doesn't exists
         assertThrows(
@@ -88,7 +92,7 @@ public class OCILayoutTest {
                 "Directory not found");
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef);
+        ociLayout.copy(registry, containerRef, false);
 
         assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
 
@@ -111,6 +115,95 @@ public class OCILayoutTest {
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
         assertEquals(
                 manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+
+        // Assert blobs and their content
+        assertEquals(
+                "artifact-oci-layout",
+                Files.readString(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file1)))));
+        assertFalse(
+                Files.exists(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file2)))),
+                "Expect not to copy attached artifact");
+    }
+
+    @Test
+    void testShouldCopyRecursivelyArtifactFromRegistryIntoOciLayout() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-recursive-oci-layout".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("artifact-recursive-oci-layout.txt");
+        Path file2 = blobDir.resolve("artifact-recursive-oci-attached.txt");
+        Path file3 = blobDir.resolve("artifact-recursive-oci-attached2.txt");
+
+        Files.writeString(file1, "artifact-oci-layout");
+        Files.writeString(file2, "linked-file");
+        Files.writeString(file3, "linked-file2");
+
+        // Push
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
+        Manifest attached =
+                registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
+        registry.attachArtifact(
+                containerRef.withDigest(attached.getDescriptor().getDigest()),
+                ArtifactType.from("application/bar"),
+                LocalPath.of(file3));
+
+        // Copy to oci layout
+        ociLayout.copy(registry, containerRef, true);
+
+        assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
+
+        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve("oci-layout"), OCILayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+
+        // Assert the empty config
+        assertEquals(
+                "{}",
+                Files.readString(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
+
+        // Check index exists
+        assertTrue(Files.exists(layoutPath.resolve("index.json")));
+        Index index = JsonUtils.fromJson(layoutPath.resolve("index.json"), Index.class);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        assertEquals(
+                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+
+        // Assert blobs and their content
+        assertEquals(
+                "artifact-oci-layout",
+                Files.readString(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file1)))));
+        assertEquals(
+                "linked-file",
+                Files.readString(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file2)))));
+        assertEquals(
+                "linked-file2",
+                Files.readString(layoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file3)))));
     }
 
     @Test
