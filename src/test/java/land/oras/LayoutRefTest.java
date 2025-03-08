@@ -62,4 +62,14 @@ public class LayoutRefTest {
     void shouldFailWithInvalidRef() {
         assertThrows(OrasException.class, () -> LayoutRef.parse(""));
     }
+
+    @Test
+    void shouldGetAlgorithm() {
+        LayoutRef layoutRef = LayoutRef.parse("foo");
+        assertEquals("sha256", layoutRef.getAlgorithm().getPrefix());
+        layoutRef = LayoutRef.parse("foo@sha256:12345");
+        assertEquals("sha256", layoutRef.getAlgorithm().getPrefix());
+        layoutRef = LayoutRef.parse("foo@sha512:12345");
+        assertEquals("sha512", layoutRef.getAlgorithm().getPrefix());
+    }
 }

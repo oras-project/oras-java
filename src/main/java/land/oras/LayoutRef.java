@@ -23,6 +23,7 @@ package land.oras;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -67,5 +68,15 @@ public final class LayoutRef extends Ref {
         Path path = Path.of(matcher.group(1)); // Folder path
         String tag = matcher.group(2) != null ? matcher.group(2) : matcher.group(3); // Tag or digest
         return new LayoutRef(path, tag);
+    }
+
+    @Override
+    public SupportedAlgorithm getAlgorithm() {
+        // Default if not set
+        if (tag == null) {
+            return SupportedAlgorithm.getDefault();
+        }
+        // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
+        return SupportedAlgorithm.fromDigest(tag);
     }
 }

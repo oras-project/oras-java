@@ -141,10 +141,7 @@ public final class ContainerRef extends Ref {
         return new ContainerRef(registry, getNamespace(), repository, tag, digest);
     }
 
-    /**
-     * Get the algorithm for this container ref
-     * @return The algorithm
-     */
+    @Override
     public SupportedAlgorithm getAlgorithm() {
         // Default if not set
         if (digest == null) {
