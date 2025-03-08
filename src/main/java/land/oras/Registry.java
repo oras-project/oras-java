@@ -45,19 +45,12 @@ import land.oras.utils.OrasHttpClient;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A registry is the main entry point for interacting with a container registry
  */
 @NullMarked
 public final class Registry extends OCI<ContainerRef> {
-
-    /**
-     * The logger
-     */
-    private static final Logger LOG = LoggerFactory.getLogger(Registry.class);
 
     /**
      * The HTTP client
@@ -398,23 +391,7 @@ public final class Registry extends OCI<ContainerRef> {
                 manifest);
     }
 
-    /**
-     * Push a blob from file
-     * @param containerRef The container
-     * @param blob The blob
-     * @return The layer
-     */
-    public Layer pushBlob(ContainerRef containerRef, Path blob) {
-        return pushBlob(containerRef, blob, Map.of());
-    }
-
-    /**
-     * Push a blob from file
-     * @param containerRef The container
-     * @param blob The blob
-     * @param annotations The annotations
-     * @return The layer
-     */
+    @Override
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
@@ -465,25 +442,7 @@ public final class Registry extends OCI<ContainerRef> {
         return Layer.fromFile(blob).withAnnotations(annotations);
     }
 
-    /**
-     * Push config
-     * @param containerRef The container
-     * @param config The config
-     * @return The config
-     */
-    public Config pushConfig(ContainerRef containerRef, Config config) {
-        Layer layer = pushBlob(containerRef, config.getDataBytes());
-        LOG.debug("Config pushed: {}", layer.getDigest());
-        return config;
-    }
-
-    /**
-     * Push the blob for the given layer in a single post request. Might not be supported by all registries
-     * Fallback to POST/then PUT (end-4a) if not supported
-     * @param containerRef The container ref
-     * @param data The data
-     * @return The layer
-     */
+    @Override
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
         String digest = containerRef.getAlgorithm().digest(data);
         if (hasBlob(containerRef.withDigest(digest))) {

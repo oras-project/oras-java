@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -48,4 +49,10 @@ public abstract sealed class Ref permits ContainerRef, LayoutRef {
     public @Nullable String getTag() {
         return tag;
     }
+
+    /**
+     * Get the algorithm
+     * @return The algorithm
+     */
+    public abstract SupportedAlgorithm getAlgorithm();
 }

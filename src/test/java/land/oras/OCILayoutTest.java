@@ -51,16 +51,10 @@ public class OCILayoutTest {
     private Path extractDir;
 
     @TempDir
-    private Path newArtifactsDir;
-
-    @TempDir
     private Path blobDir;
 
     @TempDir
     private Path layoutPath;
-
-    @TempDir
-    private Path layoutPathIndex;
 
     @Container
     private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
@@ -115,12 +109,57 @@ public class OCILayoutTest {
 
     @Test
     void shouldPushArtifact() throws IOException {
-        LayoutRef layoutRef = LayoutRef.parse("%s:foo".formatted(newArtifactsDir.toString()));
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(newArtifactsDir).build();
+
+        Path path = layoutPath.resolve("shouldPushArtifact");
+        Files.createDirectory(path);
+
+        LayoutRef layoutRef =
+                LayoutRef.parse("%s@sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4"
+                        .formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+
         // Not implemented
         assertThrows(OrasException.class, () -> {
             ociLayout.pushArtifact(layoutRef, LocalPath.of(Path.of("test")));
+        });
+
+        // Push more blobs
+        ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
+
+        // Assert file exists
+        assertTrue(
+                Files.exists(path.resolve("blobs")
+                        .resolve("sha256")
+                        .resolve("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
+                "Expect blob to exist");
+        assertEquals(
+                "hi",
+                Files.readString(path.resolve("blobs")
+                        .resolve("sha256")
+                        .resolve("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
+                "Expect blob content to match");
+
+        // Push again
+        ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void cannotPushBlobWithoutTagOrDigest() throws IOException {
+
+        Path invalidBlobPushDir = layoutPath.resolve("shouldPushArtifact");
+        Files.createDirectory(invalidBlobPushDir);
+
+        LayoutRef noTagLayout = LayoutRef.parse("%s".formatted(invalidBlobPushDir.toString()));
+        LayoutRef noDigestLayout = LayoutRef.parse("%s:latest".formatted(invalidBlobPushDir.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+
+        // Push more blobs
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(noTagLayout, "hi".getBytes(StandardCharsets.UTF_8));
+        });
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(noDigestLayout, "hi".getBytes(StandardCharsets.UTF_8));
         });
     }
 
@@ -353,7 +392,10 @@ public class OCILayoutTest {
     }
 
     @Test
-    void testShouldCopyImageIntoOciLayoutWithIndex() {
+    void testShouldCopyImageIntoOciLayoutWithIndex() throws IOException {
+
+        Path layoutPathIndex = layoutPath.resolve("testShouldCopyImageIntoOciLayoutWithIndex");
+        Files.createDirectory(layoutPathIndex);
 
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")

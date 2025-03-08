@@ -31,18 +31,11 @@ import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Index from an OCI layout
  */
 public final class OCILayout extends OCI<LayoutRef> {
-
-    /**
-     * The logger
-     */
-    private static final Logger LOG = LoggerFactory.getLogger(OCILayout.class);
 
     private final String imageLayoutVersion = "1.0.0";
 
@@ -120,6 +113,41 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
     }
 
+    @Override
+    public Layer pushBlob(LayoutRef ref, Path blob, Map<String, String> annotations) {
+        ensureDigest(ref);
+        ensureMinimalLayout();
+        Path blobPath = getBlobPath(ref);
+        String digest = ref.getAlgorithm().digest(blob);
+        ensureAlgorithmPath(digest);
+        LOG.debug("Digest: {}", digest);
+        try {
+            if (Files.exists(blobPath)) {
+                LOG.debug("Blob already exists: {}", blobPath);
+                return Layer.fromFile(blobPath).withAnnotations(annotations);
+            }
+            Files.copy(blob, blobPath);
+            return Layer.fromFile(blobPath).withAnnotations(annotations);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
+        }
+    }
+
+    @Override
+    public Layer pushBlob(LayoutRef ref, byte[] data) {
+        ensureDigest(ref);
+        ensureMinimalLayout();
+        String digest = ref.getAlgorithm().digest(data);
+        ensureAlgorithmPath(digest);
+        try {
+            Path path = Files.createTempFile("oras", "blob");
+            Files.write(path, data);
+            return pushBlob(ref, path, Map.of());
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob to OCI layout", e);
+        }
+    }
+
     private void setPath(Path path) {
         this.path = path;
     }
@@ -158,6 +186,31 @@ public final class OCILayout extends OCI<LayoutRef> {
         copy(registry, containerRef, false);
     }
 
+    private void ensureMinimalLayout() {
+        try {
+            Files.createDirectories(getBlobPath());
+            if (!Files.exists(getOciLayoutPath())) {
+                Files.writeString(getOciLayoutPath(), toJson());
+            }
+            if (!Files.exists(getIndexPath())) {
+                Files.writeString(getIndexPath(), Index.fromManifests(List.of()).toJson());
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to create layout", e);
+        }
+    }
+
+    private void ensureAlgorithmPath(String digest) {
+        Path prefixDirectory = getBlobAlgorithmPath(digest);
+        try {
+            if (!Files.exists(prefixDirectory)) {
+                Files.createDirectory(prefixDirectory);
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to create algorithm path", e);
+        }
+    }
+
     /**
      * Copy the container ref from registry into oci-layout
      * @param registry The registry
@@ -168,13 +221,7 @@ public final class OCILayout extends OCI<LayoutRef> {
 
         try {
 
-            // Create blobs directory if needed
-            Files.createDirectories(getBlobPath());
-
-            // Write oci layout JSON
-            if (!Files.exists(getOciLayoutPath())) {
-                Files.writeString(getOciLayoutPath(), toJson());
-            }
+            ensureMinimalLayout();
 
             Map<String, String> headers = registry.getHeaders(containerRef);
             String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
@@ -235,10 +282,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             for (Layer layer : registry.collectLayers(containerRef, contentType, true)) {
                 try (InputStream is = registry.fetchBlob(containerRef.withDigest(layer.getDigest()))) {
 
-                    Path prefixDirectory = getBlobAlgorithmPath(layer.getDigest());
-                    if (!Files.exists(prefixDirectory)) {
-                        Files.createDirectory(prefixDirectory);
-                    }
+                    ensureAlgorithmPath(layer.getDigest());
 
                     Path blobFile = getBlobPath(layer);
 
@@ -253,6 +297,15 @@ public final class OCILayout extends OCI<LayoutRef> {
             }
         } catch (IOException e) {
             throw new OrasException("Failed to copy container", e);
+        }
+    }
+
+    private void ensureDigest(LayoutRef ref) {
+        if (ref.getTag() == null) {
+            throw new OrasException("Missing ref");
+        }
+        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
+            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
         }
     }
 
