@@ -116,7 +116,6 @@ public final class OCILayout extends OCI<LayoutRef> {
     @Override
     public Layer pushBlob(LayoutRef ref, Path blob, Map<String, String> annotations) {
         ensureDigest(ref);
-        ensureMinimalLayout();
         Path blobPath = getBlobPath(ref);
         String digest = ref.getAlgorithm().digest(blob);
         ensureAlgorithmPath(digest);
@@ -136,7 +135,6 @@ public final class OCILayout extends OCI<LayoutRef> {
     @Override
     public Layer pushBlob(LayoutRef ref, byte[] data) {
         ensureDigest(ref);
-        ensureMinimalLayout();
         String digest = ref.getAlgorithm().digest(data);
         ensureAlgorithmPath(digest);
         try {
@@ -220,8 +218,6 @@ public final class OCILayout extends OCI<LayoutRef> {
     public void copy(Registry registry, ContainerRef containerRef, boolean recursive) {
 
         try {
-
-            ensureMinimalLayout();
 
             Map<String, String> headers = registry.getHeaders(containerRef);
             String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
@@ -473,8 +469,13 @@ public final class OCILayout extends OCI<LayoutRef> {
          */
         public OCILayout build() {
             if (!Files.isDirectory(layout.path)) {
-                throw new OrasException("Folder does not exist: %s".formatted(layout.path));
+                try {
+                    Files.createDirectory(layout.path);
+                } catch (IOException e) {
+                    throw new OrasException("Failed to create OCI layout directory", e);
+                }
             }
+            layout.ensureMinimalLayout();
             return layout;
         }
     }

@@ -70,6 +70,16 @@ public class OCILayoutTest {
     }
 
     @Test
+    void failToCreateLayoutIfFileExists() throws IOException {
+        Path path = layoutPath.resolve("failToCreateLayoutIfFileExists");
+        Files.createFile(path);
+        assertThrows(OrasException.class, () -> {
+            LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+            OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        });
+    }
+
+    @Test
     void shouldPullFromOciLayout() throws IOException {
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
         OCILayout ociLayout =
@@ -111,7 +121,6 @@ public class OCILayoutTest {
     void shouldPushArtifact() throws IOException {
 
         Path path = layoutPath.resolve("shouldPushArtifact");
-        Files.createDirectory(path);
 
         LayoutRef layoutRef =
                 LayoutRef.parse("%s@sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4"
@@ -127,27 +136,20 @@ public class OCILayoutTest {
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
 
         // Assert file exists
-        assertTrue(
-                Files.exists(path.resolve("blobs")
-                        .resolve("sha256")
-                        .resolve("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
-                "Expect blob to exist");
-        assertEquals(
-                "hi",
-                Files.readString(path.resolve("blobs")
-                        .resolve("sha256")
-                        .resolve("98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
-                "Expect blob content to match");
+        assertBlobExists(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
+        assertBlobContent(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4", "hi");
 
         // Push again
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
+
+        assertBlobExists(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
+        assertBlobContent(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4", "hi");
     }
 
     @Test
     void cannotPushBlobWithoutTagOrDigest() throws IOException {
 
         Path invalidBlobPushDir = layoutPath.resolve("shouldPushArtifact");
-        Files.createDirectory(invalidBlobPushDir);
 
         LayoutRef noTagLayout = LayoutRef.parse("%s".formatted(invalidBlobPushDir.toString()));
         LayoutRef noDigestLayout = LayoutRef.parse("%s:latest".formatted(invalidBlobPushDir.toString()));
@@ -184,55 +186,23 @@ public class OCILayoutTest {
         Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
         registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
 
-        // Cannot copy if directory doesn't exists
-        assertThrows(
-                OrasException.class,
-                () -> {
-                    OCILayout.Builder.builder()
-                            .defaults(layoutPath.resolve("not exists"))
-                            .build()
-                            .copy(registry, containerRef);
-                },
-                "Directory not found");
-
         // Copy to oci layout
         ociLayout.copy(registry, containerRef, false);
 
-        assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
-
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve("oci-layout"), OCILayout.class);
-        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+        assertOciLayout(layoutPath);
 
         // Assert the empty config
-        assertEquals(
-                "{}",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
+        assertBlobContent(layoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertTrue(Files.exists(layoutPath.resolve("index.json")));
-        Index index = JsonUtils.fromJson(layoutPath.resolve("index.json"), Index.class);
-        assertEquals(2, index.getSchemaVersion());
-        assertEquals(1, index.getManifests().size());
-        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
-        assertEquals(
-                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+        assertIndex(layoutPath, manifest);
 
         // Assert blobs and their content
-        assertEquals(
-                "artifact-oci-layout",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file1)))));
-        assertFalse(
-                Files.exists(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file2)))),
-                "Expect not to copy attached artifact");
+        assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file1));
+        assertBlobContent(layoutPath, SupportedAlgorithm.SHA256.digest(file1), "artifact-oci-layout");
+
+        // Blob is absent
+        assertBlobAbsent(layoutPath, SupportedAlgorithm.SHA256.digest(file2));
     }
 
     @Test
@@ -267,47 +237,22 @@ public class OCILayoutTest {
         // Copy to oci layout
         ociLayout.copy(registry, containerRef, true);
 
-        assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
-
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve("oci-layout"), OCILayout.class);
-        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+        assertOciLayout(layoutPath);
 
         // Assert the empty config
-        assertEquals(
-                "{}",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(Config.empty().getDigest()))));
+        assertBlobExists(layoutPath, Config.empty().getDigest());
+        assertBlobContent(layoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertTrue(Files.exists(layoutPath.resolve("index.json")));
-        Index index = JsonUtils.fromJson(layoutPath.resolve("index.json"), Index.class);
-        assertEquals(2, index.getSchemaVersion());
-        assertEquals(1, index.getManifests().size());
-        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
-        assertEquals(
-                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+        assertIndex(layoutPath, manifest);
 
         // Assert blobs and their content
-        assertEquals(
-                "artifact-oci-layout",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file1)))));
-        assertEquals(
-                "linked-file",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file2)))));
-        assertEquals(
-                "linked-file2",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(DigestUtils.digest("sha256", file3)))));
+        assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file1));
+        assertBlobContent(layoutPath, SupportedAlgorithm.SHA256.digest(file1), "artifact-oci-layout");
+        assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file2));
+        assertBlobContent(layoutPath, SupportedAlgorithm.SHA256.digest(file2), "linked-file");
+        assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file3));
+        assertBlobContent(layoutPath, SupportedAlgorithm.SHA256.digest(file3), "linked-file2");
     }
 
     @Test
@@ -340,14 +285,10 @@ public class OCILayoutTest {
         // Copy to oci layout
         ociLayout.copy(registry, containerRef);
 
-        assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
-
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve("oci-layout"), OCILayout.class);
-        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+        assertOciLayout(layoutPath);
 
         // Check index exists
-        assertTrue(Files.exists(layoutPath.resolve("index.json")));
-        JsonUtils.fromJson(layoutPath.resolve("index.json"), Index.class);
+        assertIndex(layoutPath, pushedManifest);
 
         // Check manifest exists
         assertTrue(Files.exists(layoutPath
@@ -369,33 +310,21 @@ public class OCILayoutTest {
                 SupportedAlgorithm.getDigest(computedManifestDigest),
                 "Manifest digest should match");
 
-        // Ensure layer1 is copied
-        assertTrue(Files.exists(layoutPath
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(layer1.getDigest()))));
-        // Ensure layer2 is copied
-        assertTrue(Files.exists(layoutPath
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
+        // Asser layers
+        assertLayerExists(layoutPath, layer1);
+        assertLayerExists(layoutPath, layer2);
 
         // Copy to oci layout again
         ociLayout.copy(registry, containerRef);
 
         // Check manifest exists
-        assertTrue(Files.exists(layoutPath
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(
-                        pushedManifest.getDescriptor().getDigest()))));
+        assertBlobExists(layoutPath, pushedManifest.getDescriptor().getDigest());
     }
 
     @Test
     void testShouldCopyImageIntoOciLayoutWithIndex() throws IOException {
 
         Path layoutPathIndex = layoutPath.resolve("testShouldCopyImageIntoOciLayoutWithIndex");
-        Files.createDirectory(layoutPathIndex);
 
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -426,24 +355,13 @@ public class OCILayoutTest {
         // Copy to oci layout
         ociLayout.copy(registry, containerRef);
 
-        assertTrue(Files.exists(layoutPathIndex.resolve(Const.OCI_LAYOUT_FILE)), "Expect oci-layout file to exist");
-
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPathIndex.resolve("oci-layout"), OCILayout.class);
-        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+        assertOciLayout(layoutPathIndex);
 
         // Check index exists
-        assertTrue(Files.exists(layoutPathIndex.resolve("index.json")));
-        JsonUtils.fromJson(layoutPathIndex.resolve("index.json"), Index.class);
-        assertEquals(2, index.getSchemaVersion());
-        assertEquals(1, index.getManifests().size());
-        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        assertIndex(layoutPathIndex, pushedManifest);
 
         // Check manifest exists
-        assertTrue(Files.exists(layoutPathIndex
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(
-                        pushedManifest.getDescriptor().getDigest()))));
+        assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
 
         // Ensure manifest serialized correctly (check sha256)
         String computedManifestDigest = DigestUtils.digest(
@@ -458,31 +376,20 @@ public class OCILayoutTest {
                 SupportedAlgorithm.getDigest(computedManifestDigest),
                 "Manifest digest should match");
 
-        // Ensure layer1 is copied
-        assertTrue(Files.exists(layoutPathIndex
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(layer1.getDigest()))));
-        // Ensure layer2 is copied
-        assertTrue(Files.exists(layoutPathIndex
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(layer2.getDigest()))));
-        // Ensure index is also copied as blob
-        assertTrue(Files.exists(layoutPathIndex
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(index.getDescriptor().getDigest()))));
+        // Assert blobs
+        assertLayerExists(layoutPathIndex, layer1);
+        assertLayerExists(layoutPathIndex, layer1);
+        assertBlobExists(layoutPathIndex, index.getDescriptor().getDigest());
+        assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
 
         // Copy to oci layout again
         ociLayout.copy(registry, containerRef);
 
         // Check manifest exists
-        assertTrue(Files.exists(layoutPathIndex
-                .resolve("blobs")
-                .resolve("sha256")
-                .resolve(SupportedAlgorithm.getDigest(
-                        pushedManifest.getDescriptor().getDigest()))));
+        assertLayerExists(layoutPathIndex, layer1);
+        assertLayerExists(layoutPathIndex, layer1);
+        assertBlobExists(layoutPathIndex, index.getDescriptor().getDigest());
+        assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
     }
 
     @Test
@@ -508,26 +415,66 @@ public class OCILayoutTest {
         // Copy to oci layout
         ociLayout.copy(registry, containerRef);
 
-        assertTrue(Files.exists(layoutPath.resolve("oci-layout")));
-
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve("oci-layout"), OCILayout.class);
-        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+        assertOciLayout(layoutPath);
 
         // Assert the config
-        assertEquals(
-                "foobartest",
-                Files.readString(layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(layer.getDigest()))));
+        assertLayerExists(layoutPath, layer);
+        assertBlobContent(layoutPath, layer.getDigest(), "foobartest");
 
         // Check index exists
-        assertTrue(Files.exists(layoutPath.resolve("index.json")));
-        Index index = JsonUtils.fromJson(layoutPath.resolve("index.json"), Index.class);
+        assertIndex(layoutPath, manifest);
+    }
+
+    private void assertOciLayout(Path layoutPath) {
+        assertTrue(Files.exists(layoutPath.resolve(Const.OCI_LAYOUT_FILE)));
+        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve(Const.OCI_LAYOUT_FILE), OCILayout.class);
+        assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
+    }
+
+    private void assertIndex(Path ociLayoutPath, Manifest manifest) {
+        assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
+        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
         assertEquals(
                 manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+    }
+
+    private void assertLayerExists(Path ociLayoutPath, Layer layer) {
+        assertTrue(
+                Files.exists(ociLayoutPath
+                        .resolve("blobs")
+                        .resolve("sha256")
+                        .resolve(SupportedAlgorithm.getDigest(layer.getDigest()))),
+                "Expect layer to exist");
+    }
+
+    private void assertBlobExists(Path ociLayoutPath, String digest) {
+        assertTrue(
+                Files.exists(ociLayoutPath
+                        .resolve("blobs")
+                        .resolve(SupportedAlgorithm.fromDigest(digest).getPrefix())
+                        .resolve(SupportedAlgorithm.getDigest(digest))),
+                "Expect blob to exist");
+    }
+
+    private void assertBlobAbsent(Path ociLayoutPath, String digest) {
+        assertFalse(
+                Files.exists(ociLayoutPath
+                        .resolve("blobs")
+                        .resolve(SupportedAlgorithm.fromDigest(digest).getPrefix())
+                        .resolve(SupportedAlgorithm.getDigest(digest))),
+                "Expect blob to be absent");
+    }
+
+    private void assertBlobContent(Path ociLayoutPath, String digest, String content) throws IOException {
+        assertEquals(
+                content,
+                Files.readString(ociLayoutPath
+                        .resolve("blobs")
+                        .resolve(SupportedAlgorithm.fromDigest(digest).getPrefix())
+                        .resolve(SupportedAlgorithm.getDigest(digest))),
+                "Expect blob content to match");
     }
 }
