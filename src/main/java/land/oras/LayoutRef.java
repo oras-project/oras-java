@@ -79,4 +79,9 @@ public final class LayoutRef extends Ref {
         // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
         return SupportedAlgorithm.fromDigest(tag);
     }
+
+    @Override
+    public String getRepository() {
+        return getFolder().toString();
+    }
 }

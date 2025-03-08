@@ -22,12 +22,19 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
 public class LayerTest {
+
+    @TempDir
+    public static Path tempDir;
 
     @Test
     void shouldReadLayer() {
@@ -37,6 +44,22 @@ public class LayerTest {
         assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
         assertEquals(32654, layer.getSize());
         assertEquals(json, layer.toJson());
+    }
+
+    @Test
+    void shouldReadLayerFromFile() throws Exception {
+        Path file = tempDir.resolve("hi.txt");
+        Files.writeString(file, "hi");
+        Layer layer = Layer.fromFile(file);
+        assertEquals("application/vnd.oci.image.layer.v1.tar", layer.getMediaType());
+        assertEquals("sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4", layer.getDigest());
+        assertEquals(2, layer.getSize());
+        layer = Layer.fromFile(file, SupportedAlgorithm.SHA512);
+        assertEquals("application/vnd.oci.image.layer.v1.tar", layer.getMediaType());
+        assertEquals(
+                "sha512:150a14ed5bea6cc731cf86c41566ac427a8db48ef1b9fd626664b3bfbb99071fa4c922f33dde38719b8c8354e2b7ab9d77e0e67fc12843920a712e73d558e197",
+                layer.getDigest());
+        assertEquals(2, layer.getSize());
     }
 
     @Test

@@ -124,10 +124,10 @@ public final class OCILayout extends OCI<LayoutRef> {
         try {
             if (Files.exists(blobPath)) {
                 LOG.debug("Blob already exists: {}", blobPath);
-                return Layer.fromFile(blobPath).withAnnotations(annotations);
+                return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             }
             Files.copy(blob, blobPath);
-            return Layer.fromFile(blobPath).withAnnotations(annotations);
+            return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);
         }
