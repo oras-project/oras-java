@@ -170,16 +170,26 @@ public final class Layer extends Descriptor {
     }
 
     /**
-     * Create a layer from a file
+     * Create a layer from a file using default digest
      * @param file The file
      * @return The layer
      */
     public static Layer fromFile(Path file) {
+        return fromFile(file, SupportedAlgorithm.getDefault());
+    }
+
+    /**
+     * Create a layer from a file using a specific algorithm
+     * @param file The file
+     * @param algorithm The algorithm
+     * @return The layer
+     */
+    public static Layer fromFile(Path file, SupportedAlgorithm algorithm) {
         Map<String, String> annotations =
                 Map.of(Const.ANNOTATION_TITLE, file.getFileName().toString());
         return new Layer(
                 Const.DEFAULT_BLOB_MEDIA_TYPE,
-                SupportedAlgorithm.getDefault().digest(file),
+                algorithm.digest(file),
                 file.toFile().length(),
                 file,
                 annotations);

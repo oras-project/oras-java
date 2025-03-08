@@ -41,6 +41,7 @@ public class LayoutRefTest {
         LayoutRef layoutRef = LayoutRef.parse("%s:v1".formatted(ociLayout));
         assertEquals("v1", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
+        assertEquals(ociLayout, layoutRef.getRepository());
     }
 
     @Test
@@ -49,6 +50,7 @@ public class LayoutRefTest {
         LayoutRef layoutRef = LayoutRef.parse("%s@sha256:12345".formatted(ociLayout));
         assertEquals("sha256:12345", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
+        assertEquals(ociLayout, layoutRef.getRepository());
     }
 
     @Test

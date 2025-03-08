@@ -804,7 +804,7 @@ public class RegistryTest {
     }
 
     @Test
-    void shouldPushAndGetBlobStream() throws IOException {
+    void shouldPushAndGetBlobStreamSha256() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -824,6 +824,45 @@ public class RegistryTest {
             layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
 
             // Verify the digest matches SHA-256 of content
+            assertEquals(SupportedAlgorithm.SHA256, containerRef.getAlgorithm());
+            assertEquals(containerRef.getAlgorithm().digest(testFile), layer.getDigest());
+            assertEquals(fileSize, layer.getSize());
+        }
+
+        // Test getBlobStream
+        try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
+            String result = new String(resultStream.readAllBytes());
+            assertEquals(testData, result);
+        }
+
+        // Clean up
+        Files.delete(testFile);
+        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    }
+
+    @Test
+    void shouldPushAndGetBlobStreamWithSha512() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-stream-sha512@sha512:ea0d8750d01f5fbd0da5d020d981b377fa2177874751063cb3da2117e481720774c0d985845a56c32ee6dde144901d92b2bdc8d0cb02373da141241aa2409859"
+                        .formatted(this.registry.getRegistry()));
+
+        // Create a file with test data to get accurate stream size
+        Path testFile = Files.createTempFile("test-data-", ".tmp");
+        String testData = "Hello World Stream Test";
+        Files.writeString(testFile, testData);
+        long fileSize = Files.size(testFile);
+
+        // Test pushBlobStream using file input stream
+        Layer layer;
+        try (InputStream inputStream = Files.newInputStream(testFile)) {
+            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+
+            // Verify the digest matches SHA-512 of content
+            assertEquals(SupportedAlgorithm.SHA512, containerRef.getAlgorithm());
             assertEquals(containerRef.getAlgorithm().digest(testFile), layer.getDigest());
             assertEquals(fileSize, layer.getSize());
         }

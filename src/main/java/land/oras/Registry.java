@@ -397,7 +397,7 @@ public final class Registry extends OCI<ContainerRef> {
         LOG.debug("Digest: {}", digest);
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
-            return Layer.fromFile(blob).withAnnotations(annotations);
+            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
         }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.withDigest(digest).getBlobsUploadDigestPath()));
@@ -414,7 +414,7 @@ public final class Registry extends OCI<ContainerRef> {
 
         // Accepted single POST push
         if (response.statusCode() == 201) {
-            return Layer.fromFile(blob).withAnnotations(annotations);
+            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
         }
 
         // We need to push via PUT
@@ -439,7 +439,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         handleError(response);
-        return Layer.fromFile(blob).withAnnotations(annotations);
+        return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
     }
 
     @Override

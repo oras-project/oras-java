@@ -55,4 +55,10 @@ public abstract sealed class Ref permits ContainerRef, LayoutRef {
      * @return The algorithm
      */
     public abstract SupportedAlgorithm getAlgorithm();
+
+    /**
+     * Get the repository where to find the ref
+     * @return The repository
+     */
+    public abstract String getRepository();
 }
