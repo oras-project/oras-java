@@ -4,7 +4,7 @@
 
   <groupId>land.oras</groupId>
   <artifactId>oras-java-sdk</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.3.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>${project.groupId}:${project.artifactId}</name>
   <description>ORAS Java SDK</description>
@@ -253,7 +253,7 @@
             <inceptionYear>2024</inceptionYear>
             <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
             <emptyLineAfterHeader>true</emptyLineAfterHeader>
-            <excludes>**/logback*.xml,**/junit-platform.properties</excludes>
+            <excludes>**/logback*.xml,**/junit-platform.properties,**/*.json</excludes>
             <processStartTag>= LICENSE =</processStartTag>
             <sectionDelimiter>===</sectionDelimiter>
             <processEndTag>= LICENSE END =</processEndTag>

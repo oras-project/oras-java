@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
  * A registry is the main entry point for interacting with a container registry
  */
 @NullMarked
-public final class Registry extends OCI {
+public final class Registry extends OCI<ContainerRef> {
 
     /**
      * The logger
@@ -259,46 +259,7 @@ public final class Registry extends OCI {
         handleError(response);
     }
 
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(ContainerRef containerRef, LocalPath... paths) {
-        return pushArtifact(containerRef, ArtifactType.unknown(), Annotations.empty(), Config.empty(), paths);
-    }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(ContainerRef containerRef, ArtifactType artifactType, LocalPath... paths) {
-        return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
-    }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param annotations The annotations
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(
-            ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
-        return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
-    }
-
-    /**
-     * Download an ORAS artifact
-     * @param containerRef The container
-     * @param path The path
-     * @param overwrite Overwrite
-     */
+    @Override
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
 
         // Only collect layer that are files
@@ -345,15 +306,7 @@ public final class Registry extends OCI {
         }
     }
 
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type. Can be null
-     * @param annotations The annotations
-     * @param config The config
-     * @param paths The paths
-     * @return The manifest
-     */
+    @Override
     public Manifest pushArtifact(
             ContainerRef containerRef,
             ArtifactType artifactType,
@@ -603,6 +556,7 @@ public final class Registry extends OCI {
      * @param containerRef The container
      * @return The blob as bytes
      */
+    @Override
     public byte[] getBlob(ContainerRef containerRef) {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
@@ -621,11 +575,7 @@ public final class Registry extends OCI {
         return response.response().getBytes();
     }
 
-    /**
-     * Fetch blob and save it to file
-     * @param containerRef The container
-     * @param path The path to save the blob
-     */
+    @Override
     public void fetchBlob(ContainerRef containerRef, Path path) {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
@@ -637,11 +587,7 @@ public final class Registry extends OCI {
         handleError(response);
     }
 
-    /**
-     * Fetch blob and return it as input stream
-     * @param containerRef The container
-     * @return The input stream
-     */
+    @Override
     public InputStream fetchBlob(ContainerRef containerRef) {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));

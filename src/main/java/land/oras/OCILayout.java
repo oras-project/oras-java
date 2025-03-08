@@ -30,13 +30,14 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Index from an OCI layout
  */
-public final class OCILayout extends OCI {
+public final class OCILayout extends OCI<LayoutRef> {
 
     /**
      * The logger
@@ -54,6 +55,70 @@ public final class OCILayout extends OCI {
      * Private constructor
      */
     private OCILayout() {}
+
+    @Override
+    public Manifest pushArtifact(
+            LayoutRef ref,
+            ArtifactType artifactType,
+            Annotations annotations,
+            @Nullable Config config,
+            LocalPath... paths) {
+        throw new OrasException("Not implemented");
+    }
+
+    @Override
+    public void pullArtifact(LayoutRef ref, Path path, boolean overwrite) {
+        if (ref.getTag() == null) {
+            throw new OrasException("Tag is required to pull artifact from layout");
+        }
+
+        // Find manifest
+        Manifest manifest = findManifestByTag(ref);
+
+        // Find the layer with title annotation
+        Layer layer = manifest.getLayers().stream()
+                .filter(l -> l.getAnnotations().containsKey(Const.ANNOTATION_TITLE))
+                .findFirst()
+                .orElseThrow(() -> new OrasException("Layer not found with title annotation"));
+
+        Path blobPath = getBlobPath(layer);
+
+        // Copy the blob to the target path
+        try {
+            Files.copy(blobPath, path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+        } catch (IOException e) {
+            throw new OrasException("Failed to copy blob", e);
+        }
+    }
+
+    @Override
+    public byte[] getBlob(LayoutRef containerRef) {
+        try (InputStream is = fetchBlob(containerRef)) {
+            return is.readAllBytes();
+        } catch (IOException e) {
+            throw new OrasException("Failed to get blob", e);
+        }
+    }
+
+    @Override
+    public void fetchBlob(LayoutRef ref, Path path) {
+        InputStream is = fetchBlob(ref);
+        try {
+            Files.copy(is, path);
+        } catch (IOException e) {
+            throw new OrasException("Failed to fetch blob", e);
+        }
+    }
+
+    @Override
+    public InputStream fetchBlob(LayoutRef ref) {
+        Path blobPath = getBlobPath(ref);
+        try {
+            return Files.newInputStream(blobPath);
+        } catch (IOException e) {
+            throw new OrasException("Failed to fetch blob", e);
+        }
+    }
 
     private void setPath(Path path) {
         this.path = path;
@@ -197,6 +262,38 @@ public final class OCILayout extends OCI {
 
     private Path getBlobPath() {
         return path.resolve(Const.OCI_LAYOUT_BLOBS);
+    }
+
+    private Path getBlobPath(LayoutRef ref) {
+        if (ref.getTag() == null) {
+            throw new OrasException("Tag is required to get blob from layout");
+        }
+        boolean isDigest = SupportedAlgorithm.isSupported(ref.getTag());
+        if (isDigest) {
+            SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());
+            return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(ref.getTag()));
+        }
+
+        Manifest manifest = findManifestByTag(ref);
+
+        return getBlobPath(manifest.getDescriptor());
+    }
+
+    private Manifest findManifestByTag(LayoutRef ref) {
+        String tag = ref.getTag();
+        Index index = Index.fromPath(getIndexPath());
+        ManifestDescriptor descriptor = index.getManifests().stream()
+                .filter(m -> tag != null && tag.equals(m.getAnnotations().get(Const.ANNOTATION_REF)))
+                .findFirst()
+                .orElseThrow(() -> new OrasException("Tag not found: %s".formatted(tag)));
+
+        Path manifestPath = getBlobPath(descriptor);
+        if (!Files.exists(manifestPath)) {
+            throw new OrasException("Blob not found: %s".formatted(manifestPath));
+        }
+
+        // Read the manifest
+        return Manifest.fromPath(manifestPath).withDescriptor(descriptor);
     }
 
     private Path getBlobPath(ManifestDescriptor manifestDescriptor) {

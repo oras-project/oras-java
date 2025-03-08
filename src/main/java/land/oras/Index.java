@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.nio.file.Path;
 import java.util.List;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -135,12 +136,21 @@ public class Index {
     }
 
     /**
-     * Create a manifest from a JSON string
+     * Create an index from a JSON string
      * @param json The JSON string
      * @return The index
      */
     public static Index fromJson(String json) {
         return JsonUtils.fromJson(json, Index.class).withJson(json);
+    }
+
+    /**
+     * Create an index from a path
+     * @param path The path
+     * @return The index
+     */
+    public static Index fromPath(Path path) {
+        return JsonUtils.fromJson(path, Index.class);
     }
 
     /**

@@ -48,6 +48,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public class OCILayoutTest {
 
     @TempDir
+    private Path extractDir;
+
+    @TempDir
+    private Path newArtifactsDir;
+
+    @TempDir
     private Path blobDir;
 
     @TempDir
@@ -58,6 +64,65 @@ public class OCILayoutTest {
 
     @Container
     private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
+
+    @Test
+    void shouldEnforceTagWhenPullArtifact() throws IOException {
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pullArtifact(layoutRef, extractDir, false);
+        });
+    }
+
+    @Test
+    void shouldPullFromOciLayout() throws IOException {
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        ociLayout.pullArtifact(layoutRef, extractDir, false);
+
+        // Check file exists
+        assertTrue(Files.exists(extractDir.resolve("hi.txt")));
+
+        // Fetch the manifest
+        byte[] blob = ociLayout.getBlob(layoutRef);
+        Manifest manifest = Manifest.fromJson(new String(blob, StandardCharsets.UTF_8));
+        assertEquals(1, manifest.getLayers().size());
+        ociLayout.fetchBlob(layoutRef, extractDir.resolve("manifest.json"));
+
+        // By digest
+        LayoutRef layoutRefDigest = LayoutRef.parse(
+                "src/test/resources/oci/artifact@sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
+        ociLayout.fetchBlob(layoutRefDigest, extractDir.resolve("new_hi.txt"));
+
+        // Ensure file exists
+        assertTrue(Files.exists(extractDir.resolve("manifest.json")));
+        assertTrue(Files.exists(extractDir.resolve("new_hi.txt")));
+
+        // Assert content
+        assertEquals(
+                Files.readString(
+                        Path.of(
+                                "src/test/resources/oci/artifact/blobs/sha256/98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
+                Files.readString(extractDir.resolve("new_hi.txt")));
+        assertEquals(
+                Files.readString(
+                        Path.of(
+                                "src/test/resources/oci/artifact/blobs/sha256/cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34")),
+                Files.readString(extractDir.resolve("manifest.json")));
+    }
+
+    @Test
+    void shouldPushArtifact() throws IOException {
+        LayoutRef layoutRef = LayoutRef.parse("%s:foo".formatted(newArtifactsDir.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(newArtifactsDir).build();
+        // Not implemented
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pushArtifact(layoutRef, LocalPath.of(Path.of("test")));
+        });
+    }
 
     @Test
     void testShouldCopyArtifactFromRegistryIntoOciLayout() throws IOException {

@@ -602,7 +602,8 @@ public class RegistryTest {
         Files.writeString(pomFile, "my pom file");
 
         // Push the main OCI artifact
-        registry.pushArtifact(containerRef, ArtifactType.from(artifactType), LocalPath.of(pomFile, "application/xml"));
+        assertNotNull(registry.pushArtifact(
+                containerRef, ArtifactType.from(artifactType), LocalPath.of(pomFile, "application/xml")));
 
         // Create fake signature
         Path signedPomFile = blobDir.resolve("pom.xml.asc");
