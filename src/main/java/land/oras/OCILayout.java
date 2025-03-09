@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import land.oras.exception.OrasException;
@@ -56,7 +57,32 @@ public final class OCILayout extends OCI<LayoutRef> {
             Annotations annotations,
             @Nullable Config config,
             LocalPath... paths) {
-        throw new OrasException("Not implemented");
+
+        Manifest manifest = Manifest.empty().withArtifactType(artifactType);
+        Map<String, String> manifestAnnotations = new HashMap<>(annotations.manifestAnnotations());
+        if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED)) {
+            manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+        }
+        manifest = manifest.withAnnotations(manifestAnnotations);
+        if (config != null) {
+            config = config.withAnnotations(annotations);
+            manifest = manifest.withConfig(config);
+        }
+
+        // Push layers
+        List<Layer> layers = pushLayers(ref, true, paths);
+
+        // Push the config like any other blob
+        Config configToPush = config != null ? config : Config.empty();
+        Config pushedConfig = pushConfig(ref.withTag(configToPush.getDigest()), configToPush);
+
+        // Add layer and config
+        manifest = manifest.withLayers(layers).withConfig(pushedConfig);
+
+        // Push the manifest
+        manifest = pushManifest(ref, manifest);
+        LOG.debug("Manifest pushed to: {}", ref.withTag(manifest.getDescriptor().getDigest()));
+        return manifest;
     }
 
     @Override
@@ -98,8 +124,9 @@ public final class OCILayout extends OCI<LayoutRef> {
         byte[] manifestData = manifest.toJson().getBytes();
         String manifestDigest =
                 SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes());
-        ManifestDescriptor manifestDescriptor =
-                ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length);
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(
+                        Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length)
+                .withArtifactType(manifest.getArtifactType().getMediaType());
         if (layoutRef.getTag() != null) {
             manifestDescriptor = manifestDescriptor.withAnnotations(Map.of(Const.ANNOTATION_REF, layoutRef.getTag()));
         }

@@ -132,11 +132,7 @@ public final class ContainerRef extends Ref {
         return digest;
     }
 
-    /**
-     * Create a new container reference with the digest
-     * @param digest The digest
-     * @return The new container reference
-     */
+    @Override
     public ContainerRef withDigest(String digest) {
         return new ContainerRef(registry, getNamespace(), repository, tag, digest);
     }

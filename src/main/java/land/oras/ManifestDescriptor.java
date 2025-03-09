@@ -147,6 +147,15 @@ public final class ManifestDescriptor {
     }
 
     /**
+     * Create a manifest descriptor with the given artifact type
+     * @param artifactType The artifact type
+     * @return The subject
+     */
+    public ManifestDescriptor withArtifactType(@Nullable String artifactType) {
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
+    }
+
+    /**
      * Create a manifest descriptor
      * @param mediaType The media type
      * @param digest The digest

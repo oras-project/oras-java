@@ -835,7 +835,7 @@ public class RegistryTest {
         // Test pushBlobStream using file input stream
         Layer layer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            layer = registry.pushBlob(containerRef, inputStream);
 
             // Verify the digest matches SHA-256 of content
             assertEquals(SupportedAlgorithm.SHA256, containerRef.getAlgorithm());
@@ -873,7 +873,7 @@ public class RegistryTest {
         // Test pushBlobStream using file input stream
         Layer layer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            layer = registry.pushBlob(containerRef, inputStream);
 
             // Verify the digest matches SHA-512 of content
             assertEquals(SupportedAlgorithm.SHA512, containerRef.getAlgorithm());
@@ -910,13 +910,13 @@ public class RegistryTest {
         // First push
         Layer firstLayer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            firstLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            firstLayer = registry.pushBlob(containerRef, inputStream);
         }
 
         // Second push of same content should detect existing blob
         Layer secondLayer;
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            secondLayer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            secondLayer = registry.pushBlob(containerRef, inputStream);
         }
 
         // Verify both operations return same digest
@@ -948,7 +948,7 @@ public class RegistryTest {
 
         // Verify exception is wrapped in OrasException
         OrasException exception =
-                assertThrows(OrasException.class, () -> registry.pushBlobStream(containerRef, failingStream, 100));
+                assertThrows(OrasException.class, () -> registry.pushBlob(containerRef, failingStream));
         assertEquals("Failed to push blob", exception.getMessage());
         assertTrue(exception.getCause() instanceof IOException);
     }
@@ -1000,12 +1000,11 @@ public class RegistryTest {
         byte[] largeData = new byte[5 * 1024 * 1024];
         new Random().nextBytes(largeData);
         Files.write(largeFile, largeData);
-        long fileSize = Files.size(largeFile);
 
         // Push large content
         Layer layer;
         try (InputStream inputStream = Files.newInputStream(largeFile)) {
-            layer = registry.pushBlobStream(containerRef, inputStream, fileSize);
+            layer = registry.pushBlob(containerRef, inputStream);
         }
 
         // Verify content with stream

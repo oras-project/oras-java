@@ -51,6 +51,13 @@ public abstract sealed class Ref permits ContainerRef, LayoutRef {
     }
 
     /**
+     * Return the ref with the digest
+     * @param digest The digest
+     * @return The ref
+     */
+    public abstract Ref withDigest(String digest);
+
+    /**
      * Get the algorithm
      * @return The algorithm
      */
