@@ -42,6 +42,7 @@ import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -64,14 +65,16 @@ public class RegistryWireMockTest {
     @Test
     void shouldRedirectWhenDownloadingBlob(WireMockRuntimeInfo wmRuntimeInfo) {
 
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:one"))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
                 .willReturn(WireMock.temporaryRedirect("http://localhost:%d/v2/library/artifact-text/blobs/sha256:other"
                         .formatted(wmRuntimeInfo.getHttpPort()))));
 
         // Return blob on new location
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
                 .willReturn(WireMock.ok()));
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
                 .willReturn(WireMock.ok().withBody("blob-data")));
@@ -84,7 +87,7 @@ public class RegistryWireMockTest {
 
         ContainerRef containerRef =
                 ContainerRef.parse("localhost:%d/library/artifact-text".formatted(wmRuntimeInfo.getHttpPort()));
-        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
 
@@ -270,9 +273,11 @@ public class RegistryWireMockTest {
     @Test
     void shouldGetToken(WireMockRuntimeInfo wmRuntimeInfo) {
 
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/sha256:one"))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .willReturn(WireMock.unauthorized()
                         .withHeader(
@@ -289,7 +294,7 @@ public class RegistryWireMockTest {
                                 "fake-token", "access-token", 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/sha256:one"))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .whenScenarioStateIs("get")
                 .willReturn(WireMock.ok().withBody("blob-data")));
@@ -302,16 +307,18 @@ public class RegistryWireMockTest {
 
         ContainerRef containerRef =
                 ContainerRef.parse("localhost:%d/library/get-token".formatted(wmRuntimeInfo.getHttpPort()));
-        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
 
     @Test
     void shouldRefreshExpiredToken(WireMockRuntimeInfo wmRuntimeInfo) {
 
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/sha256:one"))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .willReturn(WireMock.forbidden()
                         .withHeader(
@@ -328,7 +335,7 @@ public class RegistryWireMockTest {
                         "fake-token", "access-token", 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/sha256:one"))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .whenScenarioStateIs("get")
                 .willReturn(WireMock.ok().withBody("blob-data")));
@@ -341,7 +348,7 @@ public class RegistryWireMockTest {
 
         ContainerRef containerRef =
                 ContainerRef.parse("localhost:%d/library/refresh-token".formatted(wmRuntimeInfo.getHttpPort()));
-        byte[] blob = registry.getBlob(containerRef.withDigest("sha256:one"));
+        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
 }

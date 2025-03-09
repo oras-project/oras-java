@@ -445,6 +445,9 @@ public final class Registry extends OCI<ContainerRef> {
     @Override
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
         String digest = containerRef.getAlgorithm().digest(data);
+        if (containerRef.getDigest() != null) {
+            ensureDigest(containerRef, data);
+        }
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
             return Layer.fromData(containerRef, data);
@@ -517,21 +520,11 @@ public final class Registry extends OCI<ContainerRef> {
      */
     @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        if (!hasBlob(containerRef)) {
-            throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
+        try (InputStream is = fetchBlob(containerRef)) {
+            return ensureDigest(containerRef, is.readAllBytes());
+        } catch (IOException e) {
+            throw new OrasException("Failed to get blob", e);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
-        OrasHttpClient.ResponseWrapper<String> response =
-                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-        logResponse(response);
-
-        // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(containerRef, response)) {
-            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-            logResponse(response);
-        }
-        handleError(response);
-        return response.response().getBytes();
     }
 
     @Override
@@ -618,6 +611,18 @@ public final class Registry extends OCI<ContainerRef> {
         }
         handleError(response);
         return client.get(uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE));
+    }
+
+    private byte[] ensureDigest(ContainerRef ref, byte[] data) {
+        if (ref.getDigest() == null) {
+            throw new OrasException("Missing digest");
+        }
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getDigest());
+        String dataDigest = algorithm.digest(data);
+        if (!ref.getDigest().equals(dataDigest)) {
+            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), dataDigest));
+        }
+        return data;
     }
 
     /**

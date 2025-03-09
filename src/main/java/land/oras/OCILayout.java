@@ -98,6 +98,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         InputStream is = fetchBlob(ref);
         try {
             Files.copy(is, path);
+            LOG.info("Downloaded: {}", ref.getTag());
         } catch (IOException e) {
             throw new OrasException("Failed to fetch blob", e);
         }
@@ -115,14 +116,14 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @Override
     public Layer pushBlob(LayoutRef ref, Path blob, Map<String, String> annotations) {
-        ensureDigest(ref);
+        ensureDigest(ref, blob);
         Path blobPath = getBlobPath(ref);
         String digest = ref.getAlgorithm().digest(blob);
         ensureAlgorithmPath(digest);
         LOG.debug("Digest: {}", digest);
         try {
             if (Files.exists(blobPath)) {
-                LOG.debug("Blob already exists: {}", blobPath);
+                LOG.info("Blob already exists: {}", digest);
                 return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             }
             Files.copy(blob, blobPath);
@@ -134,12 +135,12 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @Override
     public Layer pushBlob(LayoutRef ref, byte[] data) {
-        ensureDigest(ref);
-        String digest = ref.getAlgorithm().digest(data);
-        ensureAlgorithmPath(digest);
         try {
             Path path = Files.createTempFile("oras", "blob");
             Files.write(path, data);
+            ensureDigest(ref, path);
+            String digest = ref.getAlgorithm().digest(data);
+            ensureAlgorithmPath(digest);
             return pushBlob(ref, path, Map.of());
         } catch (IOException e) {
             throw new OrasException("Failed to push blob to OCI layout", e);
@@ -296,15 +297,6 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
     }
 
-    private void ensureDigest(LayoutRef ref) {
-        if (ref.getTag() == null) {
-            throw new OrasException("Missing ref");
-        }
-        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
-            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
-        }
-    }
-
     private Path getOciLayoutPath() {
         return path.resolve(Const.OCI_LAYOUT_FILE);
     }
@@ -428,6 +420,20 @@ public final class OCILayout extends OCI<LayoutRef> {
             try (InputStream is = registry.fetchBlob(containerRef.withDigest(configDigest))) {
                 Files.copy(is, configFile);
             }
+        }
+    }
+
+    private void ensureDigest(LayoutRef ref, Path path) {
+        if (ref.getTag() == null) {
+            throw new OrasException("Missing ref");
+        }
+        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
+            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+        }
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());
+        String pathDigest = algorithm.digest(path);
+        if (!ref.getTag().equals(pathDigest)) {
+            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), pathDigest));
         }
     }
 
