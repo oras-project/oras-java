@@ -21,7 +21,10 @@
 package land.oras;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 
@@ -90,6 +93,44 @@ public class Index {
      */
     public List<ManifestDescriptor> getManifests() {
         return manifests;
+    }
+
+    /**
+     * Return a new index with new manifest added to index
+     * @param manifest The manifest
+     * @return The index
+     */
+    public Index withNewManifests(ManifestDescriptor manifest) {
+        List<ManifestDescriptor> newManifests = new LinkedList<>();
+        for (ManifestDescriptor descriptor : manifests) {
+
+            // Ignore same digest
+            if (descriptor.getDigest().equals(manifest.getDigest())) {
+                continue;
+            }
+
+            // Move previous ref
+            if (descriptor.getAnnotations() != null
+                    && descriptor.getAnnotations().containsKey(Const.ANNOTATION_REF)
+                    && manifest.getAnnotations() != null
+                    && manifest.getAnnotations().containsKey(Const.ANNOTATION_REF)
+                    && descriptor
+                            .getAnnotations()
+                            .get(Const.ANNOTATION_REF)
+                            .equals(manifest.getAnnotations().get(Const.ANNOTATION_REF))) {
+                Map<String, String> newAnnotations = new LinkedHashMap<>(descriptor.getAnnotations());
+                newAnnotations.remove(Const.ANNOTATION_REF);
+                if (newAnnotations.isEmpty()) {
+                    newAnnotations = null;
+                }
+                newManifests.add(ManifestDescriptor.fromJson(
+                        descriptor.withAnnotations(newAnnotations).toJson()));
+                continue;
+            }
+            newManifests.add(ManifestDescriptor.fromJson(descriptor.toJson()));
+        }
+        newManifests.add(manifest);
+        return new Index(schemaVersion, mediaType, artifactType, newManifests, descriptor, json);
     }
 
     /**

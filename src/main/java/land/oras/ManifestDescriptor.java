@@ -108,7 +108,7 @@ public final class ManifestDescriptor {
      * Get the annotations
      * @return The annotations
      */
-    public Map<String, String> getAnnotations() {
+    public @Nullable Map<String, String> getAnnotations() {
         return annotations;
     }
 
@@ -135,6 +135,15 @@ public final class ManifestDescriptor {
      */
     public Subject toSubject() {
         return Subject.of(mediaType, digest, size);
+    }
+
+    /**
+     * Create a manifest descriptor with the given annotations
+     * @param annotations The annotations
+     * @return The subject
+     */
+    public ManifestDescriptor withAnnotations(@Nullable Map<String, String> annotations) {
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
     }
 
     /**

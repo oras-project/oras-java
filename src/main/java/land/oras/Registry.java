@@ -176,12 +176,7 @@ public final class Registry extends OCI<ContainerRef> {
         handleError(response);
     }
 
-    /**
-     * Push a manifest
-     * @param containerRef The container
-     * @param manifest The manifest
-     * @return The location
-     */
+    @Override
     public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
 
         Map<String, String> annotations = manifest.getAnnotations();
