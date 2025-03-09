@@ -56,6 +56,20 @@ public final class LayoutRef extends Ref {
     }
 
     /**
+     * Return a new layout ref with the tag.
+     * @param tag The tag.
+     * @return The new layout ref.
+     */
+    public LayoutRef withTag(String tag) {
+        return new LayoutRef(folder, tag);
+    }
+
+    @Override
+    public LayoutRef withDigest(String digest) {
+        return withTag(digest);
+    }
+
+    /**
      * Parse the layout ref with folder and tag.
      * @param name The layout ref.
      * @return The container object with the registry, repository and tag.

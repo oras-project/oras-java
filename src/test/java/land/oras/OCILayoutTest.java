@@ -169,6 +169,43 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldPushToOciLayout() throws IOException {
+
+        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayout");
+        Path artifactPath = blobDir.resolve("shouldPushToOciLayout.txt");
+        Files.writeString(artifactPath, "hi");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        Manifest manifest = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+
+        assertOciLayout(ociLayoutPath);
+
+        // Assert the empty config
+        assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
+
+        // Check index exists
+        assertIndex(ociLayoutPath, manifest);
+
+        // Assert blobs and their content
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath));
+        assertBlobContent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath), "hi");
+
+        // Push again
+        Manifest manifest1 = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+
+        // Check index exists
+        assertIndex(ociLayoutPath, manifest1);
+
+        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+
+        // No annotation
+        assertNull(index.getManifests().get(0).getAnnotations(), "Some annotations should be null");
+    }
+
+    @Test
     void shouldPullFromOciLayout() throws IOException {
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
         OCILayout ociLayout =
@@ -207,7 +244,7 @@ public class OCILayoutTest {
     }
 
     @Test
-    void shouldPushArtifact() throws IOException {
+    void shouldPushBlob() throws IOException {
 
         Path path = layoutPath.resolve("shouldPushArtifact");
 
@@ -216,11 +253,6 @@ public class OCILayoutTest {
 
         LayoutRef layoutRef = LayoutRef.parse("%s@%s".formatted(path.toString(), digest));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
-
-        // Not implemented
-        assertThrows(OrasException.class, () -> {
-            ociLayout.pushArtifact(layoutRef, LocalPath.of(Path.of("test")));
-        });
 
         // Push more blobs
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));

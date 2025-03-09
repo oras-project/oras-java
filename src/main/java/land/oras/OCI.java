@@ -20,9 +20,17 @@
 
 package land.oras;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import land.oras.exception.OrasException;
+import land.oras.utils.ArchiveUtils;
+import land.oras.utils.Const;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +93,69 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
      */
     public Layer pushBlob(T ref, Path blob) {
         return pushBlob(ref, blob, Map.of());
+    }
+
+    /**
+     * Push a blob from file
+     * @param ref The ref
+     * @param input The input stream
+     * @return The layer
+     */
+    public Layer pushBlob(T ref, InputStream input) {
+        try {
+            Path tempFile = Files.createTempFile("oras", "layer");
+            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            return pushBlob(ref, tempFile);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    protected List<Layer> pushLayers(T ref, boolean withDigest, LocalPath... paths) {
+        List<Layer> layers = new ArrayList<>();
+        for (LocalPath path : paths) {
+            try {
+                // Create tar.gz archive for directory
+                if (Files.isDirectory(path.getPath())) {
+                    LocalPath tempTar = ArchiveUtils.tar(path);
+                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
+                    if (withDigest) {
+                        ref = (T) ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
+                    }
+                    try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
+                        Layer layer = pushBlob(ref, is)
+                                .withMediaType(path.getMediaType())
+                                .withAnnotations(Map.of(
+                                        Const.ANNOTATION_TITLE,
+                                        path.getPath().getFileName().toString(),
+                                        Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                        ref.getAlgorithm().digest(tempTar.getPath()),
+                                        Const.ANNOTATION_ORAS_UNPACK,
+                                        "true"));
+                        layers.add(layer);
+                        LOG.info("Uploaded directory: {}", layer.getDigest());
+                    }
+                    Files.delete(tempArchive.getPath());
+                } else {
+                    try (InputStream is = Files.newInputStream(path.getPath())) {
+                        if (withDigest) {
+                            ref = (T) ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
+                        }
+                        Layer layer = pushBlob(ref, is)
+                                .withMediaType(path.getMediaType())
+                                .withAnnotations(Map.of(
+                                        Const.ANNOTATION_TITLE,
+                                        path.getPath().getFileName().toString()));
+                        layers.add(layer);
+                        LOG.info("Uploaded: {}", layer.getDigest());
+                    }
+                }
+            } catch (IOException e) {
+                throw new OrasException("Failed to push artifact", e);
+            }
+        }
+        return layers;
     }
 
     /**

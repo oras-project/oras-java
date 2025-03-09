@@ -262,7 +262,7 @@ public class RegistryWireMockTest {
 
         try (InputStream inputStream = Files.newInputStream(testFile)) {
             // when retry is implemented we dont want to throw an exception here as it will retry
-            Layer layer = registry.pushBlobStream(ref, inputStream, Files.size(testFile));
+            Layer layer = registry.pushBlob(ref, inputStream);
 
             // assertions will verify that the upload succeeded after retry
             assertNotNull(layer);

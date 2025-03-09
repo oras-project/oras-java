@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -313,7 +312,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         // Push layers
-        List<Layer> layers = pushLayers(containerRef, paths);
+        List<Layer> layers = pushLayers(containerRef, false, paths);
 
         // Push the config like any other blob
         Config pushedConfig = pushConfig(containerRef, config != null ? config : Config.empty());
@@ -362,7 +361,7 @@ public final class Registry extends OCI<ContainerRef> {
             ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
 
         // Push layers
-        List<Layer> layers = pushLayers(containerRef, paths);
+        List<Layer> layers = pushLayers(containerRef, false, paths);
 
         // Get the subject from the manifest
         Subject subject = getManifest(containerRef).getDescriptor().toSubject();
@@ -666,67 +665,6 @@ public final class Registry extends OCI<ContainerRef> {
         if (response.response() instanceof String) {
             LOG.debug("Response: {}", response.response());
         }
-    }
-
-    /**
-     * Push a blob using input stream to avoid loading the whole blob in memory
-     * @param containerRef the container ref
-     * @param input the input stream
-     * @param size the size of the blob
-     * @return The Layer containing the uploaded blob information
-     * @throws OrasException if upload fails or digest calculation fails
-     */
-    public Layer pushBlobStream(ContainerRef containerRef, InputStream input, long size) {
-        try {
-            // TODO: Replace by chunk upload
-            Path tempFile = Files.createTempFile("oras", "layer");
-            Files.copy(input, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            return pushBlob(containerRef, tempFile);
-        } catch (IOException e) {
-            throw new OrasException("Failed to push blob", e);
-        }
-    }
-
-    private List<Layer> pushLayers(ContainerRef containerRef, LocalPath... paths) {
-        List<Layer> layers = new ArrayList<>();
-        for (LocalPath path : paths) {
-            try {
-                // Create tar.gz archive for directory
-                if (Files.isDirectory(path.getPath())) {
-                    LocalPath tempTar = ArchiveUtils.tar(path);
-                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
-                    try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
-                        long size = Files.size(tempArchive.getPath());
-                        Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString(),
-                                        Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                        containerRef.getAlgorithm().digest(tempTar.getPath()),
-                                        Const.ANNOTATION_ORAS_UNPACK,
-                                        "true"));
-                        layers.add(layer);
-                        LOG.info("Uploaded directory: {}", layer.getDigest());
-                    }
-                    Files.delete(tempArchive.getPath());
-                } else {
-                    try (InputStream is = Files.newInputStream(path.getPath())) {
-                        long size = Files.size(path.getPath());
-                        Layer layer = pushBlobStream(containerRef, is, size)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString()));
-                        layers.add(layer);
-                        LOG.info("Uploaded: {}", layer.getDigest());
-                    }
-                }
-            } catch (IOException e) {
-                throw new OrasException("Failed to push artifact", e);
-            }
-        }
-        return layers;
     }
 
     /**
