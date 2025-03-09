@@ -122,9 +122,10 @@ public class OCILayoutTest {
 
         Path path = layoutPath.resolve("shouldPushArtifact");
 
-        LayoutRef layoutRef =
-                LayoutRef.parse("%s@sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4"
-                        .formatted(path.toString()));
+        byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA256.digest(content);
+
+        LayoutRef layoutRef = LayoutRef.parse("%s@%s".formatted(path.toString(), digest));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
 
         // Not implemented
@@ -136,14 +137,14 @@ public class OCILayoutTest {
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
 
         // Assert file exists
-        assertBlobExists(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
-        assertBlobContent(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4", "hi");
+        assertBlobExists(path, digest);
+        assertBlobContent(path, digest, "hi");
 
         // Push again
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
 
-        assertBlobExists(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
-        assertBlobContent(path, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4", "hi");
+        assertBlobExists(path, digest);
+        assertBlobContent(path, digest, "hi");
     }
 
     @Test
@@ -162,6 +163,27 @@ public class OCILayoutTest {
         });
         assertThrows(OrasException.class, () -> {
             ociLayout.pushBlob(noDigestLayout, "hi".getBytes(StandardCharsets.UTF_8));
+        });
+    }
+
+    @Test
+    void cannotPushWithInvalidDigest() {
+        Path invalidBlobPushDir = layoutPath.resolve("cannotPushWithInvalidDigest");
+
+        LayoutRef wrongDigest1 = LayoutRef.parse("%s@sha234:1234".formatted(invalidBlobPushDir.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+
+        // Push more blobs
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(wrongDigest1, "hi".getBytes(StandardCharsets.UTF_8));
+        });
+
+        LayoutRef wrongDigest2 = LayoutRef.parse("%s@sha256:1234".formatted(invalidBlobPushDir.toString()));
+
+        // Push more blobs
+        assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(wrongDigest2, "hi".getBytes(StandardCharsets.UTF_8));
         });
     }
 
@@ -273,10 +295,7 @@ public class OCILayoutTest {
 
         Manifest emptyManifest = Manifest.empty()
                 .withLayers(List.of(Layer.fromDigest(layer1.getDigest(), 2), Layer.fromDigest(layer2.getDigest(), 6)));
-        String manifestDigest =
-                SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
-        String configDigest =
-                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest = Config.empty().getDigest();
 
         // Push config and manifest
         registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
@@ -344,8 +363,7 @@ public class OCILayoutTest {
                 .withLayers(List.of(Layer.fromDigest(layer1.getDigest(), 2), Layer.fromDigest(layer2.getDigest(), 6)));
         String manifestDigest =
                 SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
-        String configDigest =
-                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest = Config.empty().getDigest();
 
         // Push config and manifest
         registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());

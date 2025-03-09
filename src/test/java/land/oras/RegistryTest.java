@@ -72,6 +72,21 @@ public class RegistryTest {
     }
 
     @Test
+    void shouldFailToPushBlobForInvalidDigest() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef1 = ContainerRef.parse(
+                "%s/library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                        .formatted(this.registry.getRegistry()));
+        // Ensure the blob is deleted
+        assertThrows(OrasException.class, () -> {
+            registry.pushBlob(containerRef1, "invalid".getBytes());
+        });
+    }
+
+    @Test
     void shouldPushAndGetBlobThenDeleteWithSha256() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -515,8 +530,7 @@ public class RegistryTest {
         Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
         String manifestDigest =
                 SupportedAlgorithm.SHA256.digest(emptyManifest.toJson().getBytes(StandardCharsets.UTF_8));
-        String configDigest =
-                SupportedAlgorithm.SHA256.digest(Config.empty().toJson().getBytes(StandardCharsets.UTF_8));
+        String configDigest = Config.empty().getDigest();
 
         // Push config and manifest
         registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
