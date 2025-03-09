@@ -20,16 +20,14 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.DigestUtils;
@@ -58,6 +56,97 @@ public class OCILayoutTest {
 
     @Container
     private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
+
+    @Test
+    void shouldPushEmptyManifest() {
+        Path path = layoutPath.resolve("shouldPushManifest");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Manifest manifest = Manifest.empty().withConfig(Config.empty());
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+
+        // Assertion
+        assertOciLayout(path);
+        assertIndex(path, manifest);
+        assertBlobExists(path, manifest.getDescriptor().getDigest());
+        assertEquals(425, manifest.getDescriptor().getSize());
+
+        // One element in the index
+        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Ensure one layer for compatibility
+        assertEquals(1, manifest.getLayers().size(), "Should have at least one layer");
+        assertLayerExists(path, manifest.getLayers().get(0));
+        assertEquals("e30=", manifest.getLayers().get(0).getData());
+
+        // Copy again
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+        assertEquals(425, manifest.getDescriptor().getSize());
+
+        // Same manifest
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Add an other manifest with different digest
+        Manifest manifest2 = Manifest.empty().withConfig(Config.empty()).withAnnotations(Map.of("foo", "bar"));
+        ociLayout.pushManifest(layoutRef, manifest2);
+
+        // Two elements in the index
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(2, index.getManifests().size());
+
+        // None have any annotations
+        index.getManifests().forEach(m -> assertNull(m.getAnnotations()));
+    }
+
+    @Test
+    void shouldPushEmptyManifestWithRef() {
+        Path path = layoutPath.resolve("shouldPushManifest");
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Manifest manifest = Manifest.empty().withConfig(Config.empty());
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+
+        // Assertion
+        assertOciLayout(path);
+        assertIndex(path, manifest);
+        assertBlobExists(path, manifest.getDescriptor().getDigest());
+        assertEquals(425, manifest.getDescriptor().getSize());
+
+        // One element in the index
+        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Check latest tag
+        assertEquals("latest", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
+
+        // Ensure one layer for compatibility
+        assertEquals(1, manifest.getLayers().size(), "Should have at least one layer");
+        assertLayerExists(path, manifest.getLayers().get(0));
+        assertEquals("e30=", manifest.getLayers().get(0).getData());
+
+        // Copy again
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+        assertEquals(425, manifest.getDescriptor().getSize());
+
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Add an other manifest with different digest
+        Manifest manifest2 = Manifest.empty().withConfig(Config.empty()).withAnnotations(Map.of("foo", "bar"));
+        ociLayout.pushManifest(layoutRef, manifest2);
+
+        // Two elements in the index
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(2, index.getManifests().size());
+
+        // Ensure manifest1 doesn't have any annotations
+        assertNull(index.getManifests().get(0).getAnnotations());
+
+        // Ref was moved to manifest2
+        assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+    }
 
     @Test
     void shouldEnforceTagWhenPullArtifact() throws IOException {
@@ -460,12 +549,14 @@ public class OCILayoutTest {
     }
 
     private void assertLayerExists(Path ociLayoutPath, Layer layer) {
-        assertTrue(
-                Files.exists(ociLayoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(layer.getDigest()))),
-                "Expect layer to exist");
+        if (layer.getData() == null) {
+            assertTrue(
+                    Files.exists(ociLayoutPath
+                            .resolve("blobs")
+                            .resolve("sha256")
+                            .resolve(SupportedAlgorithm.getDigest(layer.getDigest()))),
+                    "Expect layer to exist");
+        }
     }
 
     private void assertBlobExists(Path ociLayoutPath, String digest) {

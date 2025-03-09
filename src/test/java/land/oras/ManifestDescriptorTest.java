@@ -22,9 +22,19 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Map;
+import land.oras.utils.Const;
 import org.junit.jupiter.api.Test;
 
 public class ManifestDescriptorTest {
+
+    @Test
+    void shouldSetAnnotations() {
+        Manifest manifest = Manifest.empty();
+        ManifestDescriptor descriptor = manifest.getDescriptor();
+        descriptor = descriptor.withAnnotations(Map.of(Const.ANNOTATION_REF, "latest"));
+        assertEquals("latest", descriptor.getAnnotations().get(Const.ANNOTATION_REF));
+    }
 
     @Test
     void shouldReadFromJson() {

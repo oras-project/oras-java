@@ -23,6 +23,10 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.List;
+import java.util.Map;
+import land.oras.utils.Const;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -46,5 +50,107 @@ public class IndexTest {
         assertEquals(559, index.getManifests().get(0).getSize());
         assertEquals(json, index.toJson());
         index.toJson();
+    }
+
+    @Test
+    void shouldAddManifest() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withNewManifests(Manifest.empty().getDescriptor());
+        assertEquals(1, index.getManifests().size());
+
+        Manifest newManifest = Manifest.empty().withAnnotations(Map.of("foo", "bar"));
+        String digest =
+                SupportedAlgorithm.getDefault().digest(newManifest.toJson().getBytes());
+        int size = newManifest.toJson().getBytes().length;
+        ManifestDescriptor descriptor = ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, digest, size);
+        newManifest.withDescriptor(descriptor);
+        index = index.withNewManifests(descriptor);
+        assertEquals(2, index.getManifests().size());
+    }
+
+    @Test
+    void shouldNotAddIfSameDigest() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withNewManifests(Manifest.empty().getDescriptor());
+        assertEquals(1, index.getManifests().size());
+        index = index.withNewManifests(Manifest.empty().getDescriptor());
+        assertEquals(1, index.getManifests().size());
+        index = index.withNewManifests(Manifest.empty().getDescriptor());
+        assertEquals(1, index.getManifests().size());
+    }
+
+    @Test
+    void shouldMoveRefAndSetNullAnnotations() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withNewManifests(
+                Manifest.empty().getDescriptor().withAnnotations(Map.of(Const.ANNOTATION_REF, "latest")));
+        assertEquals(1, index.getManifests().size());
+        index = index.withNewManifests(ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:123", 123)
+                .withAnnotations(Map.of(Const.ANNOTATION_REF, "latest")));
+        assertEquals(2, index.getManifests().size());
+
+        // Ensure 1st descriptor has null annotations
+        assertNull(index.getManifests().get(0).getAnnotations());
+
+        // Ensure 2nd descriptor has ref
+        assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+    }
+
+    @Test
+    void shouldNotMoveRefIfDifferent() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withNewManifests(
+                Manifest.empty().getDescriptor().withAnnotations(Map.of(Const.ANNOTATION_REF, "latest")));
+        assertEquals(1, index.getManifests().size());
+        index = index.withNewManifests(ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:123", 123)
+                .withAnnotations(Map.of(Const.ANNOTATION_REF, "stable")));
+        assertEquals(2, index.getManifests().size());
+
+        // No change
+        assertEquals("latest", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
+
+        // Added ref
+        assertEquals("stable", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+    }
+
+    @Test
+    void shouldKeepExistingAnnotation() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withNewManifests(
+                Manifest.empty().getDescriptor().withAnnotations(Map.of(Const.ANNOTATION_REF, "latest", "foo", "bar")));
+        assertEquals(1, index.getManifests().size());
+        index = index.withNewManifests(ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:123", 123)
+                .withAnnotations(Map.of(Const.ANNOTATION_REF, "latest")));
+        assertEquals(2, index.getManifests().size());
+
+        // One annotation
+        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+        assertEquals("bar", index.getManifests().get(0).getAnnotations().get("foo"));
+
+        // Added ref
+        assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+
+        // Add one more
+        index = index.withNewManifests(ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:532", 123)
+                .withAnnotations(Map.of("test", "hello")));
+        assertEquals(3, index.getManifests().size());
+        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+        assertEquals("bar", index.getManifests().get(0).getAnnotations().get("foo"));
+        assertEquals(1, index.getManifests().get(1).getAnnotations().size());
+        assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+        assertEquals(1, index.getManifests().get(2).getAnnotations().size());
+        assertEquals("hello", index.getManifests().get(2).getAnnotations().get("test"));
+
+        // With null annotations
+        index = index.withNewManifests(ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:789", 123)
+                .withAnnotations(null));
+        assertEquals(4, index.getManifests().size());
+        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+        assertEquals("bar", index.getManifests().get(0).getAnnotations().get("foo"));
+        assertEquals(1, index.getManifests().get(1).getAnnotations().size());
+        assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
+        assertEquals(1, index.getManifests().get(2).getAnnotations().size());
+        assertEquals("hello", index.getManifests().get(2).getAnnotations().get("test"));
+        assertNull(index.getManifests().get(3).getAnnotations());
     }
 }

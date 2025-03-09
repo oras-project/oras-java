@@ -120,6 +120,14 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
     public abstract void pullArtifact(T ref, Path path, boolean overwrite);
 
     /**
+     * Push a manifest
+     * @param ref The ref
+     * @param manifest The manifest
+     * @return The location
+     */
+    public abstract Manifest pushManifest(T ref, Manifest manifest);
+
+    /**
      * Get the blob for the given digest. Not be suitable for large blobs
      * @param ref The ref
      * @return The blob as bytes

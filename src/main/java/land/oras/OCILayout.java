@@ -85,8 +85,41 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     @Override
-    public byte[] getBlob(LayoutRef containerRef) {
-        try (InputStream is = fetchBlob(containerRef)) {
+    public Manifest pushManifest(LayoutRef layoutRef, Manifest manifest) {
+
+        // For portability each layer should have at least one entry
+        if (manifest.getLayers().isEmpty()) {
+            Config config = manifest.getConfig();
+            Layer configLayer = Layer.fromJson(config.toJson());
+            manifest = manifest.withLayers(List.of(configLayer));
+        }
+
+        // Create the manifest descriptor with ref if tag is present
+        byte[] manifestData = manifest.toJson().getBytes();
+        String manifestDigest =
+                SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes());
+        ManifestDescriptor manifestDescriptor =
+                ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length);
+        if (layoutRef.getTag() != null) {
+            manifestDescriptor = manifestDescriptor.withAnnotations(Map.of(Const.ANNOTATION_REF, layoutRef.getTag()));
+        }
+        manifest = manifest.withDescriptor(manifestDescriptor);
+
+        Index index = Index.fromPath(getIndexPath()).withNewManifests(manifestDescriptor);
+
+        // Write blobs
+        try {
+            writeManifest(manifest);
+            writeIndex(index);
+        } catch (IOException e) {
+            throw new OrasException("Failed to write manifest", e);
+        }
+        return manifest;
+    }
+
+    @Override
+    public byte[] getBlob(LayoutRef layoutRef) {
+        try (InputStream is = fetchBlob(layoutRef)) {
             return is.readAllBytes();
         } catch (IOException e) {
             throw new OrasException("Failed to get blob", e);
