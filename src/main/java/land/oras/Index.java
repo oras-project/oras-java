@@ -31,10 +31,9 @@ import land.oras.utils.JsonUtils;
 /**
  * Index from an OCI layout
  */
-public class Index {
+public final class Index extends Descriptor {
 
     private final int schemaVersion;
-    private final String mediaType;
     private final String artifactType;
     private final List<ManifestDescriptor> manifests;
 
@@ -55,20 +54,12 @@ public class Index {
             List<ManifestDescriptor> manifests,
             ManifestDescriptor descriptor,
             String json) {
+        super(mediaType, Map.of());
         this.schemaVersion = schemaVersion;
-        this.mediaType = mediaType;
         this.descriptor = descriptor;
         this.artifactType = artifactType;
         this.manifests = manifests;
         this.json = json;
-    }
-
-    /**
-     * Get the media type
-     * @return The media type
-     */
-    public String getMediaType() {
-        return mediaType;
     }
 
     /**
@@ -158,14 +149,6 @@ public class Index {
     private Index withJson(String json) {
         this.json = json;
         return this;
-    }
-
-    /**
-     * Return the JSON representation of the index
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
     }
 
     /**

@@ -28,7 +28,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Abstract class for descriptor
  */
-public abstract sealed class Descriptor permits Config, Manifest, Layer {
+public abstract sealed class Descriptor permits Config, Manifest, Layer, Index {
 
     /**
      * The media type of the layer
