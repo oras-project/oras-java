@@ -260,7 +260,7 @@ public final class Manifest extends Descriptor {
      * @return The manifest
      */
     public static Manifest fromPath(Path path) {
-        return JsonUtils.fromJson(path, Manifest.class);
+        return fromJson(JsonUtils.readFile(path));
     }
 
     /**

@@ -157,4 +157,17 @@ public final class JsonUtils {
             throw new OrasException("Unable to parse JSON content", e);
         }
     }
+
+    /**
+     * Read a file and return the content as a string
+     * @param path The path to the file
+     * @return The content of the file
+     */
+    public static String readFile(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new OrasException("Unable to read file", e);
+        }
+    }
 }

@@ -91,7 +91,11 @@ public final class LayoutRef extends Ref {
             return SupportedAlgorithm.getDefault();
         }
         // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
-        return SupportedAlgorithm.fromDigest(tag);
+        else if (SupportedAlgorithm.matchPattern(tag)) {
+            return SupportedAlgorithm.fromDigest(tag);
+        }
+
+        return SupportedAlgorithm.getDefault();
     }
 
     @Override
