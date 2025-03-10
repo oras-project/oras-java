@@ -106,12 +106,29 @@ public enum SupportedAlgorithm {
     }
 
     /**
-     * Check if the algorithm is supported
+     * Check if the algorithm match pattern
+     * @param digest The digest
+     * @return True if supported
+     */
+    public static boolean matchPattern(String digest) {
+        return DIGEST_REGEX.matcher(digest).matches();
+    }
+
+    /**
+     * Check if the digest is supported
      * @param digest The digest
      * @return True if supported
      */
     public static boolean isSupported(String digest) {
-        return DIGEST_REGEX.matcher(digest).matches();
+        if (!matchPattern(digest)) {
+            return false;
+        }
+        for (SupportedAlgorithm algorithm : SupportedAlgorithm.values()) {
+            if (digest.startsWith(algorithm.getPrefix())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

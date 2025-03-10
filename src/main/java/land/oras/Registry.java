@@ -185,15 +185,14 @@ public final class Registry extends OCI<ContainerRef> {
             manifest = manifest.withAnnotations(manifestAnnotations);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
-        OrasHttpClient.ResponseWrapper<String> response = client.put(
-                uri,
-                JsonUtils.toJson(manifest).getBytes(),
-                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+        byte[] manifestData = manifest.getJson() != null
+                ? manifest.getJson().getBytes()
+                : manifest.toJson().getBytes();
+        OrasHttpClient.ResponseWrapper<String> response =
+                client.put(uri, manifestData, Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
-            response = client.put(
-                    uri,
-                    JsonUtils.toJson(manifest).getBytes(),
-                    Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+            response =
+                    client.put(uri, manifestData, Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
         }
         logResponse(response);
         handleError(response);

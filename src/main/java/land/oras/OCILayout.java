@@ -92,7 +92,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
 
         // Find manifest
-        Manifest manifest = findManifestByTag(ref);
+        Manifest manifest = findManifest(ref);
 
         // Find the layer with title annotation
         Layer layer = manifest.getLayers().stream()
@@ -121,9 +121,17 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
 
         // Create the manifest descriptor with ref if tag is present
-        byte[] manifestData = manifest.toJson().getBytes();
-        String manifestDigest =
-                SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes());
+        byte[] manifestData = manifest.getJson() != null
+                ? manifest.getJson().getBytes()
+                : manifest.toJson().getBytes();
+
+        String manifestDigest = layoutRef
+                .getAlgorithm()
+                .digest(
+                        manifest.getJson() != null
+                                ? manifest.getJson().getBytes()
+                                : manifest.toJson().getBytes());
+
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(
                         Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length)
                 .withArtifactType(manifest.getArtifactType().getMediaType());
@@ -369,24 +377,29 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (ref.getTag() == null) {
             throw new OrasException("Tag is required to get blob from layout");
         }
-        boolean isDigest = SupportedAlgorithm.isSupported(ref.getTag());
+        boolean isDigest = SupportedAlgorithm.matchPattern(ref.getTag());
         if (isDigest) {
             SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());
             return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(ref.getTag()));
         }
 
-        Manifest manifest = findManifestByTag(ref);
+        Manifest manifest = findManifest(ref);
 
         return getBlobPath(manifest.getDescriptor());
     }
 
-    private Manifest findManifestByTag(LayoutRef ref) {
+    private Manifest findManifest(LayoutRef ref) {
         String tag = ref.getTag();
+        if (tag == null) {
+            throw new OrasException("Tag or digest is required to find manifest");
+        }
         Index index = Index.fromPath(getIndexPath());
         ManifestDescriptor descriptor = index.getManifests().stream()
-                .filter(m -> tag != null && tag.equals(m.getAnnotations().get(Const.ANNOTATION_REF)))
+                .filter(m -> (m.getAnnotations() != null
+                                && tag.equals(m.getAnnotations().get(Const.ANNOTATION_REF))
+                        || tag.equals(m.getDigest())))
                 .findFirst()
-                .orElseThrow(() -> new OrasException("Tag not found: %s".formatted(tag)));
+                .orElseThrow(() -> new OrasException("Tag or digest not found: %s".formatted(tag)));
 
         Path manifestPath = getBlobPath(descriptor);
         if (!Files.exists(manifestPath)) {
@@ -420,7 +433,10 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     private Path getIndexBlobPath(Index index) {
-        String digest = index.getDescriptor().getDigest();
+        ManifestDescriptor descriptor = index.getDescriptor();
+        if (descriptor == null)
+            throw new OrasException("Index descriptor is required when writing index blob with existing JSON");
+        String digest = descriptor.getDigest();
         return getBlobAlgorithmPath(digest).resolve(SupportedAlgorithm.getDigest(digest));
     }
 
@@ -487,7 +503,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (ref.getTag() == null) {
             throw new OrasException("Missing ref");
         }
-        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
+        if (!SupportedAlgorithm.matchPattern(ref.getTag())) {
             throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
         }
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());

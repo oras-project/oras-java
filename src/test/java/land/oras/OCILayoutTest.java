@@ -101,6 +101,45 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldPushManifestFromFile() {
+
+        Path path = layoutPath.resolve("shouldPushManifetFromFile");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+
+        Manifest manifest = Manifest.fromPath(
+                Path.of(
+                        "src/test/resources/oci/artifact/blobs/sha256/cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34"));
+
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+
+        // Assertion
+        assertOciLayout(path);
+        assertIndex(path, manifest);
+        assertBlobExists(path, manifest.getDescriptor().getDigest());
+        assertEquals(556, manifest.getDescriptor().getSize());
+
+        // One element in the index
+        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Assert the manifest
+        assertNull(manifest.getLayers().get(0).getData());
+
+        // Copy again
+        manifest = ociLayout.pushManifest(layoutRef, manifest);
+        assertEquals(556, manifest.getDescriptor().getSize());
+
+        // Same manifest
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+
+        // Two elements in the index
+        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        assertEquals(1, index.getManifests().size());
+    }
+
+    @Test
     void shouldPushEmptyManifestWithRef() {
         Path path = layoutPath.resolve("shouldPushManifest");
         LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(path.toString()));
@@ -169,10 +208,10 @@ public class OCILayoutTest {
     }
 
     @Test
-    void shouldPushToOciLayout() throws IOException {
+    void shouldPushToOciLayoutWihoutTag() throws IOException {
 
-        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayout");
-        Path artifactPath = blobDir.resolve("shouldPushToOciLayout.txt");
+        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayoutWihoutTag");
+        Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWihoutTag.txt");
         Files.writeString(artifactPath, "hi");
 
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
@@ -206,47 +245,105 @@ public class OCILayoutTest {
     }
 
     @Test
-    void shouldPullFromOciLayout() throws IOException {
+    void shouldPushToOciLayoutWithTag() throws IOException {
+
+        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayoutWithTag");
+        Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWithTag.txt");
+        Files.writeString(artifactPath, "hi");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        Manifest manifest = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+
+        assertOciLayout(ociLayoutPath);
+
+        // Assert the empty config
+        assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
+
+        // Check index exists
+        assertIndex(ociLayoutPath, manifest);
+
+        // Assert blobs and their content
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath));
+        assertBlobContent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath), "hi");
+
+        // Push again
+        Manifest manifest1 = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+
+        // Check index exists
+        assertIndex(ociLayoutPath, manifest1);
+
+        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+
+        // No annotation
+        assertNotNull(index.getManifests().get(0).getAnnotations(), "Some annotations should not be null");
+        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+    }
+
+    @Test
+    void shouldPullViaTagFromOciLayout() throws IOException {
+
+        Path extractDir1 = extractDir.resolve("shouldPullViaTagFromOciLayout");
+        Files.createDirectory(extractDir1);
+
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
-        ociLayout.pullArtifact(layoutRef, extractDir, false);
+        ociLayout.pullArtifact(layoutRef, extractDir1, false);
 
         // Check file exists
-        assertTrue(Files.exists(extractDir.resolve("hi.txt")));
+        assertTrue(Files.exists(extractDir1.resolve("hi.txt")));
 
         // Fetch the manifest
         byte[] blob = ociLayout.getBlob(layoutRef);
         Manifest manifest = Manifest.fromJson(new String(blob, StandardCharsets.UTF_8));
         assertEquals(1, manifest.getLayers().size());
-        ociLayout.fetchBlob(layoutRef, extractDir.resolve("manifest.json"));
+        ociLayout.fetchBlob(layoutRef, extractDir1.resolve("manifest.json"));
 
         // By digest
         LayoutRef layoutRefDigest = LayoutRef.parse(
                 "src/test/resources/oci/artifact@sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4");
-        ociLayout.fetchBlob(layoutRefDigest, extractDir.resolve("new_hi.txt"));
+        ociLayout.fetchBlob(layoutRefDigest, extractDir1.resolve("new_hi.txt"));
 
         // Ensure file exists
-        assertTrue(Files.exists(extractDir.resolve("manifest.json")));
-        assertTrue(Files.exists(extractDir.resolve("new_hi.txt")));
+        assertTrue(Files.exists(extractDir1.resolve("manifest.json")));
+        assertTrue(Files.exists(extractDir1.resolve("new_hi.txt")));
 
         // Assert content
         assertEquals(
                 Files.readString(
                         Path.of(
                                 "src/test/resources/oci/artifact/blobs/sha256/98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")),
-                Files.readString(extractDir.resolve("new_hi.txt")));
+                Files.readString(extractDir1.resolve("new_hi.txt")));
         assertEquals(
                 Files.readString(
                         Path.of(
                                 "src/test/resources/oci/artifact/blobs/sha256/cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34")),
-                Files.readString(extractDir.resolve("manifest.json")));
+                Files.readString(extractDir1.resolve("manifest.json")));
+    }
+
+    @Test
+    void shouldPullViaDigestFromOciLayout() throws IOException {
+
+        Path extractDir1 = extractDir.resolve("shouldPullViaDigestFromOciLayout");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse(
+                "src/test/resources/oci/artifact@sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        ociLayout.pullArtifact(layoutRef, extractDir1, false);
+
+        // Check file exists
+        assertTrue(Files.exists(extractDir1.resolve("hi.txt")));
     }
 
     @Test
     void shouldPushBlob() throws IOException {
 
-        Path path = layoutPath.resolve("shouldPushArtifact");
+        Path path = layoutPath.resolve("shouldPushBlob");
 
         byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
         String digest = SupportedAlgorithm.SHA256.digest(content);
