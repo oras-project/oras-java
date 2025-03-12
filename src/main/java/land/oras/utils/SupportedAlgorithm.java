@@ -42,7 +42,12 @@ public enum SupportedAlgorithm {
     /**
      * SHA-512
      */
-    SHA512("SHA-512", "sha512");
+    SHA512("SHA-512", "sha512"),
+
+    /**
+     * BLAKE3
+     */
+    BLAKE3("BLAKE3-256", "blake3");
 
     /**
      * The algorithm
@@ -84,7 +89,7 @@ public enum SupportedAlgorithm {
      * @return The digest
      */
     public String digest(byte[] bytes) {
-        return DigestUtils.digest(algorithm, bytes);
+        return DigestUtils.digest(algorithm, prefix, bytes);
     }
 
     /**
@@ -93,7 +98,7 @@ public enum SupportedAlgorithm {
      * @return The digest
      */
     public String digest(Path file) {
-        return DigestUtils.digest(algorithm, file);
+        return DigestUtils.digest(algorithm, prefix, file);
     }
 
     /**
@@ -102,7 +107,7 @@ public enum SupportedAlgorithm {
      * @return The digest
      */
     public String digest(InputStream inputStream) {
-        return DigestUtils.digest(algorithm, inputStream);
+        return DigestUtils.digest(algorithm, prefix, inputStream);
     }
 
     /**
