@@ -200,14 +200,19 @@ public class RegistryWireMockTest {
         // Register the wiremock
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/error-artifact/tags/list"))
                 .willReturn(WireMock.serverError().withBody("Internal Server Error")));
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/error-artifact/blobs/sha256:1234"))
+                .willReturn(WireMock.serverError().withBody("Internal Server Error")));
         Registry registry = Registry.Builder.builder().withInsecure(true).build();
 
         // Now we should have a reference to container
         ContainerRef ref = ContainerRef.parse("%s/library/error-artifact".formatted(registryUrl));
 
-        // Get exception and assert
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(500, exception.getStatusCode());
+
+        ContainerRef ref2 = ContainerRef.parse("%s/library/error-artifact@sha256:1234".formatted(registryUrl));
+        OrasException exception2 = assertThrows(OrasException.class, () -> registry.fetchBlobDescriptor(ref2));
+        assertEquals(500, exception2.getStatusCode());
     }
 
     // Timeout with similar structure as previous test and request 408 with different artifact name

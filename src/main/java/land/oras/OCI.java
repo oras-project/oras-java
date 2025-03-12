@@ -220,6 +220,13 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
     public abstract InputStream fetchBlob(T ref);
 
     /**
+     * Fetch blob and return it's descriptor
+     * @param ref The ref
+     * @return The descriptor
+     */
+    public abstract Descriptor fetchBlobDescriptor(T ref);
+
+    /**
      * Push a blob from file
      * @param ref The container
      * @param blob The blob

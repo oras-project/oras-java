@@ -22,13 +22,14 @@ package land.oras;
 
 import java.util.Collections;
 import java.util.Map;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Abstract class for descriptor
+ * Main class for descriptor
  */
-public abstract sealed class Descriptor permits Config, Manifest, Layer, Index {
+public sealed class Descriptor permits Config, Manifest, Layer, Index {
 
     /**
      * The media type of the layer
@@ -105,5 +106,40 @@ public abstract sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     public final String toJson() {
         return JsonUtils.toJson(this);
+    }
+
+    /**
+     * Create a new descriptor
+     * @param digest The digest
+     * @param size The size
+     * @param mediaType The media type
+     * @param annotations The annotations
+     * @param artifactType The artifact type
+     * @return The descriptor
+     */
+    public static Descriptor of(
+            String digest, Long size, String mediaType, Map<String, String> annotations, String artifactType) {
+        return new Descriptor(digest, size, mediaType, annotations, artifactType);
+    }
+
+    /**
+     * Create a new descriptor
+     * @param digest The digest
+     * @param size The size
+     * @param mediaType The media type
+     * @return The descriptor
+     */
+    public static Descriptor of(String digest, Long size, String mediaType) {
+        return new Descriptor(digest, size, mediaType, null, null);
+    }
+
+    /**
+     * Create a new descriptor
+     * @param digest The digest
+     * @param size The size
+     * @return The descriptor
+     */
+    public static Descriptor of(String digest, Long size) {
+        return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null);
     }
 }

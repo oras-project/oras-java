@@ -185,6 +185,12 @@ public class RegistryTest {
                 containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"),
                 blobDir.resolve("temp.txt"));
 
+        Descriptor descriptor = registry.fetchBlobDescriptor(
+                containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+        assertEquals(Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, descriptor.getMediaType());
+        assertEquals(5, descriptor.getSize());
+        assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", descriptor.getDigest());
+
         try (InputStream is = registry.fetchBlob(
                 containerRef.withDigest("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"))) {
             assertEquals("hello", new String(is.readAllBytes()));

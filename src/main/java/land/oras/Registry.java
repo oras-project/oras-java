@@ -492,7 +492,12 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The container
      * @return True if the blob exists
      */
-    public boolean hasBlob(ContainerRef containerRef) {
+    private boolean hasBlob(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = headBlob(containerRef);
+        return response.statusCode() == 200;
+    }
+
+    private OrasHttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
@@ -503,7 +508,7 @@ public final class Registry extends OCI<ContainerRef> {
             response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
             logResponse(response);
         }
-        return response.statusCode() == 200;
+        return response;
     }
 
     /**
@@ -543,6 +548,15 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(response);
         handleError(response);
         return response.response();
+    }
+
+    @Override
+    public Descriptor fetchBlobDescriptor(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = headBlob(containerRef);
+        handleError(response);
+        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        return Descriptor.of(digest, Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
     }
 
     /**
