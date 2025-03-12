@@ -25,14 +25,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.security.Security;
 import land.oras.exception.OrasException;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jspecify.annotations.NullMarked;
 
 /**
  * Digest utilities
  */
 @NullMarked
-public final class DigestUtils {
+final class DigestUtils {
+
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
     /**
      * Utils class
@@ -42,10 +48,11 @@ public final class DigestUtils {
     /**
      * Calculate the digest of a file
      * @param algorithm The algorithm
+     * @param prefix The prefix
      * @param path The path
      * @return The digest
      */
-    public static String digest(String algorithm, Path path) {
+    static String digest(String algorithm, String prefix, Path path) {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
             try (InputStream is = Files.newInputStream(path, StandardOpenOption.READ)) {
@@ -60,7 +67,7 @@ public final class DigestUtils {
             for (byte b : hashBytes) {
                 sb.append(String.format("%02x", b));
             }
-            return "%s:%s".formatted(algorithm.toLowerCase().replaceAll("-", ""), sb.toString());
+            return "%s:%s".formatted(prefix, sb.toString());
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
@@ -69,10 +76,11 @@ public final class DigestUtils {
     /**
      * Calculate the digest of a byte array
      * @param algorithm The algorithm
+     * @param prefix The prefix
      * @param bytes bytes
      * @return The digest
      */
-    public static String digest(String algorithm, byte[] bytes) {
+    static String digest(String algorithm, String prefix, byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
             byte[] hashBytes = digest.digest(bytes);
@@ -83,7 +91,7 @@ public final class DigestUtils {
                 sb.append(String.format("%02x", b));
             }
 
-            return "%s:%s".formatted(algorithm.toLowerCase().replaceAll("-", ""), sb.toString());
+            return "%s:%s".formatted(prefix, sb.toString());
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
@@ -92,10 +100,11 @@ public final class DigestUtils {
     /**
      * Calculate the sha256 digest of a InputStream
      * @param algorithm The algorithm
+     * @param prefix The prefix
      * @param input The input
      * @return The digest
      */
-    public static String digest(String algorithm, InputStream input) {
+    static String digest(String algorithm, String prefix, InputStream input) {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
             byte[] buffer = new byte[8192];
@@ -108,7 +117,7 @@ public final class DigestUtils {
             for (byte b : hashBytes) {
                 sb.append(String.format("%02x", b));
             }
-            return "%s:%s".formatted(algorithm.toLowerCase().replaceAll("-", ""), sb.toString());
+            return "%s:%s".formatted(prefix, sb.toString());
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }

@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.DigestUtils;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
@@ -535,13 +534,11 @@ public class OCILayoutTest {
                         pushedManifest.getDescriptor().getDigest()))));
 
         // Ensure manifest serialized correctly (check sha256)
-        String computedManifestDigest = DigestUtils.digest(
-                "sha256",
-                layoutPath
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(
-                                pushedManifest.getDescriptor().getDigest())));
+        String computedManifestDigest = SupportedAlgorithm.SHA256.digest(layoutPath
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest())));
         assertEquals(
                 SupportedAlgorithm.getDigest(pushedManifest.getDescriptor().getDigest()),
                 SupportedAlgorithm.getDigest(computedManifestDigest),
@@ -600,13 +597,12 @@ public class OCILayoutTest {
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
 
         // Ensure manifest serialized correctly (check sha256)
-        String computedManifestDigest = DigestUtils.digest(
-                "sha256",
-                layoutPathIndex
-                        .resolve("blobs")
-                        .resolve("sha256")
-                        .resolve(SupportedAlgorithm.getDigest(
-                                pushedManifest.getDescriptor().getDigest())));
+        String computedManifestDigest = SupportedAlgorithm.SHA256.digest(layoutPathIndex
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(
+                        pushedManifest.getDescriptor().getDigest())));
+
         assertEquals(
                 SupportedAlgorithm.getDigest(pushedManifest.getDescriptor().getDigest()),
                 SupportedAlgorithm.getDigest(computedManifestDigest),
