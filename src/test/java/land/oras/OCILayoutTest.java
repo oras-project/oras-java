@@ -315,9 +315,14 @@ public class OCILayoutTest {
         assertEquals(1, manifest.getLayers().size());
         ociLayout.fetchBlob(layoutRef, extractDir1.resolve("manifest.json"));
 
-        // We get the manifest via digest
+        // Cannot get blob without ref
         assertThrows(OrasException.class, () -> {
             ociLayout.fetchBlobDescriptor(LayoutRef.parse("src/test/resources/oci/artifact"));
+        });
+
+        // Cannot get manifest without ref
+        assertThrows(OrasException.class, () -> {
+            ociLayout.getManifest(LayoutRef.parse("src/test/resources/oci/artifact"));
         });
 
         Descriptor manifestDescriptor = ociLayout.fetchBlobDescriptor(layoutRef);
@@ -352,6 +357,31 @@ public class OCILayoutTest {
                         Path.of(
                                 "src/test/resources/oci/artifact/blobs/sha256/cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34")),
                 Files.readString(extractDir1.resolve("manifest.json")));
+    }
+
+    @Test
+    void shouldPullIndex() throws IOException {
+
+        Path extractDir1 = extractDir.resolve("shouldPullViaTagFromOciLayout");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        Index index = ociLayout.getIndex(layoutRef);
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+
+        ManifestDescriptor manifestDescriptor = index.getManifests().get(0);
+        assertEquals("foo/bar", manifestDescriptor.getArtifactType());
+        assertEquals(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                manifestDescriptor.getDigest());
+        assertEquals(556, manifestDescriptor.getSize());
+        assertNotNull(manifestDescriptor.getAnnotations());
+        assertNotNull(manifestDescriptor.getAnnotations().get(Const.ANNOTATION_CREATED));
+        assertEquals("latest", manifestDescriptor.getAnnotations().get(Const.ANNOTATION_REF));
+        assertNull(manifestDescriptor.getPlatform());
     }
 
     @Test

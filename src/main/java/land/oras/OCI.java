@@ -199,6 +199,20 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
     public abstract Manifest pushManifest(T ref, Manifest manifest);
 
     /**
+     * Retrieve an index
+     * @param ref The ref
+     * @return The index
+     */
+    public abstract Index getIndex(T ref);
+
+    /**
+     * Retrieve a manifest
+     * @param ref The ref
+     * @return The manifest
+     */
+    public abstract Manifest getManifest(T ref);
+
+    /**
      * Get the blob for the given digest. Not be suitable for large blobs
      * @param ref The ref
      * @return The blob as bytes
