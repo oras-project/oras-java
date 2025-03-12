@@ -25,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Map;
 import land.oras.utils.Const;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
+@Execution(ExecutionMode.CONCURRENT)
 public class ManifestDescriptorTest {
 
     @Test

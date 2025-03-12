@@ -40,9 +40,17 @@ public abstract sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     protected final @Nullable Map<String, String> annotations;
 
-    protected Descriptor(String mediaType, Map<String, String> annotations) {
+    protected final @Nullable String digest;
+    protected final @Nullable Long size;
+    protected final @Nullable String artifactType;
+
+    protected Descriptor(
+            String digest, Long size, String mediaType, Map<String, String> annotations, String artifactType) {
+        this.digest = digest;
+        this.size = size;
         this.mediaType = mediaType;
         this.annotations = annotations;
+        this.artifactType = artifactType;
     }
 
     /**
@@ -62,6 +70,33 @@ public abstract sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     public final String getMediaType() {
         return mediaType;
+    }
+
+    /**
+     * Get the digest
+     * @return The digest
+     */
+    public @Nullable String getDigest() {
+        return digest;
+    }
+
+    /**
+     * Get the size
+     * @return The size
+     */
+    public @Nullable Long getSize() {
+        return size;
+    }
+
+    /**
+     * Get the artifact type
+     * @return The artifact type
+     */
+    public @Nullable ArtifactType getArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        return null;
     }
 
     /**

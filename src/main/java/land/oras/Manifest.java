@@ -37,7 +37,6 @@ import org.jspecify.annotations.Nullable;
 public final class Manifest extends Descriptor {
 
     private final int schemaVersion;
-    private final String artifactType;
     private final Config config;
     private final Subject subject;
     private final List<Layer> layers;
@@ -62,9 +61,13 @@ public final class Manifest extends Descriptor {
             List<Layer> layers,
             Annotations annotations,
             String json) {
-        super(mediaType, Map.copyOf(annotations.manifestAnnotations()));
+        super(
+                null,
+                null,
+                mediaType,
+                Map.copyOf(annotations.manifestAnnotations()),
+                artifactType != null ? artifactType.getMediaType() : null);
         this.schemaVersion = schemaVersion;
-        this.artifactType = artifactType != null ? artifactType.getMediaType() : null;
         this.descriptor = descriptor;
         this.config = config;
         this.subject = subject;
@@ -80,10 +83,7 @@ public final class Manifest extends Descriptor {
         return schemaVersion;
     }
 
-    /**
-     * Get the artifact type
-     * @return The artifact type
-     */
+    @Override
     public @NonNull ArtifactType getArtifactType() {
         if (artifactType != null) {
             return ArtifactType.from(artifactType);
