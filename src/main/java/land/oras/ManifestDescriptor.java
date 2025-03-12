@@ -130,6 +130,14 @@ public final class ManifestDescriptor {
     }
 
     /**
+     * Return this manifest descriptor as a descriptor
+     * @return The descriptor
+     */
+    public Descriptor toDescriptor() {
+        return Descriptor.of(digest, size, mediaType, annotations, artifactType);
+    }
+
+    /**
      * Return this manifest descriptor as a subject
      * @return The subject
      */

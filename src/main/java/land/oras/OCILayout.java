@@ -183,6 +183,20 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     @Override
+    public Descriptor fetchBlobDescriptor(LayoutRef ref) {
+        if (ref.getTag() == null) {
+            throw new OrasException("Tag or digest is required to get blob from layout");
+        }
+        if (SupportedAlgorithm.isSupported(ref.getTag())) {
+            return Descriptor.of(ref.getTag(), size(getBlobPath(ref)));
+        }
+        // A manifest
+        else {
+            return findManifestDescriptor(ref).toDescriptor();
+        }
+    }
+
+    @Override
     public Layer pushBlob(LayoutRef ref, Path blob, Map<String, String> annotations) {
         ensureDigest(ref, blob);
         Path blobPath = getBlobPath(ref);
@@ -388,19 +402,34 @@ public final class OCILayout extends OCI<LayoutRef> {
         return getBlobPath(manifest.getDescriptor());
     }
 
-    private Manifest findManifest(LayoutRef ref) {
+    private long size(Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException e) {
+            throw new OrasException("Failed to get size", e);
+        }
+    }
+
+    private ManifestDescriptor findManifestDescriptor(LayoutRef ref) {
         String tag = ref.getTag();
         if (tag == null) {
             throw new OrasException("Tag or digest is required to find manifest");
         }
         Index index = Index.fromPath(getIndexPath());
-        ManifestDescriptor descriptor = index.getManifests().stream()
+        return index.getManifests().stream()
                 .filter(m -> (m.getAnnotations() != null
                                 && tag.equals(m.getAnnotations().get(Const.ANNOTATION_REF))
                         || tag.equals(m.getDigest())))
                 .findFirst()
                 .orElseThrow(() -> new OrasException("Tag or digest not found: %s".formatted(tag)));
+    }
 
+    private Manifest findManifest(LayoutRef ref) {
+        String tag = ref.getTag();
+        if (tag == null) {
+            throw new OrasException("Tag or digest is required to find manifest");
+        }
+        ManifestDescriptor descriptor = findManifestDescriptor(ref);
         Path manifestPath = getBlobPath(descriptor);
         if (!Files.exists(manifestPath)) {
             throw new OrasException("Blob not found: %s".formatted(manifestPath));

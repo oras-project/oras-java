@@ -221,7 +221,11 @@ public class OCILayoutTest {
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
-        Manifest manifest = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+        // Ensure we have time created time
+        Annotations annotations = Annotations.ofManifest(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()));
+
+        Manifest manifest = ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         assertOciLayout(ociLayoutPath);
 
@@ -236,7 +240,8 @@ public class OCILayoutTest {
         assertBlobContent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath), "hi");
 
         // Push again
-        Manifest manifest1 = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+        Manifest manifest1 = ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         // Check index exists
         assertIndex(ociLayoutPath, manifest1);
@@ -258,7 +263,11 @@ public class OCILayoutTest {
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
-        Manifest manifest = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+        // Ensure we have time created time
+        Annotations annotations = Annotations.ofManifest(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()));
+
+        Manifest manifest = ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         assertOciLayout(ociLayoutPath);
 
@@ -273,7 +282,8 @@ public class OCILayoutTest {
         assertBlobContent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath), "hi");
 
         // Push again
-        Manifest manifest1 = ociLayout.pushArtifact(layoutRef, LocalPath.of(artifactPath, "text/plain"));
+        Manifest manifest1 = ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         // Check index exists
         assertIndex(ociLayoutPath, manifest1);
@@ -304,6 +314,23 @@ public class OCILayoutTest {
         Manifest manifest = Manifest.fromJson(new String(blob, StandardCharsets.UTF_8));
         assertEquals(1, manifest.getLayers().size());
         ociLayout.fetchBlob(layoutRef, extractDir1.resolve("manifest.json"));
+
+        // We get the manifest via digest
+        assertThrows(OrasException.class, () -> {
+            ociLayout.fetchBlobDescriptor(LayoutRef.parse("src/test/resources/oci/artifact"));
+        });
+
+        Descriptor manifestDescriptor = ociLayout.fetchBlobDescriptor(layoutRef);
+        assertEquals(556, manifestDescriptor.getSize());
+        assertEquals(Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDescriptor.getMediaType());
+        assertNotNull(manifestDescriptor.getArtifactType());
+        assertEquals("foo/bar", manifestDescriptor.getArtifactType().getMediaType());
+        assertEquals(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                manifestDescriptor.getDigest());
+        assertNotNull(manifestDescriptor.getAnnotations());
+        assertNotNull(manifestDescriptor.getAnnotations().get(Const.ANNOTATION_CREATED));
+        assertEquals("latest", manifestDescriptor.getAnnotations().get(Const.ANNOTATION_REF));
 
         // By digest
         LayoutRef layoutRefDigest = LayoutRef.parse(
@@ -341,6 +368,14 @@ public class OCILayoutTest {
 
         // Check file exists
         assertTrue(Files.exists(extractDir1.resolve("hi.txt")));
+
+        // We get the manifest via digest
+        Descriptor manifestDescriptor = ociLayout.fetchBlobDescriptor(layoutRef);
+        assertEquals(556, manifestDescriptor.getSize());
+        assertEquals(Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, manifestDescriptor.getMediaType());
+        assertEquals(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                manifestDescriptor.getDigest());
     }
 
     @Test
@@ -514,9 +549,14 @@ public class OCILayoutTest {
         Layer layer1 = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
         Layer layer2 = registry.pushBlob(containerRef, "foobar".getBytes());
 
+        assertNotNull(layer1.getDigest());
+        assertNotNull(layer2.getDigest());
+
         Manifest emptyManifest = Manifest.empty()
                 .withLayers(List.of(Layer.fromDigest(layer1.getDigest(), 2), Layer.fromDigest(layer2.getDigest(), 6)));
         String configDigest = Config.empty().getDigest();
+
+        assertNotNull(configDigest);
 
         // Push config and manifest
         registry.pushConfig(containerRef.withDigest(configDigest), Config.empty());
