@@ -37,12 +37,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
 public class OCILayoutTest {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OCILayoutTest.class);
 
     @TempDir
     private Path extractDir;
@@ -666,6 +670,7 @@ public class OCILayoutTest {
     private void assertIndex(Path ociLayoutPath, Manifest manifest) {
         assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
         Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        LOG.debug("Index is {}", index.toJson());
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());

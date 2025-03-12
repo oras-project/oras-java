@@ -34,7 +34,6 @@ import land.oras.utils.JsonUtils;
 public final class Index extends Descriptor {
 
     private final int schemaVersion;
-    private final String artifactType;
     private final List<ManifestDescriptor> manifests;
 
     /**
@@ -54,10 +53,9 @@ public final class Index extends Descriptor {
             List<ManifestDescriptor> manifests,
             ManifestDescriptor descriptor,
             String json) {
-        super(mediaType, Map.of());
+        super(null, null, mediaType, Map.of(), artifactType);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
-        this.artifactType = artifactType;
         this.manifests = manifests;
         this.json = json;
     }
@@ -68,14 +66,6 @@ public final class Index extends Descriptor {
      */
     public int getSchemaVersion() {
         return schemaVersion;
-    }
-
-    /**
-     * Get the artifact type
-     * @return The artifact type
-     */
-    public String getArtifactType() {
-        return artifactType;
     }
 
     /**

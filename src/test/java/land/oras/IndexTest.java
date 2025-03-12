@@ -53,6 +53,23 @@ public class IndexTest {
     }
 
     @Test
+    void shouldReadAndWriteIndexWithArtifactType() {
+        String json =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}],\"artifactType\":\"foo/bar\"}";
+        Index index = Index.fromJson(json);
+        assertNull(index.getMediaType());
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertEquals("foo/bar", index.getArtifactType().getMediaType());
+        assertNull(index.getDescriptor());
+        assertEquals(
+                "sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27",
+                index.getManifests().get(0).getDigest());
+        assertEquals(559, index.getManifests().get(0).getSize());
+        assertEquals(json, index.toJson());
+    }
+
+    @Test
     void shouldAddManifest() {
         Index index = Index.fromManifests(List.of());
         index = index.withNewManifests(Manifest.empty().getDescriptor());

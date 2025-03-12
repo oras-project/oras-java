@@ -34,9 +34,6 @@ import org.jspecify.annotations.Nullable;
 @NullUnmarked
 public final class Config extends Descriptor {
 
-    private final String digest;
-    private final long size;
-
     /**
      * The base 64 encoded data
      */
@@ -50,10 +47,11 @@ public final class Config extends Descriptor {
      */
     private Config(String mediaType, String digest, long size, @Nullable String data, Annotations annotations) {
         super(
+                digest,
+                size,
                 mediaType,
-                !annotations.configAnnotations().isEmpty() ? Map.copyOf(annotations.configAnnotations()) : null);
-        this.digest = digest;
-        this.size = size;
+                !annotations.configAnnotations().isEmpty() ? Map.copyOf(annotations.configAnnotations()) : null,
+                null);
         this.data = data;
     }
 
@@ -64,22 +62,6 @@ public final class Config extends Descriptor {
     @Override
     public @Nullable Map<String, String> getAnnotations() {
         return annotations;
-    }
-
-    /**
-     * Get the digest
-     * @return The digest
-     */
-    public String getDigest() {
-        return digest;
-    }
-
-    /**
-     * Get the size
-     * @return The size
-     */
-    public long getSize() {
-        return size;
     }
 
     /**

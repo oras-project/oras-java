@@ -39,16 +39,6 @@ import org.jspecify.annotations.Nullable;
 public final class Layer extends Descriptor {
 
     /**
-     * The digest of the layer
-     */
-    private final String digest;
-
-    /**
-     * The size of the layer
-     */
-    private final long size;
-
-    /**
      * The base 64 encoded data. Might be null if path is set
      */
     private final @Nullable String data;
@@ -71,9 +61,7 @@ public final class Layer extends Descriptor {
             long size,
             @Nullable String data,
             @Nullable Map<String, String> annotations) {
-        super(mediaType, annotations);
-        this.digest = digest;
-        this.size = size;
+        super(digest, size, mediaType, annotations, null);
         this.data = data;
         this.blobPath = null;
     }
@@ -86,27 +74,9 @@ public final class Layer extends Descriptor {
      * @param blobPath The path to the blob
      */
     private Layer(String mediaType, String digest, long size, Path blobPath, Map<String, String> annotations) {
-        super(mediaType, annotations);
-        this.digest = digest;
-        this.size = size;
+        super(digest, size, mediaType, annotations, null);
         this.data = null;
         this.blobPath = blobPath;
-    }
-
-    /**
-     * Get the digest
-     * @return The digest
-     */
-    public String getDigest() {
-        return digest;
-    }
-
-    /**
-     * Get the size
-     * @return The size
-     */
-    public long getSize() {
-        return size;
     }
 
     /**
