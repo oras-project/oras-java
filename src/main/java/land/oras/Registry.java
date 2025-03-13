@@ -559,11 +559,6 @@ public final class Registry extends OCI<ContainerRef> {
         return Descriptor.of(digest, Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
     }
 
-    /**
-     * Get the manifest of a container
-     * @param containerRef The container
-     * @return The manifest and it's associated descriptor
-     */
     public Manifest getManifest(ContainerRef containerRef) {
         OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
         logResponse(response);
@@ -580,11 +575,7 @@ public final class Registry extends OCI<ContainerRef> {
         return Manifest.fromJson(response.response()).withDescriptor(descriptor);
     }
 
-    /**
-     * Get the index of a container
-     * @param containerRef The container
-     * @return The index and it's associated descriptor
-     */
+    @Override
     public Index getIndex(ContainerRef containerRef) {
         OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
         logResponse(response);
