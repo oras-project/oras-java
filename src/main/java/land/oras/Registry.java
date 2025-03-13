@@ -5,7 +5,7 @@
  * Copyright (C) 2024 - 2025 ORAS
  * ===
  * Licensed under the Apache License, Version 2.0 (the "License");
- * You may not use this file except in compliance with the License.
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -1043,7 +1042,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
     }
 
-     /**   
+    /**
      * Return if a media type is an index media type
      * @param mediaType The media type
      * @return True if it is a index media type
