@@ -68,6 +68,9 @@ public class RegistryTest {
     @TempDir
     private Path extractDir;
 
+    @TempDir
+    private Path chunkTestDir;
+
     @BeforeEach
     void before() {
         registry.withFollowOutput();
@@ -871,6 +874,36 @@ public class RegistryTest {
 
         // Clean up
         Files.delete(largeFile);
+        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    }
+
+    @Test
+    void shouldHandleChunkedUploadCorrectly() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/chunked-test".formatted(this.registry.getRegistry()));
+
+        Path largeFile = chunkTestDir.resolve("chunked-test-large.dat");
+        byte[] largeData = new byte[8 * 1024 * 1024];
+        new Random().nextBytes(largeData);
+        Files.write(largeFile, largeData);
+        long fileSize = Files.size(largeFile);
+
+        Layer layer;
+        try (InputStream inputStream = Files.newInputStream(largeFile)) {
+            layer = registry.pushChunks(containerRef, inputStream, fileSize);
+        }
+
+        assertEquals(fileSize, layer.getSize());
+
+        try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
+            byte[] result = resultStream.readAllBytes();
+            Assertions.assertArrayEquals(largeData, result);
+        }
+
         registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
     }
 }
