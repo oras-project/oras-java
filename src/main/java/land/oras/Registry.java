@@ -910,48 +910,6 @@ public final class Registry extends OCI<ContainerRef> {
         }
     }
 
-    private List<Layer> pushLayers(ContainerRef containerRef, LocalPath... paths) {
-        List<Layer> layers = new ArrayList<>();
-        for (LocalPath path : paths) {
-            try {
-                // Create tar.gz archive for directory
-                if (Files.isDirectory(path.getPath())) {
-                    LocalPath tempTar = ArchiveUtils.tar(path);
-                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
-                    try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
-                        long size = Files.size(tempArchive.getPath());
-                        Layer layer = pushChunks(containerRef, is, size)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString(),
-                                        Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                        containerRef.getAlgorithm().digest(tempTar.getPath()),
-                                        Const.ANNOTATION_ORAS_UNPACK,
-                                        "true"));
-                        layers.add(layer);
-                        LOG.info("Uploaded directory: {}", layer.getDigest());
-                    }
-                    Files.delete(tempArchive.getPath());
-                } else {
-                    try (InputStream is = Files.newInputStream(path.getPath())) {
-                        long size = Files.size(path.getPath());
-                        Layer layer = pushChunks(containerRef, is, size)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString()));
-                        layers.add(layer);
-                        LOG.info("Uploaded: {}", layer.getDigest());
-                    }
-                }
-            } catch (IOException e) {
-                throw new OrasException("Failed to push artifact", e);
-            }
-        }
-        return layers;
-    }
-
     /**
      * Get blob as stream to avoid loading into memory
      * @param containerRef The container ref
@@ -1083,6 +1041,9 @@ public final class Registry extends OCI<ContainerRef> {
         if (response.response() instanceof String) {
             LOG.debug("Response body: {}", response.response());
         }
+    }
+
+     /**   
      * Return if a media type is an index media type
      * @param mediaType The media type
      * @return True if it is a index media type
