@@ -31,10 +31,10 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A OCI artifact
+ * A referer of a container on a {@link Registry}.
  */
 @NullMarked
-public final class ContainerRef {
+public final class ContainerRef extends Ref {
 
     /**
      * The regex pattern to parse the container name including the registry, namespace, repository, tag and digest.
@@ -63,11 +63,6 @@ public final class ContainerRef {
     private final @Nullable String namespace;
 
     /**
-     * The tag of the container.
-     */
-    private final String tag;
-
-    /**
      * The digest of the container.
      */
     private final @Nullable String digest;
@@ -82,10 +77,10 @@ public final class ContainerRef {
      */
     private ContainerRef(
             String registry, @Nullable String namespace, String repository, String tag, @Nullable String digest) {
+        super(tag);
         this.registry = registry;
         this.namespace = namespace;
         this.repository = repository;
-        this.tag = tag;
         this.digest = digest;
     }
 
@@ -98,10 +93,26 @@ public final class ContainerRef {
     }
 
     /**
+     * Get the API registry
+     * @return The API registry
+     */
+    public String getApiRegistry() {
+        String registry = getRegistry();
+        if (registry.equals("docker.io")) {
+            return "registry-1.docker.io";
+        }
+        return registry;
+    }
+
+    /**
      * Get the namespace
      * @return The namespace
      */
     public @Nullable String getNamespace() {
+        String registry = getRegistry();
+        if (namespace == null && registry.equals("docker.io")) {
+            return "library";
+        }
         return namespace;
     }
 
@@ -114,14 +125,6 @@ public final class ContainerRef {
     }
 
     /**
-     * Get the tag
-     * @return The tag
-     */
-    public String getTag() {
-        return tag;
-    }
-
-    /**
      * Get the digest
      * @return The digest
      */
@@ -129,19 +132,12 @@ public final class ContainerRef {
         return digest;
     }
 
-    /**
-     * Create a new container reference with the digest
-     * @param digest The digest
-     * @return The new container reference
-     */
+    @Override
     public ContainerRef withDigest(String digest) {
-        return new ContainerRef(registry, namespace, repository, tag, digest);
+        return new ContainerRef(registry, getNamespace(), repository, tag, digest);
     }
 
-    /**
-     * Get the algorithm for this container ref
-     * @return The algorithm
-     */
+    @Override
     public SupportedAlgorithm getAlgorithm() {
         // Default if not set
         if (digest == null) {
@@ -157,9 +153,9 @@ public final class ContainerRef {
      */
     private String getApiPrefix() {
         if (namespace != null) {
-            return "%s/v2/%s/%s".formatted(registry, namespace, repository);
+            return "%s/v2/%s/%s".formatted(getApiRegistry(), getNamespace(), repository);
         }
-        return "%s/v2/%s".formatted(registry, repository);
+        return "%s/v2/%s".formatted(getApiRegistry(), repository);
     }
 
     /**
@@ -175,12 +171,12 @@ public final class ContainerRef {
      * @param artifactType The optional artifact type
      * @return The referrers URL
      */
-    public String getReferrersPath(@Nullable String artifactType) {
+    public String getReferrersPath(@Nullable ArtifactType artifactType) {
         if (artifactType == null) {
             return "%s/referrers/%s".formatted(getApiPrefix(), digest);
         }
         return "%s/referrers/%s?artifactType=%s"
-                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType, StandardCharsets.UTF_8));
+                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
     }
 
     /**
@@ -258,10 +254,7 @@ public final class ContainerRef {
 
         // Validate digest algorithm
         if (digest != null) {
-            String prefix = digest.split(":")[0];
-            if (!SupportedAlgorithm.isSupported(prefix)) {
-                throw new OrasException("Unsupported digest algorithm: " + prefix);
-            }
+            SupportedAlgorithm.fromDigest(digest);
         }
 
         return new ContainerRef(registry, namespace, repository, tag, digest);

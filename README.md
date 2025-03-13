@@ -1,11 +1,14 @@
 # ORAS Java
 
 [![GitHub Workflow Status](https://github.com/oras-project/oras-java/actions/workflows/build.yml/badge.svg)](https://github.com/oras-project/oras-java/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/oras-project/oras-java/branch/main/graph/badge.svg)](https://codecov.io/gh/oras-project/oras-java)[![GitHub release](https://img.shields.io/github/v/release/oras-project/oras-java)](https://github.com/oras-project/oras-java/releases)
+[![codecov](https://codecov.io/gh/oras-project/oras-java/branch/main/graph/badge.svg)](https://codecov.io/gh/oras-project/oras-java)
+![GitHub Release](https://img.shields.io/github/v/release/oras-project/oras-java?logo=github&color=green)
 [![GitHub license](https://img.shields.io/github/license/oras-project/oras-java)](https://github.com/oras-project/oras-java/blob/main/LICENSE)
 [![Javadoc](https://img.shields.io/badge/javadoc-latest-blue)](https://oras-project.github.io/oras-java/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/oras-project/oras-java/badge)](https://scorecard.dev/viewer/?uri=github.com/oras-project/oras-java)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10047/badge)](https://www.bestpractices.dev/projects/10047)
+[![Reproducible Central Artifact](https://img.shields.io/reproducible-central/artifact/land.oras/oras-java-sdk/0.2.0)](https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/land/oras/oras-java-sdk/README.md)
+
 
 > [!WARNING]
 > The Oras Java SDK is currently in **alpha** state.
@@ -20,9 +23,20 @@ OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conforma
 
 ## Consuming SDK
 
-SNAPSHOT version are published on GitHub Maven package.
+SNAPSHOT version are published on GitHub Maven packages.
+Releases are published on Maven Central
 
 Javadoc is published from main branch into: https://oras-project.github.io/oras-java/
+
+```xml
+<dependency>
+    <groupId>land.oras</groupId>
+    <artifactId>oras-java-sdk</artifactId>
+    <version>VERSION_HERE</version>
+</dependency>
+```
+
+### Only for SNAPSHOTS (only for testing)
 
 GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
 
@@ -67,7 +81,7 @@ Registry registry = Registry.Builder.builder().defaults("username", "password").
 ### Push an Artifact
 
 ```java
-Path artifact = Path.of("my-file.txt");
+LocalPath artifact = LocalPath.of("my-file.txt");
 Registry registry = Registry.Builder.builder().insecure().build();
 Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hello:v1"), artifact);
 ```
@@ -76,22 +90,16 @@ Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hel
 
 ```java
 Registry registry = Registry.Builder.builder().insecure().build();
-registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"));
+registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"), false);
 ```
 
-### Deploy to GitHub Packages
+### Deploy SNAPSHOTS
 
-This is temporary until published to Maven Central with a proper workflow.
-
-The maven resolver must be switched to `wagon` to deploy to GitHub Packages.
-
-```shell
-mvn -Dmaven.resolver.transport=wagon -DskipTests -Poras-java clean deploy
-```
+SNAPSHOTS are automatically deployed when the `main` branch is updated. See the [GitHub Actions](.github/workflows/deploy-snapshots.yml) for more details.
 
 ### Perform release
 
-- Ensure the draft release version correspond to the version on the `pom.xml`
+- Ensure the draft release version correspond to the version on the `pom.xml`. Specially if changing the major or minor version. Patch releases are automatically updated.
 - Run the release workflow
 
 ## Code of Conduct

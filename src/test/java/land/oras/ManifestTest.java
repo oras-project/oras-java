@@ -21,7 +21,9 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -75,6 +77,31 @@ public class ManifestTest {
     void shouldHaveEmptyManifest() {
         assertEquals(
                 Manifest.fromJson(emptyManifest()).toJson(), Manifest.empty().toJson());
+    }
+
+    @Test
+    void shouldHaveNoLayerForIndex() {
+        String json =
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"annotations\":{}}";
+        Manifest manifest = Manifest.fromJson(json);
+        assertEquals(0, manifest.getLayers().size());
+        assertEquals(json, manifest.getJson());
+    }
+
+    @Test
+    void shouldReadFromPath() {
+        Path path = Path.of(
+                "src/test/resources/oci/artifact/blobs/sha256/cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34");
+        Manifest manifest = Manifest.fromPath(path);
+        assertNotNull(manifest.getJson());
+    }
+
+    @Test
+    void shouldGetArtifactTest() {
+        Manifest manifest1 = Manifest.empty().withArtifactType(ArtifactType.from("test/plain"));
+        assertEquals("test/plain", manifest1.getArtifactType().getMediaType());
+        Manifest manifest2 = Manifest.empty().withConfig(Config.empty().withMediaType("test/plain"));
+        assertEquals("test/plain", manifest2.getArtifactType().getMediaType());
     }
 
     private String emptyManifest() {

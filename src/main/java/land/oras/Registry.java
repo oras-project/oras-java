@@ -33,12 +33,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import land.oras.auth.AbstractUsernamePasswordProvider;
 import land.oras.auth.AuthProvider;
+import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
-import land.oras.auth.FileStoreAuthenticationProvider;
 import land.oras.auth.NoAuthProvider;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
@@ -49,19 +49,12 @@ import land.oras.utils.OrasHttpClient;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A registry is the main entry point for interacting with a container registry
  */
 @NullMarked
-public final class Registry {
-
-    /**
-     * The logger
-     */
-    private static final Logger LOG = LoggerFactory.getLogger(Registry.class);
+public final class Registry extends OCI<ContainerRef> {
 
     /**
      * The chunk size for uploading blobs (5MB)
@@ -173,15 +166,15 @@ public final class Registry {
      * @param artifactType The optional artifact type
      * @return The referrers
      */
-    public Referrers getReferrers(ContainerRef containerRef, @Nullable String artifactType) {
+    public Referrers getReferrers(ContainerRef containerRef, @Nullable ArtifactType artifactType) {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getReferrersPath(artifactType)));
         OrasHttpClient.ResponseWrapper<String> response =
-                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
-            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
         }
         handleError(response);
         return JsonUtils.fromJson(response.response(), Referrers.class);
@@ -202,12 +195,7 @@ public final class Registry {
         handleError(response);
     }
 
-    /**
-     * Push a manifest
-     * @param containerRef The container
-     * @param manifest The manifest
-     * @return The location
-     */
+    @Override
     public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
 
         Map<String, String> annotations = manifest.getAnnotations();
@@ -217,15 +205,14 @@ public final class Registry {
             manifest = manifest.withAnnotations(manifestAnnotations);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
-        OrasHttpClient.ResponseWrapper<String> response = client.put(
-                uri,
-                JsonUtils.toJson(manifest).getBytes(),
-                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+        byte[] manifestData = manifest.getJson() != null
+                ? manifest.getJson().getBytes()
+                : manifest.toJson().getBytes();
+        OrasHttpClient.ResponseWrapper<String> response =
+                client.put(uri, manifestData, Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
-            response = client.put(
-                    uri,
-                    JsonUtils.toJson(manifest).getBytes(),
-                    Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+            response =
+                    client.put(uri, manifestData, Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
         }
         logResponse(response);
         handleError(response);
@@ -237,6 +224,29 @@ public final class Registry {
             }
         }
         return getManifest(containerRef);
+    }
+
+    /**
+     * Push a manifest
+     * @param containerRef The container
+     * @param index The index
+     * @return The location
+     */
+    public Index pushIndex(ContainerRef containerRef, Index index) {
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        OrasHttpClient.ResponseWrapper<String> response = client.put(
+                uri,
+                JsonUtils.toJson(index).getBytes(),
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
+        if (switchTokenAuth(containerRef, response)) {
+            response = client.put(
+                    uri,
+                    JsonUtils.toJson(index).getBytes(),
+                    Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
+        }
+        logResponse(response);
+        handleError(response);
+        return getIndex(containerRef);
     }
 
     /**
@@ -255,49 +265,17 @@ public final class Registry {
         handleError(response);
     }
 
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(ContainerRef containerRef, LocalPath... paths) {
-        return pushArtifact(containerRef, null, Annotations.empty(), Config.empty(), paths);
-    }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(ContainerRef containerRef, String artifactType, LocalPath... paths) {
-        return pushArtifact(containerRef, artifactType, Annotations.empty(), Config.empty(), paths);
-    }
-
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param annotations The annotations
-     * @param paths The paths
-     * @return The manifest
-     */
-    public Manifest pushArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, LocalPath... paths) {
-        return pushArtifact(containerRef, artifactType, annotations, Config.empty(), paths);
-    }
-
-    /**
-     * Download an ORAS artifact
-     * @param containerRef The container
-     * @param path The path
-     * @param overwrite Overwrite
-     */
+    @Override
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
-        Manifest manifest = getManifest(containerRef);
-        for (Layer layer : manifest.getLayers()) {
+
+        // Only collect layer that are files
+        String contentType = getContentType(containerRef);
+        List<Layer> layers = collectLayers(containerRef, contentType, false);
+        if (layers.isEmpty()) {
+            LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
+            return;
+        }
+        for (Layer layer : layers) {
             try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
                 // Unpack or just copy blob
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
@@ -334,28 +312,15 @@ public final class Registry {
         }
     }
 
-    /**
-     * Upload an ORAS artifact
-     * @param containerRef The container
-     * @param artifactType The artifact type. Can be null
-     * @param annotations The annotations
-     * @param config The config
-     * @param paths The paths
-     * @return The manifest
-     */
+    @Override
     public Manifest pushArtifact(
             ContainerRef containerRef,
-            @Nullable String artifactType,
+            ArtifactType artifactType,
             Annotations annotations,
             @Nullable Config config,
             LocalPath... paths) {
-        Manifest manifest = Manifest.empty();
-        if (artifactType != null) {
-            manifest = manifest.withArtifactType(artifactType);
-        } else {
-            manifest = manifest.withArtifactType(Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
-        }
-        Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
+        Manifest manifest = Manifest.empty().withArtifactType(artifactType);
+        Map<String, String> manifestAnnotations = new HashMap<>(annotations.manifestAnnotations());
         if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED) && containerRef.getDigest() == null) {
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
         }
@@ -366,7 +331,7 @@ public final class Registry {
         }
 
         // Push layers
-        List<Layer> layers = pushLayers(containerRef, paths);
+        List<Layer> layers = pushLayers(containerRef, false, paths);
 
         // Push the config like any other blob
         Config pushedConfig = pushConfig(containerRef, config != null ? config : Config.empty());
@@ -389,31 +354,7 @@ public final class Registry {
      * @param targetContainer The target container
      */
     public void copy(Registry targetRegistry, ContainerRef sourceContainer, ContainerRef targetContainer) {
-
-        // Copy config
-        Manifest sourceManifest = getManifest(sourceContainer);
-        Config sourceConfig = sourceManifest.getConfig();
-        targetRegistry.pushConfig(targetContainer, sourceConfig);
-
-        // Push all layer
-        for (Layer layer : sourceManifest.getLayers()) {
-            try (InputStream is = fetchBlob(sourceContainer.withDigest(layer.getDigest()))) {
-                Layer newLayer = targetRegistry
-                        .pushChunks(targetContainer, is, layer.getSize())
-                        .withMediaType(layer.getMediaType())
-                        .withAnnotations(layer.getAnnotations());
-                LOG.debug(
-                        "Copied layer {} from {} to {}",
-                        newLayer.getDigest(),
-                        sourceContainer.getRegistry(),
-                        targetContainer.getRegistry());
-            } catch (IOException e) {
-                throw new OrasException("Failed to copy artifact", e);
-            }
-        }
-
-        // Copy manifest
-        targetRegistry.pushManifest(targetContainer, sourceManifest);
+        throw new OrasException("Not implemented");
     }
 
     /**
@@ -423,7 +364,7 @@ public final class Registry {
      * @param paths The paths
      * @return The manifest of the new artifact
      */
-    public Manifest attachArtifact(ContainerRef containerRef, String artifactType, LocalPath... paths) {
+    public Manifest attachArtifact(ContainerRef containerRef, ArtifactType artifactType, LocalPath... paths) {
         return attachArtifact(containerRef, artifactType, Annotations.empty(), paths);
     }
 
@@ -436,10 +377,10 @@ public final class Registry {
      * @return The manifest of the new artifact
      */
     public Manifest attachArtifact(
-            ContainerRef containerRef, String artifactType, Annotations annotations, LocalPath... paths) {
+            ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
 
         // Push layers
-        List<Layer> layers = pushLayers(containerRef, paths);
+        List<Layer> layers = pushLayers(containerRef, false, paths);
 
         // Get the subject from the manifest
         Subject subject = getManifest(containerRef).getDescriptor().toSubject();
@@ -463,29 +404,13 @@ public final class Registry {
                 manifest);
     }
 
-    /**
-     * Push a blob from file
-     * @param containerRef The container
-     * @param blob The blob
-     * @return The layer
-     */
-    public Layer pushBlob(ContainerRef containerRef, Path blob) {
-        return pushBlob(containerRef, blob, Map.of());
-    }
-
-    /**
-     * Push a blob from file
-     * @param containerRef The container
-     * @param blob The blob
-     * @param annotations The annotations
-     * @return The layer
-     */
+    @Override
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
-            return Layer.fromFile(blob).withAnnotations(annotations);
+            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
         }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.withDigest(digest).getBlobsUploadDigestPath()));
@@ -502,7 +427,7 @@ public final class Registry {
 
         // Accepted single POST push
         if (response.statusCode() == 201) {
-            return Layer.fromFile(blob).withAnnotations(annotations);
+            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
         }
 
         // We need to push via PUT
@@ -511,7 +436,7 @@ public final class Registry {
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
                 location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+                        .formatted(getScheme(), containerRef.getApiRegistry(), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
             response = client.upload(
@@ -527,30 +452,15 @@ public final class Registry {
         }
 
         handleError(response);
-        return Layer.fromFile(blob).withAnnotations(annotations);
+        return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
     }
 
-    /**
-     * Push config
-     * @param containerRef The container
-     * @param config The config
-     * @return The config
-     */
-    public Config pushConfig(ContainerRef containerRef, Config config) {
-        Layer layer = pushBlob(containerRef, config.getDataBytes());
-        LOG.debug("Config pushed: {}", layer.getDigest());
-        return config;
-    }
-
-    /**
-     * Push the blob for the given layer in a single post request. Might not be supported by all registries
-     * Fallback to POST/then PUT (end-4a) if not supported
-     * @param containerRef The container ref
-     * @param data The data
-     * @return The layer
-     */
+    @Override
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
         String digest = containerRef.getAlgorithm().digest(data);
+        if (containerRef.getDigest() != null) {
+            ensureDigest(containerRef, data);
+        }
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
             return Layer.fromData(containerRef, data);
@@ -579,7 +489,7 @@ public final class Registry {
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
                 location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+                        .formatted(getScheme(), containerRef.getApiRegistry(), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
             response = client.put(
@@ -602,7 +512,12 @@ public final class Registry {
      * @param containerRef The container
      * @return True if the blob exists
      */
-    public boolean hasBlob(ContainerRef containerRef) {
+    private boolean hasBlob(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = headBlob(containerRef);
+        return response.statusCode() == 200;
+    }
+
+    private OrasHttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
@@ -613,7 +528,7 @@ public final class Registry {
             response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
             logResponse(response);
         }
-        return response.statusCode() == 200;
+        return response;
     }
 
     /**
@@ -621,29 +536,16 @@ public final class Registry {
      * @param containerRef The container
      * @return The blob as bytes
      */
+    @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        if (!hasBlob(containerRef)) {
-            throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
+        try (InputStream is = fetchBlob(containerRef)) {
+            return ensureDigest(containerRef, is.readAllBytes());
+        } catch (IOException e) {
+            throw new OrasException("Failed to get blob", e);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
-        OrasHttpClient.ResponseWrapper<String> response =
-                client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-        logResponse(response);
-
-        // Switch to bearer auth if needed and retry first request
-        if (switchTokenAuth(containerRef, response)) {
-            response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
-            logResponse(response);
-        }
-        handleError(response);
-        return response.response().getBytes();
     }
 
-    /**
-     * Fetch blob and save it to file
-     * @param containerRef The container
-     * @param path The path to save the blob
-     */
+    @Override
     public void fetchBlob(ContainerRef containerRef, Path path) {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
@@ -655,11 +557,7 @@ public final class Registry {
         handleError(response);
     }
 
-    /**
-     * Fetch blob and return it as input stream
-     * @param containerRef The container
-     * @return The input stream
-     */
+    @Override
     public InputStream fetchBlob(ContainerRef containerRef) {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
@@ -672,6 +570,15 @@ public final class Registry {
         return response.response();
     }
 
+    @Override
+    public Descriptor fetchBlobDescriptor(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = headBlob(containerRef);
+        handleError(response);
+        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        return Descriptor.of(digest, Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
+    }
+
     /**
      * Get the manifest of a container
      * @param containerRef The container
@@ -682,10 +589,35 @@ public final class Registry {
         logResponse(response);
         handleError(response);
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        if (!isManifestMediaType(contentType)) {
+            throw new OrasException(
+                    "Expected manifest but got index. Probably a multi-platform image instead of artifact");
+        }
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-        return JsonUtils.fromJson(response.response(), Manifest.class)
-                .withDescriptor(ManifestDescriptor.of(contentType, digest, Long.parseLong(size)));
+        ManifestDescriptor descriptor =
+                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
+        return Manifest.fromJson(response.response()).withDescriptor(descriptor);
+    }
+
+    /**
+     * Get the index of a container
+     * @param containerRef The container
+     * @return The index and it's associated descriptor
+     */
+    public Index getIndex(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
+        logResponse(response);
+        handleError(response);
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        if (!isIndexMediaType(contentType)) {
+            throw new OrasException("Expected index but got %s".formatted(contentType));
+        }
+        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        ManifestDescriptor descriptor =
+                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
+        return Index.fromJson(response.response()).withDescriptor(descriptor);
     }
 
     /**
@@ -696,16 +628,28 @@ public final class Registry {
     private OrasHttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
-                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
         logResponse(response);
 
         // Switch to bearer auth if needed and retry first request
         if (switchTokenAuth(containerRef, response)) {
-            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
             logResponse(response);
         }
         handleError(response);
-        return client.get(uri, Map.of("Accept", Const.DEFAULT_MANIFEST_MEDIA_TYPE));
+        return client.get(uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE));
+    }
+
+    private byte[] ensureDigest(ContainerRef ref, byte[] data) {
+        if (ref.getDigest() == null) {
+            throw new OrasException("Missing digest");
+        }
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getDigest());
+        String dataDigest = algorithm.digest(data);
+        if (!ref.getDigest().equals(dataDigest)) {
+            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), dataDigest));
+        }
+        return data;
     }
 
     /**
@@ -713,17 +657,16 @@ public final class Registry {
      * @param response The response
      */
     private boolean switchTokenAuth(ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
-        if (response.statusCode() == 401 && authProvider instanceof AbstractUsernamePasswordProvider) {
+        if (response.statusCode() == 401 && !(authProvider instanceof BearerTokenProvider)) {
             LOG.debug("Requesting token with token flow");
-            setAuthProvider(new BearerTokenProvider((AbstractUsernamePasswordProvider) authProvider)
-                    .refreshToken(containerRef, response));
+            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(containerRef, client, response));
             return true;
         }
         // Need token refresh (expired or wrong scope)
         if ((response.statusCode() == 401 || response.statusCode() == 403)
                 && authProvider instanceof BearerTokenProvider) {
             LOG.debug("Requesting new token with username password flow");
-            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, response));
+            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, client, response));
             return true;
         }
         return false;
@@ -1140,6 +1083,82 @@ public final class Registry {
         if (response.response() instanceof String) {
             LOG.debug("Response body: {}", response.response());
         }
+     * Return if a media type is an index media type
+     * @param mediaType The media type
+     * @return True if it is a index media type
+     */
+    boolean isIndexMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE) || mediaType.equals(Const.DOCKER_INDEX_MEDIA_TYPE);
+    }
+
+    /**
+     * Return if a media type is a manifest media type
+     * @param mediaType The media type
+     * @return True if it is a manifest media type
+     */
+    boolean isManifestMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE);
+    }
+
+    /**
+     * Get the content type of the container
+     * @param containerRef The container
+     * @return The content type
+     */
+    String getContentType(ContainerRef containerRef) {
+        return getHeaders(containerRef).get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+    }
+
+    /**
+     * Execute a head request on the manifest URL and return the headers
+     * @param containerRef The container
+     * @return The headers
+     */
+    Map<String, String> getHeaders(ContainerRef containerRef) {
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        OrasHttpClient.ResponseWrapper<String> response =
+                client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
+        logResponse(response);
+
+        // Switch to bearer auth if needed and retry first request
+        if (switchTokenAuth(containerRef, response)) {
+            response = client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
+            logResponse(response);
+        }
+        handleError(response);
+        return response.headers();
+    }
+
+    /**
+     * Collect layers from the container
+     * @param containerRef The container
+     * @param includeAll Include all layers or only the ones with title annotation
+     * @return The layers
+     */
+    List<Layer> collectLayers(ContainerRef containerRef, String contentType, boolean includeAll) {
+        List<Layer> layers = new LinkedList<>();
+        if (isManifestMediaType(contentType)) {
+            return getManifest(containerRef).getLayers();
+        }
+        Index index = getIndex(containerRef);
+        for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+            List<Layer> manifestLayers = getManifest(containerRef.withDigest(manifestDescriptor.getDigest()))
+                    .getLayers();
+            for (Layer manifestLayer : manifestLayers) {
+                if (manifestLayer.getAnnotations().isEmpty()
+                        || !manifestLayer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
+                    if (includeAll) {
+                        LOG.debug("Including layer without title annotation: {}", manifestLayer.getDigest());
+                        layers.add(manifestLayer);
+                    }
+                    LOG.debug("Skipping layer without title annotation: {}", manifestLayer.getDigest());
+                    continue;
+                }
+                layers.add(manifestLayer);
+            }
+        }
+        return layers;
     }
 
     /**
@@ -1161,7 +1180,7 @@ public final class Registry {
          * @return The builder
          */
         public Builder defaults() {
-            registry.setAuthProvider(new FileStoreAuthenticationProvider());
+            registry.setAuthProvider(new AuthStoreAuthenticationProvider());
             return this;
         }
 

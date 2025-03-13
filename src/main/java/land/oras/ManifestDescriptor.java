@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.util.Map;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,12 @@ public final class ManifestDescriptor {
     private final String digest;
     private final long size;
 
+    @Nullable
+    private final Map<String, String> platform;
+
+    @Nullable
+    private final Map<String, String> annotations;
+
     /**
      * Constructor
      * @param artifactType The optional artifact type
@@ -42,11 +49,19 @@ public final class ManifestDescriptor {
      * @param digest The digest
      * @param size The size
      */
-    private ManifestDescriptor(@Nullable String artifactType, String mediaType, String digest, long size) {
+    private ManifestDescriptor(
+            @Nullable String artifactType,
+            String mediaType,
+            String digest,
+            long size,
+            @Nullable Map<String, String> platform,
+            @Nullable Map<String, String> annotations) {
         this.artifactType = artifactType;
         this.mediaType = mediaType;
         this.digest = digest;
         this.size = size;
+        this.platform = platform;
+        this.annotations = annotations;
     }
 
     /**
@@ -82,11 +97,44 @@ public final class ManifestDescriptor {
     }
 
     /**
+     * Get the platform
+     * @return The platform
+     */
+    public Map<String, String> getPlatform() {
+        return platform;
+    }
+
+    /**
+     * Get the annotations
+     * @return The annotations
+     */
+    public @Nullable Map<String, String> getAnnotations() {
+        return annotations;
+    }
+
+    /**
      * Return the JSON representation of the manifest
      * @return The JSON string
      */
     public String toJson() {
         return JsonUtils.toJson(this);
+    }
+
+    /**
+     * Create a manifest descriptor from a JSON string
+     * @param json The JSON string
+     * @return The manifest
+     */
+    public static ManifestDescriptor fromJson(String json) {
+        return JsonUtils.fromJson(json, ManifestDescriptor.class);
+    }
+
+    /**
+     * Return this manifest descriptor as a descriptor
+     * @return The descriptor
+     */
+    public Descriptor toDescriptor() {
+        return Descriptor.of(digest, size, mediaType, annotations, artifactType);
     }
 
     /**
@@ -98,6 +146,24 @@ public final class ManifestDescriptor {
     }
 
     /**
+     * Create a manifest descriptor with the given annotations
+     * @param annotations The annotations
+     * @return The subject
+     */
+    public ManifestDescriptor withAnnotations(@Nullable Map<String, String> annotations) {
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
+    }
+
+    /**
+     * Create a manifest descriptor with the given artifact type
+     * @param artifactType The artifact type
+     * @return The subject
+     */
+    public ManifestDescriptor withArtifactType(@Nullable String artifactType) {
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
+    }
+
+    /**
      * Create a manifest descriptor
      * @param mediaType The media type
      * @param digest The digest
@@ -105,6 +171,6 @@ public final class ManifestDescriptor {
      * @return The subject
      */
     public static ManifestDescriptor of(String mediaType, String digest, long size) {
-        return new ManifestDescriptor(null, mediaType, digest, size);
+        return new ManifestDescriptor(null, mediaType, digest, size, null, null);
     }
 }

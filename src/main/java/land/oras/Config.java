@@ -32,17 +32,7 @@ import org.jspecify.annotations.Nullable;
  * Class for config
  */
 @NullUnmarked
-public final class Config {
-
-    private final String mediaType;
-    private final String digest;
-    private final long size;
-
-    /**
-     * Annotations for the layer
-     * Can be nullable due to serialization
-     */
-    private final @Nullable Map<String, String> annotations;
+public final class Config extends Descriptor {
 
     /**
      * The base 64 encoded data
@@ -56,40 +46,22 @@ public final class Config {
      * @param size The size
      */
     private Config(String mediaType, String digest, long size, @Nullable String data, Annotations annotations) {
-        this.mediaType = mediaType;
-        this.digest = digest;
-        this.size = size;
+        super(
+                digest,
+                size,
+                mediaType,
+                !annotations.configAnnotations().isEmpty() ? Map.copyOf(annotations.configAnnotations()) : null,
+                null);
         this.data = data;
-        // Config annotation are generally empty since not default annotations are added by ORAS
-        if (!annotations.configAnnotations().isEmpty()) {
-            this.annotations = Map.copyOf(annotations.configAnnotations());
-        } else {
-            this.annotations = null;
-        }
     }
 
     /**
-     * Get the media type
-     * @return The media type
+     * Get the annotations
+     * @return The annotations
      */
-    public String getMediaType() {
-        return mediaType;
-    }
-
-    /**
-     * Get the digest
-     * @return The digest
-     */
-    public String getDigest() {
-        return digest;
-    }
-
-    /**
-     * Get the size
-     * @return The size
-     */
-    public long getSize() {
-        return size;
+    @Override
+    public @Nullable Map<String, String> getAnnotations() {
+        return annotations;
     }
 
     /**
@@ -127,19 +99,11 @@ public final class Config {
     }
 
     /**
-     * Get the annotations
-     * @return The annotations
+     * Get the data as a string
+     * @return The data as a string
      */
-    public @Nullable Map<String, String> getAnnotations() {
-        return annotations;
-    }
-
-    /**
-     * Return the JSON representation of the config
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
+    public @Nullable String getData() {
+        return data;
     }
 
     /**
@@ -162,5 +126,15 @@ public final class Config {
                 2,
                 "e30=",
                 Annotations.empty());
+    }
+
+    /**
+     * A config with referrence on a blob (too large for data)
+     * @param mediaType The media type
+     * @param layer The layer
+     * @return The config
+     */
+    public static Config fromBlob(String mediaType, Layer layer) {
+        return new Config(mediaType, layer.getDigest(), layer.getSize(), null, Annotations.empty());
     }
 }

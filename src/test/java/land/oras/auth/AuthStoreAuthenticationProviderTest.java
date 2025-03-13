@@ -28,8 +28,7 @@ import static org.mockito.Mockito.doReturn;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import land.oras.ContainerRef;
-import land.oras.credentials.FileStore;
-import land.oras.credentials.FileStore.Credential;
+import land.oras.auth.AuthStore.Credential;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
@@ -39,10 +38,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @Execution(ExecutionMode.CONCURRENT)
-class FileStoreAuthenticationProviderTest {
+class AuthStoreAuthenticationProviderTest {
 
     @Mock
-    private FileStore mockFileStore;
+    private AuthStore mockAuthStore;
 
     public static final String REGISTRY = "localhost:5000";
 
@@ -50,10 +49,10 @@ class FileStoreAuthenticationProviderTest {
     void testGetAuthHeader() throws Exception {
         // Mock valid credentials for the server address
         Credential credential = new Credential("testUser", "testPassword");
-        doReturn(credential).when(mockFileStore).get(any(ContainerRef.class));
+        doReturn(credential).when(mockAuthStore).get(any(ContainerRef.class));
 
         // Create the authentication provider
-        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(mockFileStore);
+        AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
         String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
@@ -68,10 +67,10 @@ class FileStoreAuthenticationProviderTest {
     void testGetNullAuthHeader() throws Exception {
 
         // No credentials
-        doReturn(null).when(mockFileStore).get(any(ContainerRef.class));
+        doReturn(null).when(mockAuthStore).get(any(ContainerRef.class));
 
         // Create the authentication provider
-        FileStoreAuthenticationProvider authProvider = new FileStoreAuthenticationProvider(mockFileStore);
+        AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
         String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
@@ -84,6 +83,6 @@ class FileStoreAuthenticationProviderTest {
 
     @Test
     void testDefaultLocation() {
-        new FileStoreAuthenticationProvider();
+        new AuthStoreAuthenticationProvider();
     }
 }

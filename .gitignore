@@ -28,3 +28,9 @@ target/
 
 # IDEs
 .idea/
+
+# When testing JSON files
+*.json
+oci/
+!src/test/resources/oci/
+!src/test/resources/oci/**/*.json

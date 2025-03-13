@@ -21,8 +21,10 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -34,7 +36,7 @@ public class ConfigTest {
     void shouldSerializeEmptyConfig() {
         Config config = Config.empty();
         assertEquals(
-                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2,\"data\":\"e30=\"}",
+                "{\"data\":\"e30=\",\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}",
                 config.toJson());
     }
 
@@ -57,5 +59,20 @@ public class ConfigTest {
         assertEquals(2, config.getSize());
         assertEquals(1, config.getAnnotations().size());
         assertEquals("value", config.getAnnotations().get("key"));
+    }
+
+    @Test
+    void shouldSaveNullForEmptyAnnotations() {
+        Config config = Config.empty();
+        config = config.withAnnotations(Annotations.ofConfig(Map.of()));
+        assertNull(config.getAnnotations(), "Annotations should be null");
+    }
+
+    @Test
+    void shouldSaveNonEmptyAnnotations() {
+        Config config = Config.empty();
+        config = config.withAnnotations(Annotations.ofConfig(Map.of("foo", "bar")));
+        assertNotNull(config.getAnnotations(), "Annotations should be null");
+        assertEquals("bar", config.getAnnotations().get("foo"));
     }
 }

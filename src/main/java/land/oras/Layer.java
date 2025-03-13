@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -37,22 +36,7 @@ import org.jspecify.annotations.Nullable;
  * Class for layer
  */
 @NullMarked
-public final class Layer {
-
-    /**
-     * The media type of the layer
-     */
-    private final String mediaType;
-
-    /**
-     * The digest of the layer
-     */
-    private final String digest;
-
-    /**
-     * The size of the layer
-     */
-    private final long size;
+public final class Layer extends Descriptor {
 
     /**
      * The base 64 encoded data. Might be null if path is set
@@ -63,11 +47,6 @@ public final class Layer {
      * The path to the blob. Might be null if data is set
      */
     private final transient @Nullable Path blobPath;
-
-    /**
-     * Annotations for the layer
-     */
-    private final @Nullable Map<String, String> annotations;
 
     /**
      * Constructor that can directly set the data
@@ -82,12 +61,9 @@ public final class Layer {
             long size,
             @Nullable String data,
             @Nullable Map<String, String> annotations) {
-        this.mediaType = mediaType;
-        this.digest = digest;
-        this.size = size;
+        super(digest, size, mediaType, annotations, null);
         this.data = data;
         this.blobPath = null;
-        this.annotations = annotations;
     }
 
     /**
@@ -98,36 +74,9 @@ public final class Layer {
      * @param blobPath The path to the blob
      */
     private Layer(String mediaType, String digest, long size, Path blobPath, Map<String, String> annotations) {
-        this.mediaType = mediaType;
-        this.digest = digest;
-        this.size = size;
+        super(digest, size, mediaType, annotations, null);
         this.data = null;
         this.blobPath = blobPath;
-        this.annotations = annotations;
-    }
-
-    /**
-     * Get the media type
-     * @return The media type
-     */
-    public String getMediaType() {
-        return mediaType;
-    }
-
-    /**
-     * Get the digest
-     * @return The digest
-     */
-    public String getDigest() {
-        return digest;
-    }
-
-    /**
-     * Get the size
-     * @return The size
-     */
-    public long getSize() {
-        return size;
     }
 
     /**
@@ -144,17 +93,6 @@ public final class Layer {
      */
     public @Nullable Path getBlobPath() {
         return blobPath;
-    }
-
-    /**
-     * Get the annotations
-     * @return The annotations
-     */
-    public Map<String, String> getAnnotations() {
-        if (annotations == null) {
-            return Map.of();
-        }
-        return Collections.unmodifiableMap(annotations);
     }
 
     /**
@@ -193,14 +131,6 @@ public final class Layer {
     }
 
     /**
-     * Return the JSON representation of the manifest
-     * @return The JSON string
-     */
-    public String toJson() {
-        return JsonUtils.toJson(this);
-    }
-
-    /**
      * Create a layer from a JSON string
      * @param json The JSON string
      * @return The manifest
@@ -210,16 +140,26 @@ public final class Layer {
     }
 
     /**
-     * Create a layer from a file
+     * Create a layer from a file using default digest
      * @param file The file
      * @return The layer
      */
     public static Layer fromFile(Path file) {
+        return fromFile(file, SupportedAlgorithm.getDefault());
+    }
+
+    /**
+     * Create a layer from a file using a specific algorithm
+     * @param file The file
+     * @param algorithm The algorithm
+     * @return The layer
+     */
+    public static Layer fromFile(Path file, SupportedAlgorithm algorithm) {
         Map<String, String> annotations =
                 Map.of(Const.ANNOTATION_TITLE, file.getFileName().toString());
         return new Layer(
                 Const.DEFAULT_BLOB_MEDIA_TYPE,
-                SupportedAlgorithm.getDefault().digest(file),
+                algorithm.digest(file),
                 file.toFile().length(),
                 file,
                 annotations);

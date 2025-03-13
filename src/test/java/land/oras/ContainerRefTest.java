@@ -33,11 +33,11 @@ public class ContainerRefTest {
 
     @Test
     void shouldParseImageWithAllParts() {
-        ContainerRef containerRef =
-                ContainerRef.parse("docker.io/library/foo/hello-world:latest@sha256:1234567890abcdef");
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("registry-1.docker.io", containerRef.getApiRegistry());
         assertEquals("library/foo", containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertEquals(SupportedAlgorithm.SHA256, containerRef.getAlgorithm());
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
@@ -47,65 +47,101 @@ public class ContainerRefTest {
     void shouldFailWithUnSupportedAlgorithm() {
         assertThrows(
                 OrasException.class,
-                () -> ContainerRef.parse("docker.io/library/foo/hello-world:latest@test:1234567890abcdef"),
+                () -> ContainerRef.parse("docker.io/library/foo/alpine:latest@test:1234567890abcdef"),
+                "Unsupported algorithm: test");
+        assertThrows(
+                OrasException.class,
+                () -> ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:sha256:1234567890abcdef"),
                 "Unsupported algorithm: test");
     }
 
     @Test
     void shouldParseImageWithNoNamespace() {
-        ContainerRef containerRef = ContainerRef.parse("docker.io/hello-world:latest@sha256:1234567890abcdef");
+        ContainerRef containerRef = ContainerRef.parse("docker.io/alpine:latest@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("library", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
+        assertEquals("latest", containerRef.getTag());
+        assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
+
+        containerRef = ContainerRef.parse("demo.goharbor.com/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("demo.goharbor.com", containerRef.getRegistry());
+        assertEquals("demo.goharbor.com/v2/alpine/tags/list", containerRef.getTagsPath());
         assertNull(containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
     }
 
     @Test
     void shouldParseImageWithNoTag() {
-        ContainerRef containerRef = ContainerRef.parse("docker.io/hello-world@sha256:1234567890abcdef");
+        ContainerRef containerRef = ContainerRef.parse("docker.io/alpine@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertNull(containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("registry-1.docker.io/v2/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("library", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
+        assertEquals("latest", containerRef.getTag());
+        assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
+
+        containerRef = ContainerRef.parse("docker.io/foobar/alpine@sha256:1234567890abcdef");
+        assertEquals("registry-1.docker.io/v2/foobar/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("foobar", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
     }
 
     @Test
     void shouldParseImageWithNoDigest() {
-        ContainerRef containerRef = ContainerRef.parse("docker.io/hello-world:latest");
+        ContainerRef containerRef = ContainerRef.parse("docker.io/alpine:latest");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertNull(containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("library", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertNull(containerRef.getDigest());
     }
 
     @Test
     void shouldParseImageWithNoRegistry() {
-        ContainerRef containerRef = ContainerRef.parse("hello-world:latest");
+        ContainerRef containerRef = ContainerRef.parse("alpine:latest");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertNull(containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("registry-1.docker.io", containerRef.getApiRegistry());
+        assertEquals("registry-1.docker.io/v2/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("library", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertNull(containerRef.getDigest());
     }
 
     @Test
     void shouldParseImageWithNoTagAndNoRegistry() {
-        ContainerRef containerRef = ContainerRef.parse("hello-world");
+        ContainerRef containerRef = ContainerRef.parse("alpine");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertNull(containerRef.getNamespace());
-        assertEquals("hello-world", containerRef.getRepository());
+        assertEquals("library", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
+        assertEquals("latest", containerRef.getTag());
+        assertNull(containerRef.getDigest());
+
+        containerRef = ContainerRef.parse("foobar/alpine");
+        assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals("foobar", containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertNull(containerRef.getDigest());
     }
 
     @Test
-    void shouldGetTagsPath() {
+    void shouldGetTagsPathDockerIo() {
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("registry-1.docker.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+    }
+
+    @Test
+    void shouldGetTagsPathOtherRegistry() {
         ContainerRef containerRef =
-                ContainerRef.parse("docker.io/library/foo/hello-world:latest@sha256:1234567890abcdef");
-        assertEquals("docker.io/v2/library/foo/hello-world/tags/list", containerRef.getTagsPath());
+                ContainerRef.parse("demo.goharbor.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("demo.goharbor.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
     }
 
     @Test

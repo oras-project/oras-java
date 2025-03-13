@@ -49,6 +49,21 @@ public final class Const {
     public static final String DEFAULT_TAG = "latest";
 
     /**
+     * Index file in OCI layout
+     */
+    public static final String OCI_LAYOUT_INDEX = "index.json";
+
+    /**
+     * Layout folder in OCI layout
+     */
+    public static final String OCI_LAYOUT_FILE = "oci-layout";
+
+    /**
+     * Blobs folder in OCI layout
+     */
+    public static final String OCI_LAYOUT_BLOBS = "blobs";
+
+    /**
      * The default blob directory media type
      */
     public static final String DEFAULT_BLOB_DIR_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+gzip";
@@ -89,9 +104,40 @@ public final class Const {
     public static final String DEFAULT_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json";
 
     /**
+     * The artifact manifest media type
+     */
+    public static final String ARTIFACT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.artifact.manifest.v1+json";
+
+    /**
+     * Docker distribution manifest type
+     */
+    public static final String DOCKER_MANIFEST_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v2+json";
+
+    /**
+     * Docker index media type (manifest list or fat manifest)
+     */
+    public static final String DOCKER_INDEX_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.list.v2+json";
+
+    /**
+     * Docker legacy media type
+     */
+    public static final String DOCKER_LEGACY_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v1+prettyjws";
+
+    /**
      * The default manifest media type
      */
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
+
+    /**
+     * The default accept type for the manifest
+     */
+    public static final String MANIFEST_ACCEPT_TYPE = "%s, %s, %s, %s, %s"
+            .formatted(
+                    DEFAULT_INDEX_MEDIA_TYPE,
+                    DEFAULT_MANIFEST_MEDIA_TYPE,
+                    ARTIFACT_MANIFEST_MEDIA_TYPE,
+                    DOCKER_INDEX_MEDIA_TYPE,
+                    DOCKER_MANIFEST_MEDIA_TYPE);
 
     /**
      * Annotation for the title
@@ -102,6 +148,11 @@ public final class Const {
      * Annotation for the crated date
      */
     public static final String ANNOTATION_CREATED = "org.opencontainers.image.created";
+
+    /**
+     * Annotation for the ref name
+     */
+    public static final String ANNOTATION_REF = "org.opencontainers.image.ref.name";
 
     /**
      * Get the current timestamp for the created annotation

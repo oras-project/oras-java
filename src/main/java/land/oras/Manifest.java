@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -27,43 +28,51 @@ import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Class for manifest
  */
 @NullUnmarked
-public final class Manifest {
+public final class Manifest extends Descriptor {
 
     private final int schemaVersion;
-    private final String mediaType;
-    private final String artifactType;
     private final Config config;
     private final Subject subject;
     private final List<Layer> layers;
-    private final Map<String, String> annotations;
 
     /**
      * The manifest descriptor
      */
-    private transient ManifestDescriptor descriptor;
+    private final transient ManifestDescriptor descriptor;
+
+    /**
+     * Original json
+     */
+    private transient String json;
 
     private Manifest(
             int schemaVersion,
             String mediaType,
-            String artifactType,
+            ArtifactType artifactType,
             ManifestDescriptor descriptor,
             Config config,
             Subject subject,
             List<Layer> layers,
-            Annotations annotations) {
+            Annotations annotations,
+            String json) {
+        super(
+                null,
+                null,
+                mediaType,
+                Map.copyOf(annotations.manifestAnnotations()),
+                artifactType != null ? artifactType.getMediaType() : null);
         this.schemaVersion = schemaVersion;
-        this.mediaType = mediaType;
-        this.artifactType = artifactType;
         this.descriptor = descriptor;
         this.config = config;
         this.subject = subject;
         this.layers = layers;
-        this.annotations = Map.copyOf(annotations.manifestAnnotations());
+        this.json = json;
     }
 
     /**
@@ -74,20 +83,16 @@ public final class Manifest {
         return schemaVersion;
     }
 
-    /**
-     * Get the media type
-     * @return The media type
-     */
-    public String getMediaType() {
-        return mediaType;
-    }
-
-    /**
-     * Get the artifact type
-     * @return The artifact type
-     */
-    public String getArtifactType() {
-        return artifactType;
+    @Override
+    public @NonNull ArtifactType getArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        if (config != null) {
+            return ArtifactType.from(
+                    config.getMediaType() != null ? config.getMediaType() : Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
+        }
+        return ArtifactType.unknown();
     }
 
     /**
@@ -96,21 +101,6 @@ public final class Manifest {
      */
     public ManifestDescriptor getDescriptor() {
         return descriptor;
-    }
-
-    /**
-     * Determine the artifact type from artifact type or config media type
-     * @return The artifact type
-     */
-    public @NonNull String determineArtifactType() {
-        // If artifact type is not set, return the media type from config
-        if (artifactType != null) {
-            return artifactType;
-        }
-        if (config != null) {
-            return config.getMediaType() != null ? config.getMediaType() : Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
-        }
-        return Const.DEFAULT_ARTIFACT_MEDIA_TYPE;
     }
 
     /**
@@ -134,18 +124,7 @@ public final class Manifest {
      * @return The layers
      */
     public List<Layer> getLayers() {
-        return Collections.unmodifiableList(layers);
-    }
-
-    /**
-     * Get the annotations
-     * @return The annotations
-     */
-    public Map<String, String> getAnnotations() {
-        if (annotations == null) {
-            return Map.of();
-        }
-        return annotations;
+        return layers != null ? Collections.unmodifiableList(layers) : List.of();
     }
 
     /**
@@ -153,7 +132,7 @@ public final class Manifest {
      * @param artifactType The artifact type
      * @return The manifest
      */
-    public Manifest withArtifactType(String artifactType) {
+    public Manifest withArtifactType(ArtifactType artifactType) {
         return new Manifest(
                 schemaVersion,
                 mediaType,
@@ -162,7 +141,8 @@ public final class Manifest {
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -174,12 +154,13 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -191,12 +172,13 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -208,12 +190,13 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -225,12 +208,13 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
@@ -242,20 +226,23 @@ public final class Manifest {
         return new Manifest(
                 schemaVersion,
                 mediaType,
-                artifactType,
+                getTopLevelArtifactType(),
                 descriptor,
                 config,
                 subject,
                 layers,
-                Annotations.ofManifest(annotations));
+                Annotations.ofManifest(annotations),
+                json);
     }
 
     /**
-     * Return the JSON representation of the manifest
-     * @return The JSON string
+     * Return same instance but with original JSON
+     * @param json The original JSON
+     * @return The index
      */
-    public String toJson() {
-        return JsonUtils.toJson(this);
+    private Manifest withJson(String json) {
+        this.json = json;
+        return this;
     }
 
     /**
@@ -264,7 +251,31 @@ public final class Manifest {
      * @return The manifest
      */
     public static Manifest fromJson(String json) {
-        return JsonUtils.fromJson(json, Manifest.class);
+        return JsonUtils.fromJson(json, Manifest.class).withJson(json);
+    }
+
+    /**
+     * Create a manifest from a path
+     * @param path The path
+     * @return The manifest
+     */
+    public static Manifest fromPath(Path path) {
+        return fromJson(JsonUtils.readFile(path));
+    }
+
+    /**
+     * Return the original JSON
+     * @return The original JSON
+     */
+    public String getJson() {
+        return json;
+    }
+
+    private @Nullable ArtifactType getTopLevelArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        return null;
     }
 
     /**
@@ -284,6 +295,7 @@ public final class Manifest {
                 Config.empty(),
                 null,
                 List.of(),
-                Annotations.empty());
+                Annotations.empty(),
+                null);
     }
 }

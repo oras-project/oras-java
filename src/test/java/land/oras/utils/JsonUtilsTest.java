@@ -52,6 +52,11 @@ public class JsonUtilsTest {
     }
 
     @Test
+    void failtToReadFromFile() {
+        assertThrows(OrasException.class, () -> JsonUtils.fromJson(Path.of("foo"), Object.class));
+    }
+
+    @Test
     void failToParseJsonFile() throws IOException {
         Files.createFile(dir.resolve("file.json"));
         Files.write(dir.resolve("file.json"), "not a json".getBytes());
