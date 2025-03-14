@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.Security;
+import java.util.HexFormat;
 import land.oras.exception.OrasException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jspecify.annotations.NullMarked;
@@ -35,6 +36,8 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 final class DigestUtils {
+
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
 
     static {
         Security.addProvider(new BouncyCastleProvider());
@@ -63,11 +66,7 @@ final class DigestUtils {
                 }
             }
             byte[] hashBytes = digest.digest();
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hashBytes) {
-                sb.append(String.format("%02x", b));
-            }
-            return "%s:%s".formatted(prefix, sb.toString());
+            return formatHex(prefix, hashBytes);
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
@@ -86,12 +85,7 @@ final class DigestUtils {
             byte[] hashBytes = digest.digest(bytes);
 
             // Convert the byte array to hex
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hashBytes) {
-                sb.append(String.format("%02x", b));
-            }
-
-            return "%s:%s".formatted(prefix, sb.toString());
+            return formatHex(prefix, hashBytes);
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
@@ -113,13 +107,14 @@ final class DigestUtils {
                 digest.update(buffer, 0, bytesRead);
             }
             byte[] hashBytes = digest.digest();
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hashBytes) {
-                sb.append(String.format("%02x", b));
-            }
-            return "%s:%s".formatted(prefix, sb.toString());
+            return formatHex(prefix, hashBytes);
         } catch (Exception e) {
             throw new OrasException("Failed to calculate digest", e);
         }
+    }
+
+    private static String formatHex(String prefix, final byte[] hashBytes) {
+        String formatHex = HEX_FORMAT.formatHex(hashBytes);
+        return prefix + ":" + formatHex;
     }
 }
