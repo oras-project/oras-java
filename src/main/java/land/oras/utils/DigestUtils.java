@@ -21,7 +21,8 @@
 package land.oras.utils;
 
 import java.io.InputStream;
-import java.nio.file.Files;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
@@ -58,11 +59,15 @@ final class DigestUtils {
     static String digest(String algorithm, String prefix, Path path) {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
-            try (InputStream is = Files.newInputStream(path, StandardOpenOption.READ)) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = is.read(buffer)) != -1) {
-                    digest.update(buffer, 0, bytesRead);
+            try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+                long fileSize = channel.size();
+                long position = 0;
+                while (position < fileSize) {
+                    long remaining = fileSize - position;
+                    int chunkSize = (int) Math.min(Integer.MAX_VALUE, remaining);
+                    MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, position, chunkSize);
+                    digest.update(buffer);
+                    position += chunkSize;
                 }
             }
             byte[] hashBytes = digest.digest();
