@@ -35,8 +35,6 @@ import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for JSON operations.
@@ -44,8 +42,6 @@ import org.slf4j.LoggerFactory;
  */
 @NullMarked
 public final class JsonUtils {
-
-    private static final Logger LOG = LoggerFactory.getLogger(JsonUtils.class);
 
     /**
      * Gson instance
@@ -106,7 +102,9 @@ public final class JsonUtils {
     }
 
     /**
-     * Convert a JSON string to an object
+     * Convert a JSON string to an object. Be careful when using this utility since the original JSON string is lost
+     * and might change content digest. Use this method only when the JSON string is not needed anymore or when the digest
+     * of the JSON string is not important.
      * @param path The path to the JSON file
      * @param clazz The class of the object
      * @param <T> The type of the object

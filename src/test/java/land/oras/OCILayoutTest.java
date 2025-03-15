@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Test;
@@ -75,7 +74,7 @@ public class OCILayoutTest {
         assertEquals(425, manifest.getDescriptor().getSize());
 
         // One element in the index
-        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Ensure one layer for compatibility
@@ -88,7 +87,7 @@ public class OCILayoutTest {
         assertEquals(425, manifest.getDescriptor().getSize());
 
         // Same manifest
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Add an other manifest with different digest
@@ -96,11 +95,13 @@ public class OCILayoutTest {
         ociLayout.pushManifest(layoutRef, manifest2);
 
         // Two elements in the index
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(2, index.getManifests().size());
 
-        // None have any annotations
-        index.getManifests().forEach(m -> assertNull(m.getAnnotations()));
+        // First doesn't have any annotations, second yes
+        assertNull(index.getManifests().get(0).getAnnotations());
+        assertNotNull(index.getManifests().get(1).getAnnotations());
+        assertEquals("bar", index.getManifests().get(1).getAnnotations().get("foo"));
     }
 
     @Test
@@ -123,7 +124,7 @@ public class OCILayoutTest {
         assertEquals(556, manifest.getDescriptor().getSize());
 
         // One element in the index
-        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Assert the manifest
@@ -134,11 +135,11 @@ public class OCILayoutTest {
         assertEquals(556, manifest.getDescriptor().getSize());
 
         // Same manifest
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Two elements in the index
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
     }
 
@@ -157,7 +158,7 @@ public class OCILayoutTest {
         assertEquals(425, manifest.getDescriptor().getSize());
 
         // One element in the index
-        Index index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Check latest tag
@@ -172,7 +173,7 @@ public class OCILayoutTest {
         manifest = ociLayout.pushManifest(layoutRef, manifest);
         assertEquals(425, manifest.getDescriptor().getSize());
 
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
 
         // Add an other manifest with different digest
@@ -180,7 +181,7 @@ public class OCILayoutTest {
         ociLayout.pushManifest(layoutRef, manifest2);
 
         // Two elements in the index
-        index = JsonUtils.fromJson(path.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(2, index.getManifests().size());
 
         // Ensure manifest1 doesn't have any annotations
@@ -211,10 +212,10 @@ public class OCILayoutTest {
     }
 
     @Test
-    void shouldPushToOciLayoutWihoutTag() throws IOException {
+    void shouldPushToOciLayoutWithoutTag() throws IOException {
 
-        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayoutWihoutTag");
-        Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWihoutTag.txt");
+        Path ociLayoutPath = layoutPath.resolve("shouldPushToOciLayoutWithoutTag");
+        Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWithoutTag.txt");
         Files.writeString(artifactPath, "hi");
 
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
@@ -246,10 +247,12 @@ public class OCILayoutTest {
         // Check index exists
         assertIndex(ociLayoutPath, manifest1);
 
-        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
 
         // No annotation
-        assertNull(index.getManifests().get(0).getAnnotations(), "Some annotations should be null");
+        assertNotNull(index.getManifests().get(0).getAnnotations(), "Annotation should not be null");
+        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+        assertTrue(index.getManifests().get(0).getAnnotations().containsKey(Const.ANNOTATION_CREATED));
     }
 
     @Test
@@ -288,7 +291,7 @@ public class OCILayoutTest {
         // Check index exists
         assertIndex(ociLayoutPath, manifest1);
 
-        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
 
         // No annotation
         assertNotNull(index.getManifests().get(0).getAnnotations(), "Some annotations should not be null");
@@ -314,6 +317,15 @@ public class OCILayoutTest {
         Manifest manifest = Manifest.fromJson(new String(blob, StandardCharsets.UTF_8));
         assertEquals(1, manifest.getLayers().size());
         ociLayout.fetchBlob(layoutRef, extractDir1.resolve("manifest.json"));
+
+        // Ensure digest
+        String manifestDigest = SupportedAlgorithm.getDefault().digest(blob);
+        assertEquals("sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34", manifestDigest);
+
+        manifest = ociLayout.getManifest(layoutRef);
+        manifestDigest =
+                SupportedAlgorithm.getDefault().digest(manifest.getJson().getBytes(StandardCharsets.UTF_8));
+        assertEquals("sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34", manifestDigest);
 
         // Cannot get blob without ref
         assertThrows(OrasException.class, () -> {
@@ -733,13 +745,13 @@ public class OCILayoutTest {
 
     private void assertOciLayout(Path layoutPath) {
         assertTrue(Files.exists(layoutPath.resolve(Const.OCI_LAYOUT_FILE)));
-        OCILayout layoutFile = JsonUtils.fromJson(layoutPath.resolve(Const.OCI_LAYOUT_FILE), OCILayout.class);
+        OCILayout layoutFile = OCILayout.fromLayoutIndex(layoutPath);
         assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
     }
 
     private void assertIndex(Path ociLayoutPath, Manifest manifest) {
         assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
-        Index index = JsonUtils.fromJson(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), Index.class);
+        Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
         LOG.debug("Index is {}", index.toJson());
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());

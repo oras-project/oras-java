@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Index from an OCI layout
@@ -51,9 +52,10 @@ public final class Index extends Descriptor {
             String mediaType,
             String artifactType,
             List<ManifestDescriptor> manifests,
+            Map<String, String> annotations,
             ManifestDescriptor descriptor,
             String json) {
-        super(null, null, mediaType, Map.of(), artifactType);
+        super(null, null, mediaType, annotations, artifactType);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
         this.manifests = manifests;
@@ -111,7 +113,7 @@ public final class Index extends Descriptor {
             newManifests.add(ManifestDescriptor.fromJson(descriptor.toJson()));
         }
         newManifests.add(manifest);
-        return new Index(schemaVersion, mediaType, artifactType, newManifests, descriptor, json);
+        return new Index(schemaVersion, mediaType, artifactType, newManifests, annotations, descriptor, json);
     }
 
     /**
@@ -123,12 +125,24 @@ public final class Index extends Descriptor {
     }
 
     /**
+     * Get the annotations
+     * @return The annotations
+     */
+    @Override
+    public @Nullable Map<String, String> getAnnotations() {
+        if (annotations != null && !annotations.isEmpty()) {
+            return annotations;
+        }
+        return null;
+    }
+
+    /**
      * Return a new index with the given descriptor
      * @param descriptor The descriptor
      * @return The manifest
      */
     public Index withDescriptor(ManifestDescriptor descriptor) {
-        return new Index(schemaVersion, mediaType, artifactType, manifests, descriptor, json);
+        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, descriptor, json);
     }
 
     /**
@@ -173,6 +187,6 @@ public final class Index extends Descriptor {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null);
+        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null);
     }
 }
