@@ -200,7 +200,7 @@ public final class Registry extends OCI<ContainerRef> {
             // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pushing-manifests-with-subject
             if (!response.headers().containsKey(Const.OCI_SUBJECT_HEADER.toLowerCase())) {
                 throw new OrasException(
-                        "Subject was set on manifest but not OCI subject header was returned. Legecy flow not implemented");
+                        "Subject was set on manifest but not OCI subject header was returned. Legacy flow not implemented");
             }
         }
         return getManifest(containerRef);
@@ -362,8 +362,9 @@ public final class Registry extends OCI<ContainerRef> {
         // Push layers
         List<Layer> layers = pushLayers(containerRef, false, paths);
 
-        // Get the subject from the manifest
-        Subject subject = getManifest(containerRef).getDescriptor().toSubject();
+        // Get the subject from the descriptor
+        Descriptor descriptor = getDescriptor(containerRef);
+        Subject subject = descriptor.toSubject();
 
         // Add created annotation if not present since we push with digest
         Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
@@ -559,36 +560,36 @@ public final class Registry extends OCI<ContainerRef> {
         return Descriptor.of(digest, Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
     }
 
+    @Override
     public Manifest getManifest(ContainerRef containerRef) {
-        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
-        logResponse(response);
-        handleError(response);
-        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        Descriptor descriptor = getDescriptor(containerRef);
+        String contentType = descriptor.getMediaType();
         if (!isManifestMediaType(contentType)) {
             throw new OrasException(
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
-        String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
-        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-        ManifestDescriptor descriptor =
-                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
-        return Manifest.fromJson(response.response()).withDescriptor(descriptor);
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
+        return Manifest.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
     }
 
     @Override
     public Index getIndex(ContainerRef containerRef) {
-        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
-        logResponse(response);
-        handleError(response);
-        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        Descriptor descriptor = getDescriptor(containerRef);
+        String contentType = descriptor.getMediaType();
         if (!isIndexMediaType(contentType)) {
             throw new OrasException("Expected index but got %s".formatted(contentType));
         }
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
+        return Index.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
+    }
+
+    private Descriptor getDescriptor(ContainerRef containerRef) {
+        OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
+        handleError(response);
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-        ManifestDescriptor descriptor =
-                ManifestDescriptor.of(contentType, digest, size == null ? 0 : Long.parseLong(size));
-        return Index.fromJson(response.response()).withDescriptor(descriptor);
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        return Descriptor.of(digest, Long.parseLong(size), contentType).withJson(response.response());
     }
 
     /**

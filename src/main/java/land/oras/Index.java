@@ -36,11 +36,7 @@ public final class Index extends Descriptor {
 
     private final int schemaVersion;
     private final List<ManifestDescriptor> manifests;
-
-    /**
-     * Original json
-     */
-    private transient String json;
+    private final Subject subject;
 
     /**
      * The manifest descriptor
@@ -53,13 +49,14 @@ public final class Index extends Descriptor {
             String artifactType,
             List<ManifestDescriptor> manifests,
             Map<String, String> annotations,
+            Subject subject,
             ManifestDescriptor descriptor,
             String json) {
-        super(null, null, mediaType, annotations, artifactType);
+        super(null, null, mediaType, annotations, artifactType, json);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
+        this.subject = subject;
         this.manifests = manifests;
-        this.json = json;
     }
 
     /**
@@ -113,7 +110,7 @@ public final class Index extends Descriptor {
             newManifests.add(ManifestDescriptor.fromJson(descriptor.toJson()));
         }
         newManifests.add(manifest);
-        return new Index(schemaVersion, mediaType, artifactType, newManifests, annotations, descriptor, json);
+        return new Index(schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, json);
     }
 
     /**
@@ -142,7 +139,7 @@ public final class Index extends Descriptor {
      * @return The manifest
      */
     public Index withDescriptor(ManifestDescriptor descriptor) {
-        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, descriptor, json);
+        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, json);
     }
 
     /**
@@ -150,17 +147,26 @@ public final class Index extends Descriptor {
      * @param json The original JSON
      * @return The index
      */
-    private Index withJson(String json) {
+    protected Index withJson(String json) {
         this.json = json;
         return this;
     }
 
     /**
-     * Return the original JSON
-     * @return The original JSON
+     * Get the subject
+     * @return The subject
      */
-    public String getJson() {
-        return json;
+    public Subject getSubject() {
+        return subject;
+    }
+
+    /**
+     * Return a new index with the given subject
+     * @param subject The subject
+     * @return The index
+     */
+    public Index withSubject(Subject subject) {
+        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, json);
     }
 
     /**
@@ -187,6 +193,6 @@ public final class Index extends Descriptor {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null);
+        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null, null);
     }
 }
