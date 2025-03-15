@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -27,6 +28,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -50,6 +54,21 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 public final class Registry extends OCI<ContainerRef> {
+
+    /**
+     * The chunk size for uploading blobs (5MB)
+     * This is a standard chunk size commonly used in cloud storage systems to balance
+     * network performance with memory usage. The actual chunk size used may be larger
+     * if the registry specifies a minimum chunk size via the OCI-Chunk-Min-Length header.
+     */
+    private static final int CHUNK_SIZE = 5 * 1024 * 1024;
+
+    /**
+     * The digest calculation limit (16MB)
+     * For files smaller than this size, we compute the digest before starting the upload
+     * to check if the blob already exists in the registry, potentially avoiding unnecessary uploads.
+     */
+    private static final int DIGEST_CALCULATION_LIMIT = 16 * 1024 * 1024;
 
     /**
      * The HTTP client
@@ -672,6 +691,216 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Push a blob using input stream in chunks to avoid loading the whole blob in memory.
+     * This method is recommended for large files to prevent excessive memory usage.
+     * For smaller blobs, consider using {@link #pushBlob(ContainerRef, Path)} which may be more efficient
+     * as it uses fewer HTTP requests.
+     *
+     * This method complies with the OCI Distribution Specification for chunked uploads and will
+     * respect the minimum chunk size requirements specified by the registry.
+     *
+     * @param containerRef the container ref
+     * @param input the input stream
+     * @param size the size of the blob
+     * @return The Layer containing the uploaded blob information
+     * @throws OrasException if upload fails or digest calculation fails
+     * @see <a href="https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pushing-a-blob-in-chunks">OCI Distribution Spec: Pushing a blob in chunks</a>
+     */
+    public Layer pushChunks(ContainerRef containerRef, InputStream input, long size) {
+        // INITIALIZATION PHASE
+
+        // Initialize the Message Digest
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(getMessageDigestAlgorithm(containerRef.getAlgorithm()));
+        } catch (NoSuchAlgorithmException e) {
+            throw new OrasException("Failed to get message digest", e);
+        }
+
+        byte[] buffer = new byte[CHUNK_SIZE];
+        ByteArrayOutputStream firstChunk = new ByteArrayOutputStream();
+        int bytesRead;
+        long totalBytesRead = 0;
+        String contentDigest = null;
+
+        try {
+            // FIRST CHUNK PROCESSING
+
+            // Read first chunk to buffer for initial PATCH request
+            while ((bytesRead = input.read(buffer)) != -1 && totalBytesRead < CHUNK_SIZE) {
+                digest.update(buffer, 0, bytesRead);
+                firstChunk.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+            }
+
+            // Handle small blobs that fit in one chunk
+            if (bytesRead == -1) {
+                contentDigest = createDigestString(containerRef, digest.digest());
+
+                // Check if blob already exists, return early if it does
+                if (hasBlob(containerRef.withDigest(contentDigest))) {
+                    LOG.info("Blob already exists: {}", contentDigest);
+                    return Layer.fromDigest(contentDigest, totalBytesRead);
+                }
+            }
+
+            // UPLOAD SESSION INITIALIZATION
+
+            URI uploadUri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath()));
+            OrasHttpClient.ResponseWrapper<String> response = client.post(uploadUri, new byte[0], Map.of());
+
+            // Handle authentication if needed
+            if (switchTokenAuth(containerRef, response)) {
+                response = client.post(uploadUri, new byte[0], Map.of());
+            }
+
+            handleError(response);
+            if (response.statusCode() != 202) {
+                throw new OrasException("Failed to initiate blob upload: " + response.statusCode());
+            }
+
+            // Get upload location URL
+            String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+            if (location == null) {
+                throw new OrasException("No location header in response");
+            }
+
+            // Handle minimum chunk size requirements from registry
+            int chunkSize = adjustChunkSizeIfNeeded(response, buffer.length);
+            if (buffer.length < chunkSize) {
+                buffer = new byte[chunkSize];
+            }
+
+            // Ensure location is an absolute URL
+            location = ensureAbsoluteUri(location, containerRef);
+            LOG.debug("Initial location URL: {}", location);
+
+            // UPLOAD FIRST CHUNK
+
+            long startRange = 0;
+            long endRange = totalBytesRead - 1;
+
+            if (totalBytesRead > 0) {
+                // Prepare headers for first chunk
+                Map<String, String> firstChunkHeaders = new HashMap<>();
+                firstChunkHeaders.put(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE);
+                firstChunkHeaders.put(Const.CONTENT_RANGE_HEADER, startRange + "-" + endRange);
+
+                // Upload first chunk
+                response = client.patch(URI.create(location), firstChunk.toByteArray(), firstChunkHeaders);
+                handleError(response);
+
+                if (response.statusCode() != 202) {
+                    throw new OrasException("Failed to upload first chunk: " + response.statusCode());
+                }
+
+                // Update location for next request
+                location = getLocationHeader(response);
+                location = ensureAbsoluteUri(location, containerRef);
+                LOG.debug("Location after first chunk: {}", location);
+
+                // Update range information for next chunk
+                endRange = getEndRangeFromHeader(response, endRange);
+                startRange = endRange + 1;
+
+                // PROCESS TRANSITION BYTES
+
+                // Handle bytes read during the last iteration of first chunk loop
+                if (bytesRead > 0) {
+                    LOG.debug("Processing transition bytes: {} bytes", bytesRead);
+                    digest.update(buffer, 0, bytesRead);
+
+                    // Prepare headers for transition bytes
+                    Map<String, String> transitionHeaders = new HashMap<>();
+                    long transitionEndRange = startRange + bytesRead - 1;
+                    transitionHeaders.put(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE);
+                    transitionHeaders.put(Const.CONTENT_RANGE_HEADER, startRange + "-" + transitionEndRange);
+
+                    // Upload transition bytes
+                    response = client.patch(URI.create(location), Arrays.copyOf(buffer, bytesRead), transitionHeaders);
+                    handleError(response);
+
+                    if (response.statusCode() != 202) {
+                        throw new OrasException("Failed to upload transition bytes: " + response.statusCode());
+                    }
+
+                    // Update location for next chunk
+                    location = getLocationHeader(response);
+                    location = ensureAbsoluteUri(location, containerRef);
+                    LOG.debug("Location after transition chunk: {}", location);
+
+                    // Update range information for next chunk
+                    endRange = getEndRangeFromHeader(response, transitionEndRange);
+                    startRange = endRange + 1;
+                    totalBytesRead += bytesRead;
+                }
+            }
+
+            // UPLOAD REMAINING CHUNKS
+
+            while ((bytesRead = input.read(buffer)) != -1) {
+                // Update digest with current chunk
+                digest.update(buffer, 0, bytesRead);
+
+                // Prepare headers for chunk
+                Map<String, String> chunkHeaders = new HashMap<>();
+                endRange = startRange + bytesRead - 1;
+                chunkHeaders.put(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE);
+                chunkHeaders.put(Const.CONTENT_RANGE_HEADER, startRange + "-" + endRange);
+
+                // Upload chunk
+                response = client.patch(URI.create(location), Arrays.copyOf(buffer, bytesRead), chunkHeaders);
+                handleError(response);
+
+                if (response.statusCode() != 202) {
+                    throw new OrasException("Failed to upload chunk: " + response.statusCode());
+                }
+
+                // Update location for next chunk
+                location = getLocationHeader(response);
+                location = ensureAbsoluteUri(location, containerRef);
+
+                // Update range information for next chunk
+                endRange = getEndRangeFromHeader(response, endRange);
+                startRange = endRange + 1;
+                totalBytesRead += bytesRead;
+            }
+
+            // FINALIZE UPLOAD
+
+            // Calculate final digest if not already done
+            if (contentDigest == null) {
+                contentDigest = createDigestString(containerRef, digest.digest());
+                LOG.debug("Calculated content digest: {}", contentDigest);
+            }
+
+            // Prepare final upload URI
+            URI finalizeUri = constructFinalizeUri(location, contentDigest, containerRef);
+
+            // Complete the upload with final PUT
+            Map<String, String> finalHeaders = new HashMap<>();
+            finalHeaders.put(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE);
+
+            // Log finalization details for debugging
+            LOG.debug("Final PUT URL: {}", finalizeUri);
+            LOG.debug("Content Digest: {}", contentDigest);
+
+            response = client.put(finalizeUri, new byte[0], finalHeaders);
+            logFinalResponse(response);
+            handleError(response);
+
+            if (response.statusCode() != 201) {
+                throw new OrasException("Failed to complete blob upload: " + response.statusCode());
+            }
+
+            return Layer.fromDigest(contentDigest, totalBytesRead);
+
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
+        }
+    }
+
+    /**
      * Get blob as stream to avoid loading into memory
      * @param containerRef The container ref
      * @return The input stream
@@ -679,6 +908,129 @@ public final class Registry extends OCI<ContainerRef> {
     public InputStream getBlobStream(ContainerRef containerRef) {
         // Similar to fetchBlob()
         return fetchBlob(containerRef);
+    }
+
+    /**
+     * Convert SupportedAlgorithm to MessageDigest algorithm string
+     * @param algorithm The supported algorithm
+     * @return The algorithm string for MessageDigest
+     */
+    private String getMessageDigestAlgorithm(SupportedAlgorithm algorithm) {
+        switch (algorithm) {
+            case SHA256:
+                return "SHA-256";
+            case SHA512:
+                return "SHA-512";
+            default:
+                throw new IllegalArgumentException("Unsupported algorithm: " + algorithm);
+        }
+    }
+
+    // Helper method to convert bytes to hex
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    /**
+     * Creates a properly formatted digest string.
+     */
+    private String createDigestString(ContainerRef containerRef, byte[] digestBytes) {
+        return containerRef.getAlgorithm().getPrefix() + ":" + bytesToHex(digestBytes);
+    }
+
+    /**
+     * Gets and validates the location header.
+     */
+    private String getLocationHeader(OrasHttpClient.ResponseWrapper<String> response) {
+        String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+        if (location == null) {
+            throw new OrasException("No location header in response");
+        }
+        return location;
+    }
+
+    /**
+     * Makes sure the location URI has a scheme.
+     */
+    private String ensureAbsoluteUri(String location, ContainerRef containerRef) {
+        if (!location.startsWith("http:") && !location.startsWith("https:")) {
+            return "%s://%s/%s".formatted(getScheme(), containerRef.getRegistry(), location.replaceFirst("^/", ""));
+        }
+        return location;
+    }
+
+    /**
+     * Extracts the end range value from response headers.
+     */
+    private long getEndRangeFromHeader(OrasHttpClient.ResponseWrapper<String> response, long defaultEndRange) {
+        String rangeHeader = response.headers().get(Const.RANGE_HEADER.toLowerCase());
+        if (rangeHeader != null) {
+            String[] parts = rangeHeader.split("-");
+            if (parts.length == 2) {
+                return Long.parseLong(parts[1]);
+            }
+        }
+        return defaultEndRange;
+    }
+
+    /**
+     * Adjusts chunk size based on registry requirements.
+     */
+    private int adjustChunkSizeIfNeeded(OrasHttpClient.ResponseWrapper<String> response, int currentChunkSize) {
+        String minChunkSizeHeader = response.headers().get("OCI-Chunk-Min-Length".toLowerCase());
+        if (minChunkSizeHeader == null) {
+            return currentChunkSize;
+        }
+
+        try {
+            int registryMinChunkSize = Integer.parseInt(minChunkSizeHeader);
+            if (registryMinChunkSize > currentChunkSize) {
+                LOG.debug(
+                        "Registry requires minimum chunk size of {} bytes, adjusting from default {} bytes",
+                        registryMinChunkSize,
+                        currentChunkSize);
+                return registryMinChunkSize;
+            }
+        } catch (NumberFormatException e) {
+            LOG.warn("Invalid OCI-Chunk-Min-Length header value: {}", minChunkSizeHeader);
+        }
+
+        return currentChunkSize;
+    }
+
+    /**
+     * Constructs the URI for finalizing the upload.
+     */
+    private URI constructFinalizeUri(String location, String contentDigest, ContainerRef containerRef) {
+        location = ensureAbsoluteUri(location, containerRef);
+        LOG.debug("Final location before finalize: {}", location);
+
+        try {
+            if (location.contains("?")) {
+                return URI.create(location + "&digest=" + contentDigest);
+            } else {
+                return URI.create(location + "?digest=" + contentDigest);
+            }
+        } catch (Exception e) {
+            throw new OrasException("Failed to construct URI for completing upload", e);
+        }
+    }
+
+    /**
+     * Logs final response details.
+     */
+    private void logFinalResponse(OrasHttpClient.ResponseWrapper<String> response) {
+        LOG.debug("Response status: {}", response.statusCode());
+        LOG.debug("Response headers: {}", response.headers());
+        if (response.response() instanceof String) {
+            LOG.debug("Response body: {}", response.response());
+        }
     }
 
     /**
