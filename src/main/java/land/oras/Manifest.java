@@ -46,11 +46,6 @@ public final class Manifest extends Descriptor {
      */
     private final transient ManifestDescriptor descriptor;
 
-    /**
-     * Original json
-     */
-    private transient String json;
-
     private Manifest(
             int schemaVersion,
             String mediaType,
@@ -66,13 +61,13 @@ public final class Manifest extends Descriptor {
                 null,
                 mediaType,
                 Map.copyOf(annotations.manifestAnnotations()),
-                artifactType != null ? artifactType.getMediaType() : null);
+                artifactType != null ? artifactType.getMediaType() : null,
+                json);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
         this.config = config;
         this.subject = subject;
         this.layers = layers;
-        this.json = json;
     }
 
     /**
@@ -240,7 +235,7 @@ public final class Manifest extends Descriptor {
      * @param json The original JSON
      * @return The index
      */
-    private Manifest withJson(String json) {
+    protected Manifest withJson(String json) {
         this.json = json;
         return this;
     }
@@ -261,14 +256,6 @@ public final class Manifest extends Descriptor {
      */
     public static Manifest fromPath(Path path) {
         return fromJson(JsonUtils.readFile(path));
-    }
-
-    /**
-     * Return the original JSON
-     * @return The original JSON
-     */
-    public String getJson() {
-        return json;
     }
 
     private @Nullable ArtifactType getTopLevelArtifactType() {

@@ -61,7 +61,7 @@ public final class Layer extends Descriptor {
             long size,
             @Nullable String data,
             @Nullable Map<String, String> annotations) {
-        super(digest, size, mediaType, annotations, null);
+        super(digest, size, mediaType, annotations, null, null);
         this.data = data;
         this.blobPath = null;
     }
@@ -74,7 +74,7 @@ public final class Layer extends Descriptor {
      * @param blobPath The path to the blob
      */
     private Layer(String mediaType, String digest, long size, Path blobPath, Map<String, String> annotations) {
-        super(digest, size, mediaType, annotations, null);
+        super(digest, size, mediaType, annotations, null, null);
         this.data = null;
         this.blobPath = blobPath;
     }

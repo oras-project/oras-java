@@ -22,6 +22,7 @@ package land.oras;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.Nullable;
@@ -45,13 +46,32 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     protected final @Nullable Long size;
     protected final @Nullable String artifactType;
 
+    /**
+     * Original json
+     */
+    protected transient String json;
+
     protected Descriptor(
-            String digest, Long size, String mediaType, Map<String, String> annotations, String artifactType) {
+            String digest,
+            Long size,
+            String mediaType,
+            Map<String, String> annotations,
+            String artifactType,
+            String json) {
         this.digest = digest;
         this.size = size;
         this.mediaType = mediaType;
         this.annotations = annotations;
         this.artifactType = artifactType;
+        this.json = json;
+    }
+
+    /**
+     * Return the original JSON
+     * @return The original JSON
+     */
+    public String getJson() {
+        return json;
     }
 
     /**
@@ -109,6 +129,26 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     }
 
     /**
+     * Return same instance but with original JSON
+     * @param json The original JSON
+     * @return The index
+     */
+    protected Descriptor withJson(String json) {
+        this.json = json;
+        return this;
+    }
+
+    /**
+     * Return this manifest descriptor as a subject
+     * @return The subject
+     */
+    public Subject toSubject() {
+        Objects.requireNonNull(digest);
+        Objects.requireNonNull(size);
+        return Subject.of(mediaType, digest, size);
+    }
+
+    /**
      * Create a new descriptor
      * @param digest The digest
      * @param size The size
@@ -119,7 +159,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     public static Descriptor of(
             String digest, Long size, String mediaType, Map<String, String> annotations, String artifactType) {
-        return new Descriptor(digest, size, mediaType, annotations, artifactType);
+        return new Descriptor(digest, size, mediaType, annotations, artifactType, null);
     }
 
     /**
@@ -130,7 +170,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * @return The descriptor
      */
     public static Descriptor of(String digest, Long size, String mediaType) {
-        return new Descriptor(digest, size, mediaType, null, null);
+        return new Descriptor(digest, size, mediaType, null, null, null);
     }
 
     /**
@@ -140,6 +180,6 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * @return The descriptor
      */
     public static Descriptor of(String digest, Long size) {
-        return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null);
+        return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null, null);
     }
 }

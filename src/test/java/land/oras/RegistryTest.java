@@ -606,7 +606,7 @@ public class RegistryTest {
     }
 
     @Test
-    void testShouldPushMinimalArtifactThenAttachArtifact() throws IOException {
+    void testShouldPushMinimalArtifactThenAttachArtifactToManifest() throws IOException {
 
         String artifactType = "application/vnd.maven+type";
 
@@ -632,6 +632,55 @@ public class RegistryTest {
         // Attach artifact
         Manifest signedPomFileManifest =
                 registry.attachArtifact(containerRef, ArtifactType.from(artifactType), LocalPath.of(signedPomFile));
+
+        assertEquals(1, signedPomFileManifest.getLayers().size());
+        assertEquals(1, signedPomFileManifest.getAnnotations().size());
+        assertNotNull(signedPomFileManifest.getAnnotations().get(Const.ANNOTATION_CREATED));
+
+        // No created annotation
+        signedPomFileManifest = registry.attachArtifact(
+                containerRef, ArtifactType.from(artifactType), Annotations.empty(), LocalPath.of(signedPomFile));
+
+        assertEquals(1, signedPomFileManifest.getLayers().size());
+        assertEquals(1, signedPomFileManifest.getAnnotations().size());
+        assertNotNull(signedPomFileManifest.getAnnotations().get(Const.ANNOTATION_CREATED));
+    }
+
+    @Test
+    void testShouldPushMinimalArtifactThenAttachArtifactToIndex() throws IOException {
+
+        String artifactType = "application/vnd.maven+type";
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-maven".formatted(this.registry.getRegistry()));
+
+        Path pomFile = blobDir.resolve("pom.xml");
+        Files.writeString(pomFile, "my pom file");
+
+        Manifest manifest = registry.pushArtifact(
+                containerRef, ArtifactType.from(artifactType), LocalPath.of(pomFile, "application/xml"));
+        assertNotNull(manifest);
+
+        Index index = Index.fromManifests(List.of(manifest.getDescriptor()));
+        String indexDigest =
+                SupportedAlgorithm.getDefault().digest(index.toJson().getBytes(StandardCharsets.UTF_8));
+        assertNotNull(manifest);
+        index = registry.pushIndex(containerRef.withDigest(indexDigest), index);
+
+        assertNotNull(indexDigest);
+
+        // Create fake signature
+        Path signedPomFile = blobDir.resolve("pom.xml.asc");
+        Files.writeString(signedPomFile, "my signed pom file");
+
+        // Attach artifact to index
+        Manifest signedPomFileManifest = registry.attachArtifact(
+                containerRef.withDigest(indexDigest), ArtifactType.from(artifactType), LocalPath.of(signedPomFile));
 
         assertEquals(1, signedPomFileManifest.getLayers().size());
         assertEquals(1, signedPomFileManifest.getAnnotations().size());

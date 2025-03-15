@@ -124,6 +124,20 @@ public class IndexTest {
     }
 
     @Test
+    void shouldAddSubject() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withSubject(Subject.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:123", 123));
+        Subject subject = index.getSubject();
+        assertNotNull(subject);
+        assertEquals(Const.DEFAULT_MANIFEST_MEDIA_TYPE, subject.getMediaType());
+        assertEquals("sha256:123", subject.getDigest());
+        assertEquals(123, subject.getSize());
+        assertEquals(
+                "{\"schemaVersion\":2,\"manifests\":[],\"subject\":{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:123\",\"size\":123},\"mediaType\":\"application/vnd.oci.image.index.v1+json\"}",
+                index.toJson());
+    }
+
+    @Test
     void shouldNotAddIfSameDigest() {
         Index index = Index.fromManifests(List.of());
         index = index.withNewManifests(Manifest.empty().getDescriptor());

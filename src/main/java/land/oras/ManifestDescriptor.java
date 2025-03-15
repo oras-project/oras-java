@@ -21,6 +21,7 @@
 package land.oras;
 
 import java.util.Map;
+import java.util.Objects;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -172,5 +173,24 @@ public final class ManifestDescriptor {
      */
     public static ManifestDescriptor of(String mediaType, String digest, long size) {
         return new ManifestDescriptor(null, mediaType, digest, size, null, null);
+    }
+
+    /**
+     * Create a manifest descriptor
+     * @param descriptor The descriptor
+     * @return The subject
+     */
+    public static ManifestDescriptor of(Descriptor descriptor) {
+        Objects.requireNonNull(descriptor.getDigest());
+        Objects.requireNonNull(descriptor.getSize());
+        return new ManifestDescriptor(
+                descriptor.getArtifactType() != null
+                        ? descriptor.getArtifactType().getMediaType()
+                        : null,
+                descriptor.getMediaType(),
+                descriptor.getDigest(),
+                descriptor.getSize(),
+                null,
+                descriptor.getAnnotations());
     }
 }
