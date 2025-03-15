@@ -38,6 +38,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class OCILayout extends OCI<LayoutRef> {
 
+    @SuppressWarnings("all")
     private final String imageLayoutVersion = "1.0.0";
 
     /**
@@ -134,6 +135,7 @@ public final class OCILayout extends OCI<LayoutRef> {
 
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(
                         Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length)
+                .withAnnotations(manifest.getAnnotations().isEmpty() ? null : manifest.getAnnotations())
                 .withArtifactType(manifest.getArtifactType().getMediaType());
         if (layoutRef.getTag() != null) {
             manifestDescriptor = manifestDescriptor.withAnnotations(Map.of(Const.ANNOTATION_REF, layoutRef.getTag()));
@@ -546,6 +548,17 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (!ref.getTag().equals(pathDigest)) {
             throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), pathDigest));
         }
+    }
+
+    /**
+     * Return the OCI layout from the index.json file
+     * @param layoutPath The path to the layout containing the index.json file
+     * @return The OCI layout
+     */
+    public static OCILayout fromLayoutIndex(Path layoutPath) {
+        OCILayout layout = JsonUtils.fromJson(layoutPath.resolve(Const.OCI_LAYOUT_INDEX), OCILayout.class);
+        layout.path = layoutPath;
+        return layout;
     }
 
     /**

@@ -20,8 +20,7 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
@@ -43,13 +42,47 @@ public class IndexTest {
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
         assertNull(index.getArtifactType());
+        assertNull(index.getAnnotations());
         assertNull(index.getDescriptor());
         assertEquals(
                 "sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27",
                 index.getManifests().get(0).getDigest());
         assertEquals(559, index.getManifests().get(0).getSize());
-        assertEquals(json, index.toJson());
-        index.toJson();
+        assertEquals(json, index.getJson());
+        String result = index.toJson();
+        assertEquals(
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}",
+                result);
+    }
+
+    @Test
+    void shouldReadAndWriteIndexWithAnnotations() {
+        String json =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559,\"annotations\":{\"foo\":\"bar\"}}]}";
+        Index index = Index.fromJson(json);
+        assertNull(index.getMediaType());
+        assertEquals(2, index.getSchemaVersion());
+        assertEquals(1, index.getManifests().size());
+        assertNull(index.getArtifactType());
+        assertNull(index.getAnnotations());
+        assertNull(index.getDescriptor());
+        assertEquals(
+                "sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27",
+                index.getManifests().get(0).getDigest());
+        assertEquals(559, index.getManifests().get(0).getSize());
+        assertEquals(json, index.getJson());
+        String result = index.toJson();
+        assertEquals(
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559,\"annotations\":{\"foo\":\"bar\"}}]}",
+                result);
+    }
+
+    @Test
+    void shouldNotWriteEmptyAnnotations() {
+        String json =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559,\"annotations\":{}}]}";
+        Index index = Index.fromJson(json);
+        assertNull(index.getAnnotations());
     }
 
     @Test
@@ -60,6 +93,8 @@ public class IndexTest {
         assertNull(index.getMediaType());
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
+        assertNull(index.getAnnotations());
+        assertNotNull(index.getArtifactType());
         assertEquals("foo/bar", index.getArtifactType().getMediaType());
         assertNull(index.getDescriptor());
         assertEquals(
@@ -79,10 +114,13 @@ public class IndexTest {
         String digest =
                 SupportedAlgorithm.getDefault().digest(newManifest.toJson().getBytes());
         int size = newManifest.toJson().getBytes().length;
-        ManifestDescriptor descriptor = ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, digest, size);
+        ManifestDescriptor descriptor = ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, digest, size)
+                .withAnnotations(newManifest.getAnnotations());
         newManifest.withDescriptor(descriptor);
         index = index.withNewManifests(descriptor);
         assertEquals(2, index.getManifests().size());
+        assertNotNull(index.getManifests().get(1).getAnnotations());
+        assertEquals(1, index.getManifests().get(1).getAnnotations().size());
     }
 
     @Test
@@ -110,6 +148,8 @@ public class IndexTest {
         assertNull(index.getManifests().get(0).getAnnotations());
 
         // Ensure 2nd descriptor has ref
+        assertNotNull(index.getManifests().get(1).getAnnotations());
+        assertTrue(index.getManifests().get(1).getAnnotations().containsKey(Const.ANNOTATION_REF));
         assertEquals("latest", index.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
     }
 

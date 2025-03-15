@@ -111,15 +111,6 @@ public record Annotations(
                             && !"$config".equals(entry.getKey())) // Filter out $manifest and $config
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
-
-        /**
-         * Get the annotations for a file
-         * @param key The key
-         * @return The annotations
-         */
-        public Map<String, String> getFileAnnotations(String key) {
-            return this.getOrDefault(key, new HashMap<>());
-        }
     }
 
     /**

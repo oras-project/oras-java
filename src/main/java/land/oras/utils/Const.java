@@ -119,11 +119,6 @@ public final class Const {
     public static final String DOCKER_INDEX_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.list.v2+json";
 
     /**
-     * Docker legacy media type
-     */
-    public static final String DOCKER_LEGACY_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v1+prettyjws";
-
-    /**
      * The default manifest media type
      */
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
