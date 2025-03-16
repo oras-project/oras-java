@@ -23,7 +23,6 @@ package land.oras;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -337,54 +336,6 @@ public final class Registry extends OCI<ContainerRef> {
         throw new OrasException("Not implemented");
     }
 
-    /**
-     * Attach file to an existing manifest
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param paths The paths
-     * @return The manifest of the new artifact
-     */
-    public Manifest attachArtifact(ContainerRef containerRef, ArtifactType artifactType, LocalPath... paths) {
-        return attachArtifact(containerRef, artifactType, Annotations.empty(), paths);
-    }
-
-    /**
-     * Attach file to an existing manifest
-     * @param containerRef The container
-     * @param artifactType The artifact type
-     * @param annotations The annotations
-     * @param paths The paths
-     * @return The manifest of the new artifact
-     */
-    public Manifest attachArtifact(
-            ContainerRef containerRef, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
-
-        // Push layers
-        List<Layer> layers = pushLayers(containerRef, false, paths);
-
-        // Get the subject from the descriptor
-        Descriptor descriptor = getDescriptor(containerRef);
-        Subject subject = descriptor.toSubject();
-
-        // Add created annotation if not present since we push with digest
-        Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
-        if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED)) {
-            manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
-        }
-
-        // assemble manifest
-        Manifest manifest = Manifest.empty()
-                .withArtifactType(artifactType)
-                .withAnnotations(manifestAnnotations)
-                .withLayers(layers)
-                .withSubject(subject);
-
-        return pushManifest(
-                containerRef.withDigest(
-                        SupportedAlgorithm.SHA256.digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
-                manifest);
-    }
-
     @Override
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
@@ -583,7 +534,8 @@ public final class Registry extends OCI<ContainerRef> {
         return Index.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
     }
 
-    private Descriptor getDescriptor(ContainerRef containerRef) {
+    @Override
+    public Descriptor getDescriptor(ContainerRef containerRef) {
         OrasHttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
         handleError(response);
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());

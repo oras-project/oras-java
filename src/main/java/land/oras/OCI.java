@@ -22,6 +22,7 @@ package land.oras;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -31,6 +32,8 @@ import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
+import land.oras.utils.SupportedAlgorithm;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * Commons methods for OCI operations
  * @param <T> The reference type
  */
-public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
+public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OCILayout {
 
     /**
      * The logger
@@ -111,8 +114,7 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    protected List<Layer> pushLayers(T ref, boolean withDigest, LocalPath... paths) {
+    protected final List<Layer> pushLayers(T ref, boolean withDigest, LocalPath... paths) {
         List<Layer> layers = new ArrayList<>();
         for (LocalPath path : paths) {
             try {
@@ -121,7 +123,7 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
                     LocalPath tempTar = ArchiveUtils.tar(path);
                     LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
                     if (withDigest) {
-                        ref = (T) ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
+                        ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
                     }
                     try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
                         Layer layer = pushBlob(ref, is)
@@ -140,7 +142,7 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
                 } else {
                     try (InputStream is = Files.newInputStream(path.getPath())) {
                         if (withDigest) {
-                            ref = (T) ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
+                            ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
                         }
                         Layer layer = pushBlob(ref, is)
                                 .withMediaType(path.getMediaType())
@@ -164,10 +166,21 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
      * @param config The config
      * @return The config
      */
-    public Config pushConfig(T ref, Config config) {
+    public final Config pushConfig(T ref, Config config) {
         Layer layer = pushBlob(ref, config.getDataBytes());
         LOG.debug("Config pushed: {}", layer.getDigest());
         return config;
+    }
+
+    /**
+     * Attach an artifact
+     * @param ref The ref
+     * @param artifactType The artifact type
+     * @param paths The paths
+     * @return The manifest
+     */
+    public final Manifest attachArtifact(T ref, ArtifactType artifactType, LocalPath... paths) {
+        return attachArtifact(ref, artifactType, Annotations.empty(), paths);
     }
 
     /**
@@ -213,6 +226,13 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
     public abstract Manifest getManifest(T ref);
 
     /**
+     * Retrieve a descriptor
+     * @param ref The ref
+     * @return The descriptor
+     */
+    public abstract Descriptor getDescriptor(T ref);
+
+    /**
      * Get the blob for the given digest. Not be suitable for large blobs
      * @param ref The ref
      * @return The blob as bytes
@@ -256,4 +276,39 @@ public abstract sealed class OCI<T extends Ref> permits Registry, OCILayout {
      * @return The layer
      */
     public abstract Layer pushBlob(T ref, byte[] data);
+
+    /**
+     * Attach file to an existing manifest
+     * @param ref The ref
+     * @param artifactType The artifact type
+     * @param annotations The annotations
+     * @param paths The paths
+     * @return The manifest of the new artifact
+     */
+    public Manifest attachArtifact(T ref, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
+
+        // Push layers
+        List<Layer> layers = pushLayers(ref, true, paths);
+
+        // Get the subject from the descriptor
+        Descriptor descriptor = getDescriptor(ref);
+        Subject subject = descriptor.toSubject();
+
+        // Add created annotation if not present since we push with digest
+        Map<String, String> manifestAnnotations = annotations.manifestAnnotations();
+        if (!manifestAnnotations.containsKey(Const.ANNOTATION_CREATED)) {
+            manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+        }
+
+        // assemble manifest
+        Manifest manifest = Manifest.empty()
+                .withArtifactType(artifactType)
+                .withAnnotations(manifestAnnotations)
+                .withLayers(layers)
+                .withSubject(subject);
+        return pushManifest(
+                ref.withDigest(
+                        SupportedAlgorithm.SHA256.digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
+                manifest);
+    }
 }

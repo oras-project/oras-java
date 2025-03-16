@@ -30,7 +30,7 @@ import org.jspecify.annotations.NullMarked;
  * A referer of a container on a {@link OCILayout}.
  */
 @NullMarked
-public final class LayoutRef extends Ref {
+public final class LayoutRef extends Ref<LayoutRef> {
 
     private final Path folder;
 
@@ -96,6 +96,17 @@ public final class LayoutRef extends Ref {
         }
 
         return SupportedAlgorithm.getDefault();
+    }
+
+    /**
+     * Return if the current layout tag is a valid digest.
+     * @return True if the tag is a valid digest.
+     */
+    public boolean isValidDigest() {
+        if (tag == null) {
+            return false;
+        }
+        return SupportedAlgorithm.matchPattern(tag);
     }
 
     @Override

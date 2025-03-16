@@ -98,6 +98,14 @@ public final class Manifest extends Descriptor {
         return descriptor;
     }
 
+    @Override
+    public String getDigest() {
+        if (descriptor == null) {
+            return super.getDigest();
+        }
+        return descriptor.getDigest();
+    }
+
     /**
      * Get the config
      * @return The config
