@@ -350,6 +350,10 @@ public final class OrasHttpClient {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(registry));
             }
             headers.forEach(builder::header);
+
+            // Add user agent
+            builder = builder.header(Const.USER_AGENT_HEADER, Const.USER_AGENT_VALUE);
+
             HttpRequest request = builder.build();
             logRequest(request, body);
             HttpResponse<T> response = client.send(request, handler);
