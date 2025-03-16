@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * A referer of a container on a {@link Registry}.
  */
 @NullMarked
-public final class ContainerRef extends Ref {
+public final class ContainerRef extends Ref<ContainerRef> {
 
     /**
      * The regex pattern to parse the container name including the registry, namespace, repository, tag and digest.

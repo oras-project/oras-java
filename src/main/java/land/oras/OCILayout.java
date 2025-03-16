@@ -137,8 +137,13 @@ public final class OCILayout extends OCI<LayoutRef> {
                         Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length)
                 .withAnnotations(manifest.getAnnotations().isEmpty() ? null : manifest.getAnnotations())
                 .withArtifactType(manifest.getArtifactType().getMediaType());
-        if (layoutRef.getTag() != null) {
-            manifestDescriptor = manifestDescriptor.withAnnotations(Map.of(Const.ANNOTATION_REF, layoutRef.getTag()));
+        if (layoutRef.getTag() != null && !layoutRef.isValidDigest()) {
+            Map<String, String> newAnnotations = new HashMap<>();
+            if (manifestDescriptor.getAnnotations() != null) {
+                newAnnotations.putAll(manifestDescriptor.getAnnotations());
+            }
+            newAnnotations.put(Const.ANNOTATION_REF, layoutRef.getTag());
+            manifestDescriptor = manifestDescriptor.withAnnotations(newAnnotations);
         }
         manifest = manifest.withDescriptor(manifestDescriptor);
 
@@ -400,6 +405,16 @@ public final class OCILayout extends OCI<LayoutRef> {
         } catch (IOException e) {
             throw new OrasException("Failed to copy container", e);
         }
+    }
+
+    @Override
+    public Descriptor getDescriptor(LayoutRef ref) {
+        String tag = ref.getTag();
+        if (tag == null) {
+            throw new OrasException("Tag or digest is required to find manifest");
+        }
+        ManifestDescriptor manifestDescriptor = findManifestDescriptor(ref);
+        return manifestDescriptor.toDescriptor();
     }
 
     private Path getOciLayoutPath() {

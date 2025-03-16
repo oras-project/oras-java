@@ -42,6 +42,7 @@ public class LayoutRefTest {
         assertEquals("v1", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
         assertEquals(ociLayout, layoutRef.getRepository());
+        assertFalse(layoutRef.isValidDigest(), "v1 is not a valid digest");
     }
 
     @Test
@@ -51,6 +52,7 @@ public class LayoutRefTest {
         assertEquals("sha256:12345", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
         assertEquals(ociLayout, layoutRef.getRepository());
+        assertTrue(layoutRef.isValidDigest(), "sha256:12345 should be a valid digest pattern");
     }
 
     @Test

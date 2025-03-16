@@ -26,9 +26,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A referer of a container on a {@link OCI}.
+ * @param <T> The type of the ref
  */
 @NullMarked
-public abstract sealed class Ref permits ContainerRef, LayoutRef {
+public abstract sealed class Ref<T extends Ref<T>> permits ContainerRef, LayoutRef {
 
     /**
      * The tag of the container.
@@ -55,7 +56,7 @@ public abstract sealed class Ref permits ContainerRef, LayoutRef {
      * @param digest The digest
      * @return The ref
      */
-    public abstract Ref withDigest(String digest);
+    public abstract T withDigest(String digest);
 
     /**
      * Get the algorithm

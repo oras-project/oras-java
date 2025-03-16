@@ -202,6 +202,16 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldEnforceTagWhenGettingDescriptor() throws IOException {
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        assertThrows(OrasException.class, () -> {
+            ociLayout.getDescriptor(layoutRef);
+        });
+    }
+
+    @Test
     void failToCreateLayoutIfFileExists() throws IOException {
         Path path = layoutPath.resolve("failToCreateLayoutIfFileExists");
         Files.createFile(path);
@@ -252,7 +262,30 @@ public class OCILayoutTest {
         // No annotation
         assertNotNull(index.getManifests().get(0).getAnnotations(), "Annotation should not be null");
         assertEquals(1, index.getManifests().get(0).getAnnotations().size());
-        assertTrue(index.getManifests().get(0).getAnnotations().containsKey(Const.ANNOTATION_CREATED));
+        assertTrue(
+                index.getManifests().get(0).getAnnotations().containsKey(Const.ANNOTATION_CREATED),
+                "Should have created annotation");
+
+        // Test attaching artifact
+        // Create fake signature
+        String artifactType = "application/vnd.maven+type";
+        Path signedPomFile = blobDir.resolve("pom.xml.asc");
+        Files.writeString(signedPomFile, "my signed pom file");
+
+        // Attach artifact
+        Manifest signedPomFileManifest = ociLayout.attachArtifact(
+                layoutRef.withDigest(manifest.getDigest()),
+                ArtifactType.from(artifactType),
+                LocalPath.of(signedPomFile));
+
+        index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+
+        // 2 manifests
+        assertEquals(2, index.getManifests().size());
+        assertEquals(1, index.getManifests().get(1).getAnnotations().size());
+        assertTrue(
+                index.getManifests().get(1).getAnnotations().containsKey(Const.ANNOTATION_CREATED),
+                "Should have created annotation");
     }
 
     @Test
@@ -295,7 +328,9 @@ public class OCILayoutTest {
 
         // No annotation
         assertNotNull(index.getManifests().get(0).getAnnotations(), "Some annotations should not be null");
-        assertEquals(1, index.getManifests().get(0).getAnnotations().size());
+        assertEquals(2, index.getManifests().get(0).getAnnotations().size(), "Annotation should have 2 elements");
+        assertNotNull(index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_CREATED));
+        assertEquals("latest", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
     }
 
     @Test

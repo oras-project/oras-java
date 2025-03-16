@@ -80,6 +80,15 @@ public class ManifestTest {
     }
 
     @Test
+    void shouldReadDigestTopLevelDescriptor() {
+        String json =
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\"size\":7023}";
+        Manifest manifest = Manifest.fromJson(json);
+        assertEquals(
+                "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", manifest.getDigest());
+    }
+
+    @Test
     void shouldHaveNoLayerForIndex() {
         String json =
                 "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"annotations\":{}}";
