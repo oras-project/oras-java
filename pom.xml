@@ -60,7 +60,7 @@
     <bcprov-jdk18on.version>1.80</bcprov-jdk18on.version>
 
     <!-- Test dependencies version -->
-    <logback.version>1.5.17</logback.version>
+    <logback.version>1.5.18</logback.version>
     <junit.version>5.12.1</junit.version>
     <testcontainer.version>1.20.6</testcontainer.version>
     <wiremock.version>3.12.1</wiremock.version>
