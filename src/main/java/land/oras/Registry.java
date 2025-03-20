@@ -721,7 +721,7 @@ public final class Registry extends OCI<ContainerRef> {
         // Initialize the Message Digest
         MessageDigest digest;
         try {
-            digest = MessageDigest.getInstance(getMessageDigestAlgorithm(containerRef.getAlgorithm()));
+            digest = MessageDigest.getInstance(containerRef.getAlgorithm().getAlgorithmName());
         } catch (NoSuchAlgorithmException e) {
             throw new OrasException("Failed to get message digest", e);
         }
@@ -917,22 +917,6 @@ public final class Registry extends OCI<ContainerRef> {
     public InputStream getBlobStream(ContainerRef containerRef) {
         // Similar to fetchBlob()
         return fetchBlob(containerRef);
-    }
-
-    /**
-     * Convert SupportedAlgorithm to MessageDigest algorithm string
-     * @param algorithm The supported algorithm
-     * @return The algorithm string for MessageDigest
-     */
-    private String getMessageDigestAlgorithm(SupportedAlgorithm algorithm) {
-        switch (algorithm) {
-            case SHA256:
-                return "SHA-256";
-            case SHA512:
-                return "SHA-512";
-            default:
-                throw new IllegalArgumentException("Unsupported algorithm: " + algorithm);
-        }
     }
 
     // Helper method to convert bytes to hex
