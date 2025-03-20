@@ -84,6 +84,14 @@ public enum SupportedAlgorithm {
     }
 
     /**
+     * Get the algorithm
+     * @return The algorithm
+     */
+    public String getAlgorithmName() {
+        return algorithm;
+    }
+
+    /**
      * Digest a byte array
      * @param bytes The bytes
      * @return The digest
