@@ -136,7 +136,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                                         Const.ANNOTATION_ORAS_UNPACK,
                                         "true"));
                         layers.add(layer);
-                        LOG.info("Uploaded directory: {}", layer.getDigest());
+                        LOG.info("Uploaded directory: {} (Digest: {})", layer.getDigest(), ref.getAlgorithm().digest(tempTar.getPath()));
                     }
                     Files.delete(tempArchive.getPath());
                 } else {
@@ -150,7 +150,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                                         Const.ANNOTATION_TITLE,
                                         path.getPath().getFileName().toString()));
                         layers.add(layer);
-                        LOG.info("Uploaded: {}", layer.getDigest());
+                        LOG.info("Uploaded: {} (Size: {} bytes, Digest: {})", layer.getDigest(), Files.size(path.getPath()), ref.getAlgorithm().digest(path.getPath()));
                     }
                 }
             } catch (IOException e) {
@@ -306,6 +306,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                 .withAnnotations(manifestAnnotations)
                 .withLayers(layers)
                 .withSubject(subject);
+        LOG.info("Pushing manifest with {} layers", layers.size());
         return pushManifest(
                 ref.withDigest(
                         SupportedAlgorithm.SHA256.digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
