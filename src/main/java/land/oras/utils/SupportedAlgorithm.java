@@ -84,6 +84,14 @@ public enum SupportedAlgorithm {
     }
 
     /**
+     * Get the Java MessageDigest algorithm name
+     * @return The algorithm name for use with MessageDigest.getInstance()
+     */
+    public String getAlgorithmName() {
+        return algorithm;
+    }
+
+    /**
      * Digest a byte array
      * @param bytes The bytes
      * @return The digest

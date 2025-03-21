@@ -237,4 +237,19 @@ public final class Const {
      * Application octet stream header value
      */
     public static final String APPLICATION_OCTET_STREAM_HEADER_VALUE = "application/octet-stream";
+
+    /**
+     * Content Range header
+     */
+    public static final String CONTENT_RANGE_HEADER = "Content-Range";
+
+    /**
+     * Range header
+     */
+    public static final String RANGE_HEADER = "Range";
+
+    /**
+     * OCI Chunk Minimum Length header
+     */
+    public static final String OCI_CHUNK_MIN_LENGTH_HEADER = "OCI-Chunk-Min-Length";
 }
