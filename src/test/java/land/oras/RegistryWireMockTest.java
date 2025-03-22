@@ -20,6 +20,11 @@
 
 package land.oras;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.patch;
+import static com.github.tomakehurst.wiremock.client.WireMock.patchRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,11 +35,14 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import land.oras.auth.AuthStore;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
@@ -42,6 +50,7 @@ import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.OrasHttpClient;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -355,5 +364,44 @@ public class RegistryWireMockTest {
                 ContainerRef.parse("localhost:%d/library/refresh-token".formatted(wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldExecutePatchRequestWithHeaders(WireMockRuntimeInfo wMockRuntimeInfo) {
+        WireMock wireMock = wMockRuntimeInfo.getWireMock();
+        String registryUrl = wMockRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        OrasHttpClient client =
+                OrasHttpClient.Builder.builder().withSkipTlsVerify(true).build();
+
+        // Setup Mock to craete a PATCH request with Headers
+        wireMock.register(patch(urlEqualTo("/v2/test/blobs/uploads/session1"))
+                .withHeader(Const.CONTENT_TYPE_HEADER, equalTo(Const.APPLICATION_OCTET_STREAM_HEADER_VALUE))
+                .withHeader(Const.CONTENT_RANGE_HEADER, equalTo("0-1023"))
+                .willReturn(aResponse()
+                        .withStatus(202)
+                        .withHeader(Const.LOCATION_HEADER, "/v2/test/blobs/uploads/session2")
+                        .withHeader(Const.RANGE_HEADER, "0-1023")
+                        .withHeader(Const.OCI_CHUNK_MIN_LENGTH_HEADER, "4096")));
+
+        // Create sample data with headers
+        byte[] data = "test patch".getBytes();
+        Map<String, String> headers = new HashMap<>();
+        headers.put(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE);
+        headers.put(Const.CONTENT_RANGE_HEADER, "0-1023");
+
+        // Execute Patch
+        URI uri = URI.create("http://" + registryUrl + "/v2/test/blobs/uploads/session1");
+        OrasHttpClient.ResponseWrapper<String> response = client.patch(uri, data, headers);
+
+        // Verify response uses all our constants
+        assertEquals(202, response.statusCode());
+        assertEquals("/v2/test/blobs/uploads/session2", response.headers().get(Const.LOCATION_HEADER.toLowerCase()));
+        assertEquals("0-1023", response.headers().get(Const.RANGE_HEADER.toLowerCase()));
+        assertEquals("4096", response.headers().get(Const.OCI_CHUNK_MIN_LENGTH_HEADER.toLowerCase()));
+
+        // Verify the PATCH request was made with correct headers
+        wireMock.verifyThat(patchRequestedFor(urlEqualTo("/v2/test/blobs/uploads/session1"))
+                .withHeader(Const.CONTENT_TYPE_HEADER, equalTo(Const.APPLICATION_OCTET_STREAM_HEADER_VALUE))
+                .withHeader(Const.CONTENT_RANGE_HEADER, equalTo("0-1023")));
     }
 }
