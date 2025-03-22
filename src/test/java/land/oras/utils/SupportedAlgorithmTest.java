@@ -120,4 +120,11 @@ public class SupportedAlgorithmTest {
         // Not match
         assertFalse(SupportedAlgorithm.matchPattern("latest"));
     }
+
+    @Test
+    void shouldGetAlgorithmName() {
+        assertEquals("SHA-256", SupportedAlgorithm.SHA256.getAlgorithmName());
+        assertEquals("SHA-512", SupportedAlgorithm.SHA512.getAlgorithmName());
+        assertEquals("BLAKE3-256", SupportedAlgorithm.BLAKE3.getAlgorithmName());
+    }
 }
