@@ -273,7 +273,7 @@ public final class OrasHttpClient {
                 HttpRequest.BodyPublishers.ofByteArray(body));
     }
 
-    /*
+    /**
      * Perform a Patch request
      * @param uri The URI
      * @param body The body
