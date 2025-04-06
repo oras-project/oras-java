@@ -212,6 +212,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Manifest pushManifest(T ref, Manifest manifest);
 
     /**
+     * Push an index
+     * @param ref The ref
+     * @param index The index
+     * @return The index
+     */
+    public abstract Index pushIndex(T ref, Index index);
+
+    /**
      * Retrieve an index
      * @param ref The ref
      * @return The index

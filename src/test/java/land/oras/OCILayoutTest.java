@@ -69,7 +69,7 @@ public class OCILayoutTest {
 
         // Assertion
         assertOciLayout(path);
-        assertIndex(path, manifest);
+        assertIndex(path, manifest, 1, 0);
         assertBlobExists(path, manifest.getDescriptor().getDigest());
         assertEquals(425, manifest.getDescriptor().getSize());
 
@@ -105,6 +105,58 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldPushIndex() {
+        Path path = layoutPath.resolve("shouldPushIndex");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
+        byte[] manifestContent = index.toJson().getBytes(StandardCharsets.UTF_8);
+        String indexDigest = SupportedAlgorithm.getDefault().digest(manifestContent);
+        index = index.withDescriptor(
+                ManifestDescriptor.of(Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, manifestContent.length));
+        index = ociLayout.pushIndex(layoutRef, index);
+
+        // Assertion
+        assertOciLayout(path);
+        assertIndex(path, index, 1);
+        assertBlobExists(path, index.getDescriptor().getDigest());
+        assertEquals(229, index.getDescriptor().getSize());
+
+        // One element in the index
+        Index ociIndex = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
+        assertEquals(1, ociIndex.getManifests().size());
+
+        // Check latest tag
+        assertNull(index.getManifests().get(0).getAnnotations());
+    }
+
+    @Test
+    void shouldPushIndexWithTag() {
+        Path path = layoutPath.resolve("shouldPushIndexWithTag");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
+        byte[] manifestContent = index.toJson().getBytes(StandardCharsets.UTF_8);
+        String indexDigest = SupportedAlgorithm.getDefault().digest(manifestContent);
+        index = index.withDescriptor(
+                ManifestDescriptor.of(Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, manifestContent.length));
+        index = ociLayout.pushIndex(layoutRef.withTag("latest"), index);
+
+        // Assertion
+        assertOciLayout(path);
+        assertIndex(path, index, 1);
+        assertBlobExists(path, index.getDescriptor().getDigest());
+        assertEquals(229, index.getDescriptor().getSize());
+
+        // One element in the index
+        Index ociIndex = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
+        assertEquals(1, ociIndex.getManifests().size());
+
+        // Check latest tag
+        assertEquals("latest", ociIndex.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
+    }
+
+    @Test
     void shouldPushManifestFromFile() {
 
         Path path = layoutPath.resolve("shouldPushManifetFromFile");
@@ -119,7 +171,7 @@ public class OCILayoutTest {
 
         // Assertion
         assertOciLayout(path);
-        assertIndex(path, manifest);
+        assertIndex(path, manifest, 1, 0);
         assertBlobExists(path, manifest.getDescriptor().getDigest());
         assertEquals(556, manifest.getDescriptor().getSize());
 
@@ -153,7 +205,7 @@ public class OCILayoutTest {
 
         // Assertion
         assertOciLayout(path);
-        assertIndex(path, manifest);
+        assertIndex(path, manifest, 1, 0);
         assertBlobExists(path, manifest.getDescriptor().getDigest());
         assertEquals(425, manifest.getDescriptor().getSize());
 
@@ -244,7 +296,7 @@ public class OCILayoutTest {
         assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertIndex(ociLayoutPath, manifest);
+        assertIndex(ociLayoutPath, manifest, 1, 0);
 
         // Assert blobs and their content
         assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath));
@@ -255,7 +307,7 @@ public class OCILayoutTest {
                 layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         // Check index exists
-        assertIndex(ociLayoutPath, manifest1);
+        assertIndex(ociLayoutPath, manifest1, 1, 0);
 
         Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
 
@@ -311,7 +363,7 @@ public class OCILayoutTest {
         assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertIndex(ociLayoutPath, manifest);
+        assertIndex(ociLayoutPath, manifest, 1, 0);
 
         // Assert blobs and their content
         assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactPath));
@@ -322,7 +374,7 @@ public class OCILayoutTest {
                 layoutRef, ArtifactType.from("foo/bar"), annotations, LocalPath.of(artifactPath, "text/plain"));
 
         // Check index exists
-        assertIndex(ociLayoutPath, manifest1);
+        assertIndex(ociLayoutPath, manifest1, 1, 0);
 
         Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
 
@@ -550,7 +602,7 @@ public class OCILayoutTest {
         assertBlobContent(layoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertIndex(layoutPath, manifest);
+        assertIndex(layoutPath, manifest, 1, 0);
 
         // Assert blobs and their content
         assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file1));
@@ -599,7 +651,7 @@ public class OCILayoutTest {
         assertBlobContent(layoutPath, Config.empty().getDigest(), "{}");
 
         // Check index exists
-        assertIndex(layoutPath, manifest);
+        assertIndex(layoutPath, manifest, 3, 0);
 
         // Assert blobs and their content
         assertBlobExists(layoutPath, SupportedAlgorithm.SHA256.digest(file1));
@@ -611,7 +663,7 @@ public class OCILayoutTest {
     }
 
     @Test
-    void testShouldCopyImageIntoOciLayoutWithoutIndex() {
+    void testShouldCopyImageIntoOciLayoutWithoutIndexAndTag() {
 
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -645,7 +697,7 @@ public class OCILayoutTest {
         assertOciLayout(layoutPath);
 
         // Check index exists
-        assertIndex(layoutPath, pushedManifest);
+        assertIndex(layoutPath, pushedManifest, 1, 0);
 
         // Check manifest exists
         assertTrue(Files.exists(layoutPath
@@ -674,10 +726,18 @@ public class OCILayoutTest {
 
         // Check manifest exists
         assertBlobExists(layoutPath, pushedManifest.getDescriptor().getDigest());
+
+        // Ensure the manifest on index contains the ref tag
+        assertIndex(layoutPath, pushedManifest, 1, 0);
+
+        Index index = Index.fromPath(layoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+
+        // Check latest tag
+        assertEquals("latest", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
     }
 
     @Test
-    void testShouldCopyImageIntoOciLayoutWithIndex() throws IOException {
+    void testShouldCopyImageIntoOciLayoutWithIndex() {
 
         Path layoutPathIndex = layoutPath.resolve("testShouldCopyImageIntoOciLayoutWithIndex");
 
@@ -711,8 +771,9 @@ public class OCILayoutTest {
 
         assertOciLayout(layoutPathIndex);
 
-        // Check index exists
-        assertIndex(layoutPathIndex, pushedManifest);
+        // Check index and manifest are stored in index
+        assertIndex(layoutPathIndex, index, 2);
+        assertIndex(layoutPathIndex, pushedManifest, 2, 1);
 
         // Check manifest exists
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
@@ -743,6 +804,11 @@ public class OCILayoutTest {
         assertLayerExists(layoutPathIndex, layer1);
         assertBlobExists(layoutPathIndex, index.getDescriptor().getDigest());
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
+
+        // Check latest tag
+        Index ociIndex = Index.fromPath(layoutPathIndex.resolve(Const.OCI_LAYOUT_INDEX));
+        assertEquals(2, ociIndex.getManifests().size());
+        assertEquals("latest", ociIndex.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
     }
 
     @Test
@@ -775,7 +841,7 @@ public class OCILayoutTest {
         assertBlobContent(layoutPath, layer.getDigest(), "foobartest");
 
         // Check index exists
-        assertIndex(layoutPath, manifest);
+        assertIndex(layoutPath, manifest, 1, 0);
     }
 
     private void assertOciLayout(Path layoutPath) {
@@ -784,15 +850,27 @@ public class OCILayoutTest {
         assertEquals("1.0.0", layoutFile.getImageLayoutVersion());
     }
 
-    private void assertIndex(Path ociLayoutPath, Manifest manifest) {
+    private void assertIndex(Path ociLayoutPath, Manifest manifest, int size, int index) {
         assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
-        Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
-        LOG.debug("Index is {}", index.toJson());
-        assertEquals(2, index.getSchemaVersion());
-        assertEquals(1, index.getManifests().size());
-        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, index.getMediaType());
+        Index indexObject = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+        LOG.debug("Index is {}", indexObject.toJson());
+        assertEquals(2, indexObject.getSchemaVersion());
+        assertEquals(size, indexObject.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, indexObject.getMediaType());
         assertEquals(
-                manifest.getDescriptor().getSize(), index.getManifests().get(0).getSize());
+                manifest.getDescriptor().getSize(),
+                indexObject.getManifests().get(index).getSize());
+    }
+
+    private void assertIndex(Path ociLayoutPath, Index index, int size) {
+        assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
+        Index ociIndex = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+        LOG.debug("Index is {}", ociIndex.toJson());
+        assertEquals(2, ociIndex.getSchemaVersion());
+        assertEquals(size, ociIndex.getManifests().size());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, ociIndex.getMediaType());
+        assertEquals(
+                index.getDescriptor().getSize(), ociIndex.getManifests().get(0).getSize());
     }
 
     private void assertLayerExists(Path ociLayoutPath, Layer layer) {

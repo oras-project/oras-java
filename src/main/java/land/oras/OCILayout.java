@@ -152,11 +152,52 @@ public final class OCILayout extends OCI<LayoutRef> {
         // Write blobs
         try {
             writeManifest(manifest);
-            writeIndex(index);
+            writeOCIIndex(index);
         } catch (IOException e) {
             throw new OrasException("Failed to write manifest", e);
         }
         return manifest;
+    }
+
+    @Override
+    public Index pushIndex(LayoutRef layoutRef, Index index) {
+        byte[] indexData = index.getJson() != null
+                ? index.getJson().getBytes()
+                : index.toJson().getBytes();
+
+        String indexDigest = layoutRef
+                .getAlgorithm()
+                .digest(
+                        index.getJson() != null
+                                ? index.getJson().getBytes()
+                                : index.toJson().getBytes());
+
+        ManifestDescriptor indexDescriptor = ManifestDescriptor.of(
+                        Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, indexData.length)
+                .withAnnotations(
+                        index.getAnnotations() == null || index.getAnnotations().isEmpty()
+                                ? null
+                                : index.getAnnotations())
+                .withArtifactType(index.getMediaType());
+        if (layoutRef.getTag() != null && !layoutRef.isValidDigest()) {
+            Map<String, String> newAnnotations = new HashMap<>();
+            if (index.getAnnotations() != null) {
+                newAnnotations.putAll(index.getAnnotations());
+            }
+            newAnnotations.put(Const.ANNOTATION_REF, layoutRef.getTag());
+            indexDescriptor = indexDescriptor.withAnnotations(newAnnotations);
+        }
+
+        Index ociIndex = Index.fromPath(getIndexPath()).withNewManifests(indexDescriptor);
+
+        // Write blobs
+        try {
+            writeIndex(index);
+            writeOCIIndex(ociIndex);
+        } catch (IOException e) {
+            throw new OrasException("Failed to write manifest", e);
+        }
+        return index;
     }
 
     @Override
@@ -348,7 +389,9 @@ public final class OCILayout extends OCI<LayoutRef> {
 
                 // Write manifest as any blob
                 Manifest manifest = registry.getManifest(containerRef);
-                writeManifest(manifest);
+                String tag = containerRef.getTag();
+                LayoutRef layoutRef = LayoutRef.fromManifest(this, manifest).withTag(tag);
+                pushManifest(layoutRef, manifest);
 
                 if (recursive) {
                     LOG.debug("Recursively copy referrers");
@@ -359,10 +402,6 @@ public final class OCILayout extends OCI<LayoutRef> {
                     }
                 }
 
-                // Write the index.json containing this manifest
-                Index index = Index.fromManifests(List.of(manifest.getDescriptor()));
-                writeIndex(index);
-
                 // Write config as any blob
                 writeConfig(registry, containerRef, manifest.getConfig());
             }
@@ -370,16 +409,17 @@ public final class OCILayout extends OCI<LayoutRef> {
             else if (registry.isIndexMediaType(contentType)) {
 
                 Index index = registry.getIndex(containerRef);
+                String tag = containerRef.getTag();
+                LayoutRef layoutRef = LayoutRef.fromIndex(this, index);
+                pushIndex(layoutRef.withTag(tag), index);
 
                 // Write all manifests and their config
                 for (ManifestDescriptor descriptor : index.getManifests()) {
                     Manifest manifest = registry.getManifest(containerRef.withDigest(descriptor.getDigest()));
-                    writeManifest(manifest.withDescriptor(descriptor));
+                    LayoutRef manifestLayoutRef = LayoutRef.fromManifest(this, manifest);
+                    pushManifest(manifestLayoutRef, manifest.withDescriptor(descriptor));
                     writeConfig(registry, containerRef, manifest.getConfig());
                 }
-
-                // Write the index
-                writeIndex(index);
 
             } else {
                 throw new OrasException("Unsupported content type: %s".formatted(contentType));
@@ -497,7 +537,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         return getBlobPath().resolve(algorithm.getPrefix());
     }
 
-    private void writeIndex(Index index) throws IOException {
+    private void writeOCIIndex(Index index) throws IOException {
         Path indexFile = getIndexPath();
         Files.writeString(indexFile, index.getJson() != null ? index.getJson() : index.toJson());
         if (index.getJson() != null) {
@@ -525,6 +565,29 @@ public final class OCILayout extends OCI<LayoutRef> {
         } else {
             LOG.debug("Writing existing manifest: {}", manifestFile);
             Files.writeString(manifestFile, manifest.getJson());
+        }
+    }
+
+    private void writeIndex(Index index) throws IOException {
+        ManifestDescriptor descriptor = index.getDescriptor();
+        Path manifestFile = getBlobPath(descriptor);
+        Path manifestPrefixDirectory =
+                getBlobAlgorithmPath(index.getDescriptor().getDigest());
+
+        if (!Files.exists(manifestPrefixDirectory)) {
+            Files.createDirectory(manifestPrefixDirectory);
+        }
+        // Skip if already exists
+        if (Files.exists(manifestFile)) {
+            LOG.debug("Manifest already exists: {}", manifestFile);
+            return;
+        }
+        if (index.getJson() == null) {
+            LOG.debug("Writing new manifest: {}", manifestFile);
+            Files.writeString(manifestFile, index.toJson());
+        } else {
+            LOG.debug("Writing existing manifest: {}", manifestFile);
+            Files.writeString(manifestFile, index.getJson());
         }
     }
 
@@ -574,6 +637,14 @@ public final class OCILayout extends OCI<LayoutRef> {
         OCILayout layout = JsonUtils.fromJson(layoutPath.resolve(Const.OCI_LAYOUT_INDEX), OCILayout.class);
         layout.path = layoutPath;
         return layout;
+    }
+
+    /**
+     * Return the path to the OCI layout
+     * @return The path to the OCI layout
+     */
+    public Path getPath() {
+        return path;
     }
 
     /**
