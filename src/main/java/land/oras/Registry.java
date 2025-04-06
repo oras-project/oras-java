@@ -205,12 +205,7 @@ public final class Registry extends OCI<ContainerRef> {
         return getManifest(containerRef);
     }
 
-    /**
-     * Push a manifest
-     * @param containerRef The container
-     * @param index The index
-     * @return The location
-     */
+    @Override
     public Index pushIndex(ContainerRef containerRef, Index index) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.put(
@@ -571,7 +566,7 @@ public final class Registry extends OCI<ContainerRef> {
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getDigest());
         String dataDigest = algorithm.digest(data);
         if (!ref.getDigest().equals(dataDigest)) {
-            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), dataDigest));
+            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getDigest(), dataDigest));
         }
         return data;
     }

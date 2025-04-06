@@ -46,6 +46,16 @@ public class LayoutRefTest {
     }
 
     @Test
+    void shouldCreateLayoutRefFromManifest() {
+        Manifest manifest = Manifest.empty();
+        OCILayout layout = OCILayout.Builder.builder().defaults(tempDir).build();
+        LayoutRef layoutRef = LayoutRef.fromManifest(layout, manifest);
+        assertNotNull(layoutRef);
+        assertEquals(layout.getPath().toString(), layoutRef.getFolder().toString());
+        assertEquals("sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", layoutRef.getTag());
+    }
+
+    @Test
     void shouldParseLayoutWithDigest() {
         String ociLayout = tempDir.resolve("foo").toString();
         LayoutRef layoutRef = LayoutRef.parse("%s@sha256:12345".formatted(ociLayout));

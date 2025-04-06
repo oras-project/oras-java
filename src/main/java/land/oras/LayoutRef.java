@@ -70,6 +70,34 @@ public final class LayoutRef extends Ref<LayoutRef> {
     }
 
     /**
+     * Convert the manifest to a layout ref.
+     * @param layout The OCI layout.
+     * @param manifest The manifest.
+     * @return The layout ref.
+     */
+    public static LayoutRef fromManifest(OCILayout layout, Manifest manifest) {
+        ManifestDescriptor descriptor = manifest.getDescriptor();
+        if (descriptor == null) {
+            throw new OrasException("Manifest descriptor is null");
+        }
+        return new LayoutRef(layout.getPath(), manifest.getDescriptor().getDigest());
+    }
+
+    /**
+     * Convert the manifest to a layout ref.
+     * @param layout The OCI layout.
+     * @param index The manifest.
+     * @return The layout ref.
+     */
+    public static LayoutRef fromIndex(OCILayout layout, Index index) {
+        ManifestDescriptor descriptor = index.getDescriptor();
+        if (descriptor == null) {
+            throw new OrasException("Index descriptor is null");
+        }
+        return new LayoutRef(layout.getPath(), index.getDescriptor().getDigest());
+    }
+
+    /**
      * Parse the layout ref with folder and tag.
      * @param name The layout ref.
      * @return The container object with the registry, repository and tag.
