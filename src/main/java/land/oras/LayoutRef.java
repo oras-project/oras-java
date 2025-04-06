@@ -72,29 +72,15 @@ public final class LayoutRef extends Ref<LayoutRef> {
     /**
      * Convert the manifest to a layout ref.
      * @param layout The OCI layout.
-     * @param manifest The manifest.
+     * @param describable The describable.
      * @return The layout ref.
      */
-    public static LayoutRef fromManifest(OCILayout layout, Manifest manifest) {
-        ManifestDescriptor descriptor = manifest.getDescriptor();
+    public static LayoutRef fromDescribable(OCILayout layout, Describable describable) {
+        ManifestDescriptor descriptor = describable.getDescriptor();
         if (descriptor == null) {
-            throw new OrasException("Manifest descriptor is null");
+            throw new OrasException("Descriptor is null");
         }
-        return new LayoutRef(layout.getPath(), manifest.getDescriptor().getDigest());
-    }
-
-    /**
-     * Convert the manifest to a layout ref.
-     * @param layout The OCI layout.
-     * @param index The manifest.
-     * @return The layout ref.
-     */
-    public static LayoutRef fromIndex(OCILayout layout, Index index) {
-        ManifestDescriptor descriptor = index.getDescriptor();
-        if (descriptor == null) {
-            throw new OrasException("Index descriptor is null");
-        }
-        return new LayoutRef(layout.getPath(), index.getDescriptor().getDigest());
+        return new LayoutRef(layout.getPath(), describable.getDescriptor().getDigest());
     }
 
     /**

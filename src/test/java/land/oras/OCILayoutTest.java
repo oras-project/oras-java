@@ -110,10 +110,6 @@ public class OCILayoutTest {
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
-        byte[] manifestContent = index.toJson().getBytes(StandardCharsets.UTF_8);
-        String indexDigest = SupportedAlgorithm.getDefault().digest(manifestContent);
-        index = index.withDescriptor(
-                ManifestDescriptor.of(Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, manifestContent.length));
         index = ociLayout.pushIndex(layoutRef, index);
 
         // Assertion
@@ -136,10 +132,6 @@ public class OCILayoutTest {
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
-        byte[] manifestContent = index.toJson().getBytes(StandardCharsets.UTF_8);
-        String indexDigest = SupportedAlgorithm.getDefault().digest(manifestContent);
-        index = index.withDescriptor(
-                ManifestDescriptor.of(Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, manifestContent.length));
         index = ociLayout.pushIndex(layoutRef.withTag("latest"), index);
 
         // Assertion

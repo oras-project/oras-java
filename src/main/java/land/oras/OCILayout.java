@@ -121,17 +121,8 @@ public final class OCILayout extends OCI<LayoutRef> {
             manifest = manifest.withLayers(List.of(configLayer));
         }
 
-        // Create the manifest descriptor with ref if tag is present
-        byte[] manifestData = manifest.getJson() != null
-                ? manifest.getJson().getBytes()
-                : manifest.toJson().getBytes();
-
-        String manifestDigest = layoutRef
-                .getAlgorithm()
-                .digest(
-                        manifest.getJson() != null
-                                ? manifest.getJson().getBytes()
-                                : manifest.toJson().getBytes());
+        byte[] manifestData = getDescriptorData(manifest);
+        String manifestDigest = digest(layoutRef, manifest);
 
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(
                         Const.DEFAULT_MANIFEST_MEDIA_TYPE, manifestDigest, manifestData.length)
@@ -161,16 +152,9 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @Override
     public Index pushIndex(LayoutRef layoutRef, Index index) {
-        byte[] indexData = index.getJson() != null
-                ? index.getJson().getBytes()
-                : index.toJson().getBytes();
 
-        String indexDigest = layoutRef
-                .getAlgorithm()
-                .digest(
-                        index.getJson() != null
-                                ? index.getJson().getBytes()
-                                : index.toJson().getBytes());
+        byte[] indexData = getDescriptorData(index);
+        String indexDigest = digest(layoutRef, index);
 
         ManifestDescriptor indexDescriptor = ManifestDescriptor.of(
                         Const.DEFAULT_INDEX_MEDIA_TYPE, indexDigest, indexData.length)
@@ -187,6 +171,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             newAnnotations.put(Const.ANNOTATION_REF, layoutRef.getTag());
             indexDescriptor = indexDescriptor.withAnnotations(newAnnotations);
         }
+        index = index.withDescriptor(indexDescriptor);
 
         Index ociIndex = Index.fromPath(getIndexPath()).withNewManifests(indexDescriptor);
 
@@ -390,7 +375,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                 // Write manifest as any blob
                 Manifest manifest = registry.getManifest(containerRef);
                 String tag = containerRef.getTag();
-                LayoutRef layoutRef = LayoutRef.fromManifest(this, manifest).withTag(tag);
+                LayoutRef layoutRef = LayoutRef.fromDescribable(this, manifest).withTag(tag);
                 pushManifest(layoutRef, manifest);
 
                 if (recursive) {
@@ -410,13 +395,13 @@ public final class OCILayout extends OCI<LayoutRef> {
 
                 Index index = registry.getIndex(containerRef);
                 String tag = containerRef.getTag();
-                LayoutRef layoutRef = LayoutRef.fromIndex(this, index);
+                LayoutRef layoutRef = LayoutRef.fromDescribable(this, index);
                 pushIndex(layoutRef.withTag(tag), index);
 
                 // Write all manifests and their config
                 for (ManifestDescriptor descriptor : index.getManifests()) {
                     Manifest manifest = registry.getManifest(containerRef.withDigest(descriptor.getDigest()));
-                    LayoutRef manifestLayoutRef = LayoutRef.fromManifest(this, manifest);
+                    LayoutRef manifestLayoutRef = LayoutRef.fromDescribable(this, manifest);
                     pushManifest(manifestLayoutRef, manifest.withDescriptor(descriptor));
                     writeConfig(registry, containerRef, manifest.getConfig());
                 }
@@ -455,6 +440,22 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
         ManifestDescriptor manifestDescriptor = findManifestDescriptor(ref);
         return manifestDescriptor.toDescriptor();
+    }
+
+    private byte[] getDescriptorData(Descriptor descriptor) {
+        if (descriptor.getJson() != null) {
+            return descriptor.getJson().getBytes();
+        }
+        return descriptor.toJson().getBytes();
+    }
+
+    private String digest(LayoutRef layoutRef, Descriptor descriptor) {
+        return layoutRef
+                .getAlgorithm()
+                .digest(
+                        descriptor.getJson() != null
+                                ? descriptor.getJson().getBytes()
+                                : descriptor.toJson().getBytes());
     }
 
     private Path getOciLayoutPath() {
