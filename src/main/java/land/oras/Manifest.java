@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * Class for manifest
  */
 @NullUnmarked
-public final class Manifest extends Descriptor {
+public final class Manifest extends Descriptor implements Describable {
 
     private final int schemaVersion;
     private final Config config;
@@ -90,10 +90,7 @@ public final class Manifest extends Descriptor {
         return ArtifactType.unknown();
     }
 
-    /**
-     * Get the descriptor
-     * @return The descriptor
-     */
+    @Override
     public ManifestDescriptor getDescriptor() {
         return descriptor;
     }

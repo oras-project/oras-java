@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Index from an OCI layout
  */
-public final class Index extends Descriptor {
+public final class Index extends Descriptor implements Describable {
 
     private final int schemaVersion;
     private final List<ManifestDescriptor> manifests;
@@ -113,10 +113,7 @@ public final class Index extends Descriptor {
         return new Index(schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, json);
     }
 
-    /**
-     * Get the descriptor
-     * @return The descriptor
-     */
+    @Override
     public ManifestDescriptor getDescriptor() {
         return descriptor;
     }
