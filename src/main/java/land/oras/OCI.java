@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -161,6 +162,25 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     }
 
     /**
+     * Return if a media type is an index media type
+     * @param mediaType The media type
+     * @return True if it is a index media type
+     */
+    protected boolean isIndexMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE) || mediaType.equals(Const.DOCKER_INDEX_MEDIA_TYPE);
+    }
+
+    /**
+     * Return if a media type is a manifest media type
+     * @param mediaType The media type
+     * @return True if it is a manifest media type
+     */
+    protected boolean isManifestMediaType(String mediaType) {
+        return mediaType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE);
+    }
+
+    /**
      * Push config
      * @param ref The ref
      * @param config The config
@@ -170,6 +190,20 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
         Layer layer = pushBlob(ref, config.getDataBytes());
         LOG.debug("Config pushed: {}", layer.getDigest());
         return config;
+    }
+
+    /**
+     * Pull config data or just return the data from config if set inline
+     * @param ref The ref
+     * @param config The config
+     * @return The input stream
+     */
+    public final InputStream pullConfig(T ref, Config config) {
+        if (config.getData() != null) {
+            return new ByteArrayInputStream(config.getDataBytes());
+        }
+        String digest = config.getDigest();
+        return fetchBlob(ref.withDigest(digest));
     }
 
     /**
@@ -239,6 +273,13 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @return The descriptor
      */
     public abstract Descriptor getDescriptor(T ref);
+
+    /**
+     * Probe a descriptor. Typically used to get digest, size and media type without the content
+     * @param ref The ref
+     * @return The descriptor
+     */
+    public abstract Descriptor probeDescriptor(T ref);
 
     /**
      * Get the blob for the given digest. Not be suitable for large blobs

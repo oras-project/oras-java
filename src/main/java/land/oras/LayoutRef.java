@@ -80,7 +80,17 @@ public final class LayoutRef extends Ref<LayoutRef> {
         if (descriptor == null) {
             throw new OrasException("Descriptor is null");
         }
-        return new LayoutRef(layout.getPath(), describable.getDescriptor().getDigest());
+        return fromDigest(layout, describable.getDescriptor().getDigest());
+    }
+
+    /**
+     * Return a layout ref from the layout and digest.
+     * @param layout The OCI layout.
+     * @param digest The digest.
+     * @return The layout ref.
+     */
+    public static LayoutRef fromDigest(OCILayout layout, String digest) {
+        return new LayoutRef(layout.getPath(), digest);
     }
 
     /**
