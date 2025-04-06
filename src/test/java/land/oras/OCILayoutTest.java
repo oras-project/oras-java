@@ -23,6 +23,7 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -124,6 +125,46 @@ public class OCILayoutTest {
 
         // Check latest tag
         assertNull(index.getManifests().get(0).getAnnotations());
+    }
+
+    @Test
+    void shouldPushConfig() throws IOException {
+        Path path = layoutPath.resolve("shouldPushConfig");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Config config = Config.empty();
+        ociLayout.pushConfig(layoutRef.withDigest(config.getDigest()), config);
+
+        // Assertion
+        assertOciLayout(path);
+        assertBlobExists(path, config.getDigest());
+
+        // Try to pull config
+        InputStream content = ociLayout.pullConfig(layoutRef, config);
+        assertNotNull(content);
+        assertEquals("{}", new String(content.readAllBytes(), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void shouldPushConfigWithReference() throws IOException {
+        Path path = layoutPath.resolve("shouldPushConfigWithReference");
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        Path configFile = blobDir.resolve("config.txt");
+        Files.writeString(configFile, "hello");
+        Layer configLayer = Layer.fromFile(configFile);
+        Config config = Config.fromBlob("application/vnd.oci.image.config.v1+json", configLayer);
+        String digest = SupportedAlgorithm.getDefault().digest(configFile);
+        ociLayout.pushBlob(layoutRef.withDigest(digest), configFile);
+
+        // Assertion
+        assertOciLayout(path);
+        assertBlobExists(path, config.getDigest());
+
+        // Try to pull config
+        InputStream content = ociLayout.pullConfig(layoutRef, config);
+        assertNotNull(content);
+        assertEquals("hello", new String(content.readAllBytes(), StandardCharsets.UTF_8));
     }
 
     @Test

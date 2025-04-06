@@ -356,16 +356,10 @@ public final class OCILayout extends OCI<LayoutRef> {
 
         try {
 
-            Map<String, String> headers = registry.getHeaders(containerRef);
-            String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-            if (contentType == null) {
-                throw new OrasException("Content type not found in headers");
-            }
-            String manifestDigest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-            if (manifestDigest == null) {
-                throw new OrasException("Manifest digest not found in headers");
-            }
+            Descriptor descriptor = registry.probeDescriptor(containerRef);
 
+            String contentType = descriptor.getMediaType();
+            String manifestDigest = descriptor.getDigest();
             LOG.debug("Content type: {}", contentType);
             LOG.debug("Manifest digest: {}", manifestDigest);
 
@@ -388,7 +382,10 @@ public final class OCILayout extends OCI<LayoutRef> {
                 }
 
                 // Write config as any blob
-                writeConfig(registry, containerRef, manifest.getConfig());
+                try (InputStream is = registry.pullConfig(containerRef, manifest.getConfig())) {
+                    pushBlob(LayoutRef.fromDigest(this, manifest.getConfig().getDigest()), is);
+                }
+
             }
             // Index
             else if (registry.isIndexMediaType(contentType)) {
@@ -399,11 +396,15 @@ public final class OCILayout extends OCI<LayoutRef> {
                 pushIndex(layoutRef.withTag(tag), index);
 
                 // Write all manifests and their config
-                for (ManifestDescriptor descriptor : index.getManifests()) {
-                    Manifest manifest = registry.getManifest(containerRef.withDigest(descriptor.getDigest()));
+                for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+                    Manifest manifest = registry.getManifest(containerRef.withDigest(manifestDescriptor.getDigest()));
                     LayoutRef manifestLayoutRef = LayoutRef.fromDescribable(this, manifest);
-                    pushManifest(manifestLayoutRef, manifest.withDescriptor(descriptor));
-                    writeConfig(registry, containerRef, manifest.getConfig());
+                    pushManifest(manifestLayoutRef, manifest.withDescriptor(manifestDescriptor));
+
+                    // Write config as any blob
+                    try (InputStream is = registry.pullConfig(containerRef, manifest.getConfig())) {
+                        pushBlob(LayoutRef.fromDigest(this, manifest.getConfig().getDigest()), is);
+                    }
                 }
 
             } else {
@@ -440,6 +441,12 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
         ManifestDescriptor manifestDescriptor = findManifestDescriptor(ref);
         return manifestDescriptor.toDescriptor();
+    }
+
+    @Override
+    public Descriptor probeDescriptor(LayoutRef ref) {
+        // We should probably optimize to avoid reading the descriptor and only get its attributes (JSON path?)
+        return getDescriptor(ref).withJson(null);
     }
 
     private byte[] getDescriptorData(Descriptor descriptor) {
@@ -589,29 +596,6 @@ public final class OCILayout extends OCI<LayoutRef> {
         } else {
             LOG.debug("Writing existing manifest: {}", manifestFile);
             Files.writeString(manifestFile, index.getJson());
-        }
-    }
-
-    private void writeConfig(Registry registry, ContainerRef containerRef, Config config) throws IOException {
-        String configDigest = config.getDigest();
-        Path configFile = getBlobPath(config);
-
-        Path configPrefixDirectory = getBlobAlgorithmPath(configDigest);
-        if (!Files.exists(configPrefixDirectory)) {
-            Files.createDirectory(configPrefixDirectory);
-        }
-        // Skip if already exists
-        if (Files.exists(configFile)) {
-            LOG.debug("Config already exists: {}", configFile);
-            return;
-        }
-        // Write the data from data or fetch the blob
-        if (config.getData() != null) {
-            Files.write(configFile, config.getDataBytes());
-        } else {
-            try (InputStream is = registry.fetchBlob(containerRef.withDigest(configDigest))) {
-                Files.copy(is, configFile);
-            }
         }
     }
 

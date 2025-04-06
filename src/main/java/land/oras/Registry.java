@@ -539,6 +539,14 @@ public final class Registry extends OCI<ContainerRef> {
         return Descriptor.of(digest, Long.parseLong(size), contentType).withJson(response.response());
     }
 
+    @Override
+    public Descriptor probeDescriptor(ContainerRef ref) {
+        Map<String, String> headers = getHeaders(ref);
+        String digest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        return Descriptor.of(digest, 0L, contentType);
+    }
+
     /**
      * Get a manifest response
      * @param containerRef The container
@@ -627,25 +635,6 @@ public final class Registry extends OCI<ContainerRef> {
     public InputStream getBlobStream(ContainerRef containerRef) {
         // Similar to fetchBlob()
         return fetchBlob(containerRef);
-    }
-
-    /**
-     * Return if a media type is an index media type
-     * @param mediaType The media type
-     * @return True if it is a index media type
-     */
-    boolean isIndexMediaType(String mediaType) {
-        return mediaType.equals(Const.DEFAULT_INDEX_MEDIA_TYPE) || mediaType.equals(Const.DOCKER_INDEX_MEDIA_TYPE);
-    }
-
-    /**
-     * Return if a media type is a manifest media type
-     * @param mediaType The media type
-     * @return True if it is a manifest media type
-     */
-    boolean isManifestMediaType(String mediaType) {
-        return mediaType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)
-                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE);
     }
 
     /**
