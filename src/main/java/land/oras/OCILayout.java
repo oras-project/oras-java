@@ -414,18 +414,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             // Write all layer
             for (Layer layer : registry.collectLayers(containerRef, contentType, true)) {
                 try (InputStream is = registry.fetchBlob(containerRef.withDigest(layer.getDigest()))) {
-
-                    ensureAlgorithmPath(layer.getDigest());
-
-                    Path blobFile = getBlobPath(layer);
-
-                    // Skip if already exists
-                    if (Files.exists(blobFile)) {
-                        LOG.debug("Blob already exists: {}", blobFile);
-                        continue;
-                    }
-                    Files.copy(is, blobFile);
-                    LOG.debug("Copied blob to {}", blobFile);
+                    pushBlob(LayoutRef.fromDigest(this, layer.getDigest()), is);
                 }
             }
         } catch (IOException e) {
