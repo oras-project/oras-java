@@ -138,12 +138,7 @@ public final class Registry extends OCI<ContainerRef> {
         return JsonUtils.fromJson(response.response(), Tags.class).tags();
     }
 
-    /**
-     * Get the referrers of a container
-     * @param containerRef The container
-     * @param artifactType The optional artifact type
-     * @return The referrers
-     */
+    @Override
     public Referrers getReferrers(ContainerRef containerRef, @Nullable ArtifactType artifactType) {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");

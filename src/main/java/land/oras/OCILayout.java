@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import land.oras.exception.OrasException;
@@ -283,6 +284,31 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
     }
 
+    @Override
+    public Referrers getReferrers(LayoutRef ref, @Nullable ArtifactType artifactType) {
+        Index index = Index.fromPath(getIndexPath());
+        ManifestDescriptor currentDescriptor = findManifestDescriptor(ref);
+        String currentDescriptorDigest = currentDescriptor.getDigest();
+        LOG.info("Looking for referrers of manifest: {}", currentDescriptorDigest);
+        List<ManifestDescriptor> manifestDescriptors = new LinkedList<>();
+        for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+            String digest = manifestDescriptor.getDigest();
+            Descriptor descriptor = probeDescriptor(ref.withDigest(digest));
+            Describable describable = isIndexMediaType(descriptor.getMediaType())
+                    ? getIndex(ref.withDigest(digest))
+                    : getManifest(ref.withDigest(digest));
+            if (describable.getSubject() != null) {
+                Subject subject = describable.getSubject();
+                String subjectDigest = subject.getDigest();
+                if (subjectDigest.equals(currentDescriptorDigest)) {
+                    LOG.info("Subject with digest {} found for manifest: {}", subjectDigest, digest);
+                    manifestDescriptors.add(manifestDescriptor);
+                }
+            }
+        }
+        return Referrers.from(manifestDescriptors);
+    }
+
     private void setPath(Path path) {
         this.path = path;
     }
@@ -501,12 +527,6 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     private Path getBlobPath(ManifestDescriptor manifestDescriptor) {
         String digest = manifestDescriptor.getDigest();
-        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
-        return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(digest));
-    }
-
-    private Path getBlobPath(Config config) {
-        String digest = config.getDigest();
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
         return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(digest));
     }

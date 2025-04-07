@@ -359,6 +359,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Layer pushBlob(T ref, byte[] data);
 
     /**
+     * Get the referrers of a container
+     * @param ref The ref
+     * @param artifactType The optional artifact type
+     * @return The referrers
+     */
+    public abstract Referrers getReferrers(T ref, @Nullable ArtifactType artifactType);
+
+    /**
      * Attach file to an existing manifest
      * @param ref The ref
      * @param artifactType The artifact type

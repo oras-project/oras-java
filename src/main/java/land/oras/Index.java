@@ -149,10 +149,7 @@ public final class Index extends Descriptor implements Describable {
         return this;
     }
 
-    /**
-     * Get the subject
-     * @return The subject
-     */
+    @Override
     public Subject getSubject() {
         return subject;
     }

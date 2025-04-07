@@ -492,6 +492,30 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldGetReferrers() throws IOException {
+
+        Path extractDir1 = extractDir.resolve("shouldGetReferrers");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+
+        Referrers referrers = ociLayout.getReferrers(layoutRef, null);
+        assertEquals(1, referrers.getManifests().size());
+
+        ManifestDescriptor manifestDescriptor = referrers.getManifests().get(0);
+        assertEquals(
+                "sha256:ccec2a2be7ce7c6aadc8ed0dc03df8f91cbd3534272dd1f8284226a8d3516dd6",
+                manifestDescriptor.getDigest());
+        assertEquals(746, manifestDescriptor.getSize());
+        assertEquals("application/vnd.oci.image.manifest.v1+json", manifestDescriptor.getMediaType());
+        assertNotNull(manifestDescriptor.getAnnotations());
+        assertEquals(1, manifestDescriptor.getAnnotations().size());
+        assertEquals("2025-04-07T14:54:25Z", manifestDescriptor.getAnnotations().get(Const.ANNOTATION_CREATED));
+    }
+
+    @Test
     void shouldPullIndex() throws IOException {
 
         Path extractDir1 = extractDir.resolve("shouldPullViaTagFromOciLayout");

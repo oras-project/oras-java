@@ -30,4 +30,10 @@ public interface Describable {
      * @return The manifest descriptor
      */
     ManifestDescriptor getDescriptor();
+
+    /**
+     * Get the subject
+     * @return The subject
+     */
+    Subject getSubject();
 }
