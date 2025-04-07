@@ -65,7 +65,7 @@
     <testcontainer.version>1.20.6</testcontainer.version>
     <wiremock.version>3.12.1</wiremock.version>
     <mockito.version>5.16.1</mockito.version>
-    <system.stubs.version>2.1.7</system.stubs.version>
+    <system.stubs.version>2.1.8</system.stubs.version>
 
     <!-- Plugin version -->
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
