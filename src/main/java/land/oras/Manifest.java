@@ -111,10 +111,7 @@ public final class Manifest extends Descriptor implements Describable {
         return config;
     }
 
-    /**
-     * Get the subject
-     * @return The subject
-     */
+    @Override
     public Subject getSubject() {
         return subject;
     }

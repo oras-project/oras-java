@@ -21,6 +21,7 @@
 package land.oras;
 
 import java.util.List;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 
 /**
@@ -34,7 +35,10 @@ public class Referrers {
     /**
      * Private constructor
      */
-    private Referrers() {}
+    private Referrers(List<ManifestDescriptor> manifests) {
+        this.mediaType = Const.DEFAULT_INDEX_MEDIA_TYPE;
+        this.manifests = manifests;
+    }
 
     /**
      * Get the media type
@@ -67,5 +71,14 @@ public class Referrers {
      */
     public static Referrers fromJson(String json) {
         return JsonUtils.fromJson(json, Referrers.class);
+    }
+
+    /**
+     * Create a referrers object from a list of descriptors
+     * @param descriptors The list of descriptors
+     * @return The referrers object
+     */
+    public static Referrers from(List<ManifestDescriptor> descriptors) {
+        return new Referrers(descriptors);
     }
 }
