@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import land.oras.auth.AuthProvider;
@@ -664,37 +663,6 @@ public final class Registry extends OCI<ContainerRef> {
         }
         handleError(response);
         return response.headers();
-    }
-
-    /**
-     * Collect layers from the container
-     * @param containerRef The container
-     * @param includeAll Include all layers or only the ones with title annotation
-     * @return The layers
-     */
-    List<Layer> collectLayers(ContainerRef containerRef, String contentType, boolean includeAll) {
-        List<Layer> layers = new LinkedList<>();
-        if (isManifestMediaType(contentType)) {
-            return getManifest(containerRef).getLayers();
-        }
-        Index index = getIndex(containerRef);
-        for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
-            List<Layer> manifestLayers = getManifest(containerRef.withDigest(manifestDescriptor.getDigest()))
-                    .getLayers();
-            for (Layer manifestLayer : manifestLayers) {
-                if (manifestLayer.getAnnotations().isEmpty()
-                        || !manifestLayer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
-                    if (includeAll) {
-                        LOG.debug("Including layer without title annotation: {}", manifestLayer.getDigest());
-                        layers.add(manifestLayer);
-                    }
-                    LOG.debug("Skipping layer without title annotation: {}", manifestLayer.getDigest());
-                    continue;
-                }
-                layers.add(manifestLayer);
-            }
-        }
-        return layers;
     }
 
     /**
