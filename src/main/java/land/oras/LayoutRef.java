@@ -70,30 +70,6 @@ public final class LayoutRef extends Ref<LayoutRef> {
     }
 
     /**
-     * Convert the manifest to a layout ref.
-     * @param layout The OCI layout.
-     * @param describable The describable.
-     * @return The layout ref.
-     */
-    public static LayoutRef fromDescribable(OCILayout layout, Describable describable) {
-        ManifestDescriptor descriptor = describable.getDescriptor();
-        if (descriptor == null) {
-            throw new OrasException("Descriptor is null");
-        }
-        return fromDigest(layout, describable.getDescriptor().getDigest());
-    }
-
-    /**
-     * Return a layout ref from the layout and digest.
-     * @param layout The OCI layout.
-     * @param digest The digest.
-     * @return The layout ref.
-     */
-    public static LayoutRef fromDigest(OCILayout layout, String digest) {
-        return new LayoutRef(layout.getPath(), digest);
-    }
-
-    /**
      * Parse the layout ref with folder and tag.
      * @param name The layout ref.
      * @return The container object with the registry, repository and tag.

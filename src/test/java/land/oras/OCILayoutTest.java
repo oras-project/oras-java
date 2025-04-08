@@ -638,6 +638,7 @@ public class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
@@ -651,7 +652,7 @@ public class OCILayoutTest {
         registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, false);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, false);
 
         assertOciLayout(layoutPath);
 
@@ -670,6 +671,70 @@ public class OCILayoutTest {
     }
 
     @Test
+    void testShouldCopyFromOciLayoutIntoOciLayoutRecursive() throws IOException {
+
+        // Source
+        LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout source =
+                OCILayout.Builder.builder().defaults(sourceRef.getFolder()).build();
+
+        // Target
+        Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutRecursive");
+        LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        OCILayout target =
+                OCILayout.Builder.builder().defaults(targetRef.getFolder()).build();
+
+        // Copy to oci layout
+        CopyUtils.copy(source, sourceRef, target, targetRef, true);
+
+        // Assertion
+        assertOciLayout(ociLayoutPath);
+        Manifest manifest = target.getManifest(
+                targetRef.withDigest("sha256:bb329f103a5fd68e96771f7dcfaa7722e9ec727bb9ab83c2beee96d6f25b08d6"));
+        assertIndex(ociLayoutPath, manifest, 2, 0);
+
+        assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
+
+        // 2 artifacts
+        assertBlobExists(
+                ociLayoutPath, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4"); // hi.txt
+        assertBlobExists(
+                ociLayoutPath, "sha256:e094bc809626f0a401a40d75c56df478e546902ff812772c4594265203b23980"); // hi2.txt
+    }
+
+    @Test
+    void testShouldCopyFromOciLayoutIntoOciLayoutNonRecursive() throws IOException {
+
+        // Source
+        LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout source =
+                OCILayout.Builder.builder().defaults(sourceRef.getFolder()).build();
+
+        // Target
+        Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutNonRecursive");
+        LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        OCILayout target =
+                OCILayout.Builder.builder().defaults(targetRef.getFolder()).build();
+
+        // Copy to oci layout
+        CopyUtils.copy(source, sourceRef, target, targetRef, false);
+
+        // Assertion
+        assertOciLayout(ociLayoutPath);
+        Manifest manifest = target.getManifest(
+                targetRef.withDigest("sha256:bb329f103a5fd68e96771f7dcfaa7722e9ec727bb9ab83c2beee96d6f25b08d6"));
+        assertIndex(ociLayoutPath, manifest, 1, 0);
+
+        assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
+
+        // 1 artifacts
+        assertBlobExists(
+                ociLayoutPath, "sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4"); // hi.txt
+        assertBlobAbsent(
+                ociLayoutPath, "sha256:e094bc809626f0a401a40d75c56df478e546902ff812772c4594265203b23980"); // hi2.txt
+    }
+
+    @Test
     void testShouldCopyRecursivelyArtifactFromRegistryIntoOciLayout() throws IOException {
 
         Registry registry = Registry.Builder.builder()
@@ -678,6 +743,7 @@ public class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-recursive-oci-layout".formatted(this.registry.getRegistry()));
@@ -699,7 +765,7 @@ public class OCILayoutTest {
                 LocalPath.of(file3));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         assertOciLayout(layoutPath);
 
@@ -728,6 +794,7 @@ public class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/image-no-index".formatted(this.registry.getRegistry()));
@@ -749,7 +816,7 @@ public class OCILayoutTest {
         Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         assertOciLayout(layoutPath);
 
@@ -779,7 +846,7 @@ public class OCILayoutTest {
         assertLayerExists(layoutPath, layer2);
 
         // Copy to oci layout again
-        ociLayout.copy(registry, containerRef);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         // Check manifest exists
         assertBlobExists(layoutPath, pushedManifest.getDescriptor().getDigest());
@@ -805,6 +872,7 @@ public class OCILayoutTest {
 
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutPathIndex).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
@@ -824,7 +892,7 @@ public class OCILayoutTest {
         Index index = registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         assertOciLayout(layoutPathIndex);
 
@@ -854,7 +922,7 @@ public class OCILayoutTest {
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
 
         // Copy to oci layout again
-        ociLayout.copy(registry, containerRef);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         // Check manifest exists
         assertLayerExists(layoutPathIndex, layer1);
@@ -876,6 +944,7 @@ public class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
@@ -889,7 +958,7 @@ public class OCILayoutTest {
                 containerRef, ArtifactType.from("my/artifact"), Annotations.empty(), config, LocalPath.of(file1));
 
         // Copy to oci layout
-        ociLayout.copy(registry, containerRef);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
 
         assertOciLayout(layoutPath);
 
@@ -914,9 +983,11 @@ public class OCILayoutTest {
         assertEquals(2, indexObject.getSchemaVersion());
         assertEquals(size, indexObject.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, indexObject.getMediaType());
+        assertNotNull(manifest.getDescriptor(), "Manifest descriptor should not be null");
         assertEquals(
                 manifest.getDescriptor().getSize(),
-                indexObject.getManifests().get(index).getSize());
+                indexObject.getManifests().get(index).getSize(),
+                "Manifest size should match");
     }
 
     private void assertIndex(Path ociLayoutPath, Index index, int size) {

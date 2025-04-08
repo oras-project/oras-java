@@ -338,15 +338,6 @@ public final class OCILayout extends OCI<LayoutRef> {
         return imageLayoutVersion;
     }
 
-    /**
-     * Copy the direct container ref from registry into oci-layout
-     * @param registry The registry
-     * @param containerRef The container
-     */
-    public void copy(Registry registry, ContainerRef containerRef) {
-        copy(registry, containerRef, false);
-    }
-
     private void ensureMinimalLayout() {
         try {
             Files.createDirectories(getBlobPath());
@@ -369,82 +360,6 @@ public final class OCILayout extends OCI<LayoutRef> {
             }
         } catch (IOException e) {
             throw new OrasException("Failed to create algorithm path", e);
-        }
-    }
-
-    /**
-     * Copy the container ref from registry into oci-layout
-     * @param registry The registry
-     * @param containerRef The container
-     * @param recursive True if references should be copied
-     */
-    public void copy(Registry registry, ContainerRef containerRef, boolean recursive) {
-
-        try {
-
-            Descriptor descriptor = registry.probeDescriptor(containerRef);
-
-            String contentType = descriptor.getMediaType();
-            String manifestDigest = descriptor.getDigest();
-            LOG.debug("Content type: {}", contentType);
-            LOG.debug("Manifest digest: {}", manifestDigest);
-
-            // Single manifest
-            if (registry.isManifestMediaType(contentType)) {
-
-                // Write manifest as any blob
-                Manifest manifest = registry.getManifest(containerRef);
-                String tag = containerRef.getTag();
-                LayoutRef layoutRef = LayoutRef.fromDescribable(this, manifest).withTag(tag);
-                pushManifest(layoutRef, manifest);
-
-                if (recursive) {
-                    LOG.debug("Recursively copy referrers");
-                    Referrers referrers = registry.getReferrers(containerRef.withDigest(manifestDigest), null);
-                    for (ManifestDescriptor referer : referrers.getManifests()) {
-                        LOG.info("Copy reference {}", referer.getDigest());
-                        copy(registry, containerRef.withDigest(referer.getDigest()), recursive);
-                    }
-                }
-
-                // Write config as any blob
-                try (InputStream is = registry.pullConfig(containerRef, manifest.getConfig())) {
-                    pushBlob(LayoutRef.fromDigest(this, manifest.getConfig().getDigest()), is);
-                }
-
-            }
-            // Index
-            else if (registry.isIndexMediaType(contentType)) {
-
-                Index index = registry.getIndex(containerRef);
-                String tag = containerRef.getTag();
-                LayoutRef layoutRef = LayoutRef.fromDescribable(this, index);
-                pushIndex(layoutRef.withTag(tag), index);
-
-                // Write all manifests and their config
-                for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
-                    Manifest manifest = registry.getManifest(containerRef.withDigest(manifestDescriptor.getDigest()));
-                    LayoutRef manifestLayoutRef = LayoutRef.fromDescribable(this, manifest);
-                    pushManifest(manifestLayoutRef, manifest.withDescriptor(manifestDescriptor));
-
-                    // Write config as any blob
-                    try (InputStream is = registry.pullConfig(containerRef, manifest.getConfig())) {
-                        pushBlob(LayoutRef.fromDigest(this, manifest.getConfig().getDigest()), is);
-                    }
-                }
-
-            } else {
-                throw new OrasException("Unsupported content type: %s".formatted(contentType));
-            }
-
-            // Write all layer
-            for (Layer layer : registry.collectLayers(containerRef, contentType, true)) {
-                try (InputStream is = registry.fetchBlob(containerRef.withDigest(layer.getDigest()))) {
-                    pushBlob(LayoutRef.fromDigest(this, layer.getDigest()), is);
-                }
-            }
-        } catch (IOException e) {
-            throw new OrasException("Failed to copy container", e);
         }
     }
 
