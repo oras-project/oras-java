@@ -315,16 +315,6 @@ public final class Registry extends OCI<ContainerRef> {
         return manifest;
     }
 
-    /**
-     * Copy an artifact from one container to another
-     * @param targetRegistry The target registry
-     * @param sourceContainer The source container
-     * @param targetContainer The target container
-     */
-    public void copy(Registry targetRegistry, ContainerRef sourceContainer, ContainerRef targetContainer) {
-        throw new OrasException("Not implemented");
-    }
-
     @Override
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);

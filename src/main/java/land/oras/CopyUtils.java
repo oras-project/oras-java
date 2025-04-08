@@ -64,12 +64,27 @@ public final class CopyUtils {
             LOG.debug("Content type: {}", contentType);
             LOG.debug("Manifest digest: {}", manifestDigest);
 
+            // Write all layer
+            for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
+                try (InputStream is = source.fetchBlob(sourceRef.withDigest(layer.getDigest()))) {
+                    target.pushBlob(targetRef.withDigest(layer.getDigest()), is);
+                    LOG.debug("Copied layer {}", layer.getDigest());
+                }
+            }
+
             // Single manifest
             if (source.isManifestMediaType(contentType)) {
 
                 // Write manifest as any blob
                 Manifest manifest = source.getManifest(sourceRef);
                 String tag = sourceRef.getTag();
+
+                // Write config as any blob
+                try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
+                    target.pushBlob(targetRef.withDigest(manifest.getConfig().getDigest()), is);
+                }
+
+                // Push the manifest
                 target.pushManifest(targetRef.withDigest(tag), manifest);
 
                 if (recursive) {
@@ -79,11 +94,6 @@ public final class CopyUtils {
                         LOG.info("Copy reference {}", referer.getDigest());
                         copy(source, sourceRef.withDigest(referer.getDigest()), target, targetRef, recursive);
                     }
-                }
-
-                // Write config as any blob
-                try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
-                    target.pushBlob(targetRef.withDigest(manifest.getConfig().getDigest()), is);
                 }
 
             }
@@ -97,26 +107,22 @@ public final class CopyUtils {
                 // Write all manifests and their config
                 for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
                     Manifest manifest = source.getManifest(sourceRef.withDigest(manifestDescriptor.getDigest()));
-                    target.pushManifest(
-                            targetRef.withDigest(manifest.getDigest()), manifest.withDescriptor(manifestDescriptor));
 
                     // Write config as any blob
                     try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
                         target.pushBlob(
                                 targetRef.withDigest(manifest.getConfig().getDigest()), is);
                     }
+
+                    // Push the manifest
+                    target.pushManifest(
+                            targetRef.withDigest(manifest.getDigest()), manifest.withDescriptor(manifestDescriptor));
                 }
 
             } else {
                 throw new OrasException("Unsupported content type: %s".formatted(contentType));
             }
 
-            // Write all layer
-            for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
-                try (InputStream is = source.fetchBlob(sourceRef.withDigest(layer.getDigest()))) {
-                    target.pushBlob(targetRef.withDigest(layer.getDigest()), is);
-                }
-            }
         } catch (IOException e) {
             throw new OrasException("Failed to copy container", e);
         }
