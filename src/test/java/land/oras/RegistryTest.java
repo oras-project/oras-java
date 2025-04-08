@@ -42,7 +42,6 @@ import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -491,8 +490,7 @@ public class RegistryTest {
     }
 
     @Test
-    @Disabled("Disabled due to partial implementation")
-    void testShouldCopySingleArtifact() throws IOException {
+    void testShouldCopySingleArtifactFromRegistryIntoRegistry() throws IOException {
         // Copy to same registry
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -505,19 +503,87 @@ public class RegistryTest {
         Files.writeString(file1, "foobar");
 
         // Push
-        registry.pushArtifact(containerSource, LocalPath.of(file1));
+        Manifest manifest = registry.pushArtifact(containerSource, LocalPath.of(file1));
+        assertNotNull(manifest);
 
         // Copy to other registry
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
             otherRegistryContainer.start();
             ContainerRef containerTarget =
                     ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
-            registry.copy(registry, containerSource, containerTarget);
-
-            // Test pull from target
+            CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
         }
+    }
+
+    @Test
+    void testShouldCopyFromOciLayoutToRegistryNonRecursive() throws IOException {
+
+        // Registry to copy
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef targetRef =
+                ContainerRef.parse("%s/library/copied-from-oci-layout".formatted(this.registry.getRegistry()));
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+
+        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, false);
+
+        // Pull
+        Path extractPath = artifactDir.resolve("testShouldCopyFromOciLayoutToRegistryNonRecursive");
+        Files.createDirectory(extractPath);
+        registry.pullArtifact(targetRef, extractPath, true);
+
+        assertTrue(Files.exists(extractPath.resolve("hi.txt")), "hi.txt should exist");
+
+        // Cannot pull referrer due to shallow copy
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.pullArtifact(
+                            targetRef.withDigest(
+                                    "sha256:ccec2a2be7ce7c6aadc8ed0dc03df8f91cbd3534272dd1f8284226a8d3516dd6"),
+                            extractPath,
+                            true);
+                },
+                "Referrer should not be pulled");
+    }
+
+    @Test
+    void testShouldCopyFromOciLayoutToRegistryRecursive() throws IOException {
+
+        // Registry to copy
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef targetRef = ContainerRef.parse(
+                "%s/library/copied-from-oci-layout-recursive".formatted(this.registry.getRegistry()));
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+
+        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, true);
+
+        // Pull
+        Path extractPath = artifactDir.resolve("testShouldCopyFromOciLayoutToRegistryRecursive");
+        Files.createDirectory(extractPath);
+        registry.pullArtifact(targetRef, extractPath, true);
+
+        assertTrue(Files.exists(extractPath.resolve("hi.txt")), "hi.txt should exist");
+
+        // Assert referrer
+        registry.pullArtifact(
+                targetRef.withDigest("sha256:ccec2a2be7ce7c6aadc8ed0dc03df8f91cbd3534272dd1f8284226a8d3516dd6"),
+                extractPath,
+                true);
+        assertTrue(Files.exists(extractPath.resolve("hi2.txt")), "hi2.txt should exist");
     }
 
     @Test
