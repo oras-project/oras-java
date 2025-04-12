@@ -88,10 +88,14 @@ public class AuthStore {
      * @return FileStore instance.
      */
     public static AuthStore newStore() {
+        Path dockerPath = Path.of(System.getProperty("user.home"), ".docker", "config.json");
         List<Path> paths = List.of(
-                Path.of(System.getProperty("user.home"), ".docker", "config.json"), // Docker
-                Path.of(System.getenv("XDG_RUNTIME_DIR"), "containers", "auth.json") // Podman
-                );
+                dockerPath,
+                // default podman with fallback on docker config
+                // https://docs.podman.io/en/stable/markdown/podman-login.1.html#description
+                System.getenv("XDG_RUNTIME_DIR") != null
+                        ? Path.of(System.getenv("XDG_RUNTIME_DIR"), "containers", "auth.json")
+                        : dockerPath);
         return newStore(paths);
     }
 
