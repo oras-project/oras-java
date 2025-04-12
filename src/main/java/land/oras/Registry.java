@@ -268,11 +268,12 @@ public final class Registry extends OCI<ContainerRef> {
                 } else {
                     Path targetPath = path.resolve(
                             layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
+                    if (Files.exists(targetPath) && !overwrite) {
+                        LOG.info("File already exists: {}", targetPath);
+                        continue;
+                    }
                     LOG.debug("Copying blob to: {}", targetPath);
-                    Files.copy(
-                            is,
-                            targetPath,
-                            overwrite ? StandardCopyOption.REPLACE_EXISTING : StandardCopyOption.ATOMIC_MOVE);
+                    Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (IOException e) {
                 throw new OrasException("Failed to pull artifact", e);
