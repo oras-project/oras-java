@@ -20,18 +20,14 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -669,6 +665,19 @@ public class RegistryTest {
         // Pull
         registry.pullArtifact(containerRef, artifactDir, true);
         assertEquals("foobar", Files.readString(artifactDir.resolve("file1.txt")));
+        FileTime before = Files.getLastModifiedTime(artifactDir.resolve("file1.txt"));
+
+        // Pull, but don't overwrite
+        registry.pullArtifact(containerRef, artifactDir, false);
+        assertEquals("foobar", Files.readString(artifactDir.resolve("file1.txt")));
+        FileTime after = Files.getLastModifiedTime(artifactDir.resolve("file1.txt"));
+        assertEquals(before, after, "File should not be modified");
+
+        // Pull again with overwrite
+        registry.pullArtifact(containerRef, artifactDir, true);
+        assertEquals("foobar", Files.readString(artifactDir.resolve("file1.txt")));
+        after = Files.getLastModifiedTime(artifactDir.resolve("file1.txt"));
+        assertNotEquals(before, after, "File should be modified");
     }
 
     @Test

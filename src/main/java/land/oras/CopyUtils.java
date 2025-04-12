@@ -38,6 +38,13 @@ public final class CopyUtils {
     protected static final Logger LOG = LoggerFactory.getLogger(CopyUtils.class);
 
     /**
+     * Private constructor
+     */
+    private CopyUtils() {
+        // Utils class
+    }
+
+    /**
      * Copy a container from source to target.
      * @param source The source OCI
      * @param sourceRef The source reference
