@@ -285,6 +285,17 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     @Override
+    public Tags getTags(LayoutRef ref) {
+        Index index = Index.fromPath(getIndexPath());
+        String name = ref.getFolder().getFileName().toString();
+        List<String> tags = index.getManifests().stream()
+                .filter(m -> m.getAnnotations() != null && m.getAnnotations().containsKey(Const.ANNOTATION_REF))
+                .map(m -> m.getAnnotations().get(Const.ANNOTATION_REF))
+                .toList();
+        return new Tags(name, tags);
+    }
+
+    @Override
     public Referrers getReferrers(LayoutRef ref, @Nullable ArtifactType artifactType) {
         Index index = Index.fromPath(getIndexPath());
         ManifestDescriptor currentDescriptor = findManifestDescriptor(ref);

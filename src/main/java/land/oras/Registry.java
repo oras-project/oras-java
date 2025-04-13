@@ -122,12 +122,8 @@ public final class Registry extends OCI<ContainerRef> {
         return insecure ? "http" : "https";
     }
 
-    /**
-     * Get the tags of a container
-     * @param containerRef The container
-     * @return The tags
-     */
-    public List<String> getTags(ContainerRef containerRef) {
+    @Override
+    public Tags getTags(ContainerRef containerRef) {
         URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getTagsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
@@ -135,7 +131,7 @@ public final class Registry extends OCI<ContainerRef> {
             response = client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
         }
         handleError(response);
-        return JsonUtils.fromJson(response.response(), Tags.class).tags();
+        return JsonUtils.fromJson(response.response(), Tags.class);
     }
 
     @Override
