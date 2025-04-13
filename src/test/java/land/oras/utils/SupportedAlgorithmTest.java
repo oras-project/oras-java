@@ -111,6 +111,9 @@ public class SupportedAlgorithmTest {
         assertTrue(
                 SupportedAlgorithm.matchPattern(
                         "sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"));
+        assertTrue(
+                SupportedAlgorithm.matchPattern(
+                        "sha384:0791006df8128477244f53d0fdce210db81f55757510e26acee35c18a6bceaa28dcdbbfd6dc041b9b4dc7b1b54e37f52"));
         assertTrue(SupportedAlgorithm.matchPattern(
                 "blake3:0b8b60248fad7ac6dfac221b7e01a8b91c772421a15b387dd1fb2d6a94aee438"));
 
@@ -124,6 +127,7 @@ public class SupportedAlgorithmTest {
     @Test
     void shouldGetAlgorithmName() {
         assertEquals("SHA-256", SupportedAlgorithm.SHA256.getAlgorithmName());
+        assertEquals("SHA-384", SupportedAlgorithm.SHA384.getAlgorithmName());
         assertEquals("SHA-512", SupportedAlgorithm.SHA512.getAlgorithmName());
         assertEquals("BLAKE3-256", SupportedAlgorithm.BLAKE3.getAlgorithmName());
     }
