@@ -40,6 +40,11 @@ public enum SupportedAlgorithm {
     SHA256("SHA-256", "sha256"),
 
     /**
+     * SHA-384
+     */
+    SHA384("SHA-384", "sha384"),
+
+    /**
      * SHA-512
      */
     SHA512("SHA-512", "sha512"),

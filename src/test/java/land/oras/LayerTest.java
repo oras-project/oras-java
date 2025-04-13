@@ -54,6 +54,12 @@ public class LayerTest {
         assertEquals("application/vnd.oci.image.layer.v1.tar", layer.getMediaType());
         assertEquals("sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4", layer.getDigest());
         assertEquals(2, layer.getSize());
+        layer = Layer.fromFile(file, SupportedAlgorithm.SHA384);
+        assertEquals("application/vnd.oci.image.layer.v1.tar", layer.getMediaType());
+        assertEquals(
+                "sha384:0791006df8128477244f53d0fdce210db81f55757510e26acee35c18a6bceaa28dcdbbfd6dc041b9b4dc7b1b54e37f52",
+                layer.getDigest());
+        assertEquals(2, layer.getSize());
         layer = Layer.fromFile(file, SupportedAlgorithm.SHA512);
         assertEquals("application/vnd.oci.image.layer.v1.tar", layer.getMediaType());
         assertEquals(
