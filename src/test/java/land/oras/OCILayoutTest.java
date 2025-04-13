@@ -128,6 +128,20 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldListTags() throws Exception {
+        Path extractDir1 = extractDir.resolve("shouldListTags");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        Tags tags = ociLayout.getTags(layoutRef);
+        assertEquals("subject", tags.name());
+        assertEquals(1, tags.tags().size());
+        assertEquals("latest", tags.tags().get(0));
+    }
+
+    @Test
     void shouldPushConfig() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfig");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
