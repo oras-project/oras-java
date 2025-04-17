@@ -84,6 +84,24 @@ public final class LayoutRef extends Ref<LayoutRef> {
         return new LayoutRef(path, tag);
     }
 
+    /**
+     * Return a new layout reference for a path
+     * @param path The path
+     * @return The layout ref
+     */
+    public LayoutRef forPath(Path path) {
+        return new LayoutRef(path, tag);
+    }
+
+    /**
+     * Return a new layout reference for a path
+     * @param ociLayout The OCI layout
+     * @return The layout ref
+     */
+    public LayoutRef forLayout(OCILayout ociLayout) {
+        return forPath(ociLayout.getPath());
+    }
+
     @Override
     public SupportedAlgorithm getAlgorithm() {
         // Default if not set
