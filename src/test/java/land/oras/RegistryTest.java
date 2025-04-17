@@ -277,6 +277,35 @@ public class RegistryTest {
     }
 
     @Test
+    void shouldPushManifestWithRegistryUrl() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withRegistry(this.registry.getRegistry())
+                .withInsecure(true)
+                .build();
+
+        // Empty manifest
+        ContainerRef containerRef = ContainerRef.parse("library/empty-index");
+        Index emptyIndex = Index.fromManifests(List.of());
+        Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
+
+        // Assert
+        assertEquals(2, pushIndex.getSchemaVersion());
+        assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, pushIndex.getMediaType());
+        assertEquals(0, pushIndex.getManifests().size());
+
+        // Push again
+        registry.pushIndex(containerRef, emptyIndex);
+
+        // Delete index
+        registry.deleteManifest(containerRef);
+        // Ensure the blob is deleted
+        assertThrows(OrasException.class, () -> {
+            registry.getManifest(containerRef);
+        });
+    }
+
+    @Test
     void shouldPushComplexArtifactWithConfigMediaType() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -554,7 +583,7 @@ public class RegistryTest {
     void testShouldCopyFromOciLayoutToRegistryRecursive() throws IOException {
 
         // Registry to copy
-        Registry registry = Registry.Builder.builder()
+        Registry registry = Registry.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();

@@ -138,6 +138,15 @@ public class ContainerRefTest {
     }
 
     @Test
+    void shouldBuildNewRefForRegistrx() {
+        Registry registry =
+                Registry.builder().defaults().withRegistry("my-registry.io").build();
+        ContainerRef containerRef = ContainerRef.parse("library/foo/alpine:latest@sha256:1234567890abcdef")
+                .forRegistry(registry);
+        assertEquals("my-registry.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+    }
+
+    @Test
     void shouldGetTagsPathOtherRegistry() {
         ContainerRef containerRef =
                 ContainerRef.parse("demo.goharbor.io/library/foo/alpine:latest@sha256:1234567890abcdef");

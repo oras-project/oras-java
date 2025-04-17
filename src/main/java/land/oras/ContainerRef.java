@@ -188,14 +188,6 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
-     * Return the blobs upload URL
-     * @return The blobs upload URL
-     */
-    public String getBlobsUploadPath() {
-        return "%s/blobs/uploads/".formatted(getApiPrefix());
-    }
-
-    /**
      * Return the blobs upload URL with the digest for single POST upload
      * @return The blobs upload URL
      */
@@ -261,12 +253,26 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
-     * Return a container reference for a registry
+     * Return a copy of reference for a registry other registry
      * @param registry The registry
      * @return The container reference
      */
-    public static ContainerRef forRegistry(String registry) {
-        return new ContainerRef(registry, null, "library", "latest", null);
+    public ContainerRef forRegistry(String registry) {
+        return new ContainerRef(registry, namespace, repository, tag, digest);
+    }
+
+    /**
+     * Return a copy of reference for a registry other registry
+     * @param registry The registry
+     * @return The container reference
+     */
+    public ContainerRef forRegistry(Registry registry) {
+        return new ContainerRef(
+                registry.getRegistry() != null ? registry.getRegistry() : this.registry,
+                namespace,
+                repository,
+                tag,
+                digest);
     }
 
     /**

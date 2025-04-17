@@ -65,6 +65,11 @@ public final class Registry extends OCI<ContainerRef> {
     private boolean insecure;
 
     /**
+     * The default registry to use. If null will use registry from the container ref
+     */
+    private @Nullable String registry;
+
+    /**
      * Skip TLS verification
      */
     private boolean skipTlsVerify;
@@ -78,11 +83,27 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return a new builder for this registry
+     * @return The builder
+     */
+    public static Builder builder() {
+        return Builder.builder();
+    }
+
+    /**
      * Return this registry with insecure flag
      * @param insecure Insecure
      */
     private void setInsecure(boolean insecure) {
         this.insecure = insecure;
+    }
+
+    /**
+     * Return this registry with the registry URL
+     * @param registry The registry URL
+     */
+    private void setRegistry(String registry) {
+        this.registry = registry;
     }
 
     /**
@@ -122,9 +143,18 @@ public final class Registry extends OCI<ContainerRef> {
         return insecure ? "http" : "https";
     }
 
+    /**
+     * Get the registry URL
+     * @return The registry URL
+     */
+    public @Nullable String getRegistry() {
+        return registry;
+    }
+
     @Override
     public Tags getTags(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getTagsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getTagsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
@@ -139,7 +169,8 @@ public final class Registry extends OCI<ContainerRef> {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getReferrersPath(artifactType)));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getReferrersPath(artifactType)));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.get(uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE));
         if (switchTokenAuth(containerRef, response)) {
@@ -154,7 +185,8 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The artifact
      */
     public void deleteManifest(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of());
         logResponse(response);
         if (switchTokenAuth(containerRef, response)) {
@@ -173,7 +205,8 @@ public final class Registry extends OCI<ContainerRef> {
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
             manifest = manifest.withAnnotations(manifestAnnotations);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath()));
         byte[] manifestData = manifest.getJson() != null
                 ? manifest.getJson().getBytes()
                 : manifest.toJson().getBytes();
@@ -197,7 +230,8 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Index pushIndex(ContainerRef containerRef, Index index) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.put(
                 uri,
                 JsonUtils.toJson(index).getBytes(),
@@ -218,7 +252,8 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The container
      */
     public void deleteBlob(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of());
         logResponse(response);
         // Switch to bearer auth if needed and retry first request
@@ -320,8 +355,10 @@ public final class Registry extends OCI<ContainerRef> {
             LOG.info("Blob already exists: {}", digest);
             return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
         }
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.withDigest(digest).getBlobsUploadDigestPath()));
+        URI uri = URI.create("%s://%s"
+                .formatted(
+                        getScheme(),
+                        containerRef.withDigest(digest).forRegistry(this).getBlobsUploadDigestPath()));
         OrasHttpClient.ResponseWrapper<String> response = client.upload(
                 "POST", uri, Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE), blob);
         logResponse(response);
@@ -373,8 +410,10 @@ public final class Registry extends OCI<ContainerRef> {
             LOG.info("Blob already exists: {}", digest);
             return Layer.fromData(containerRef, data);
         }
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.withDigest(digest).getBlobsUploadDigestPath()));
+        URI uri = URI.create("%s://%s"
+                .formatted(
+                        getScheme(),
+                        containerRef.withDigest(digest).forRegistry(this).getBlobsUploadDigestPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.post(uri, data, Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
         logResponse(response);
@@ -426,7 +465,8 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     private OrasHttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
         logResponse(response);
@@ -458,7 +498,8 @@ public final class Registry extends OCI<ContainerRef> {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath()));
         OrasHttpClient.ResponseWrapper<Path> response =
                 client.download(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE), path);
         logResponse(response);
@@ -470,7 +511,8 @@ public final class Registry extends OCI<ContainerRef> {
         if (!hasBlob(containerRef)) {
             throw new OrasException(new OrasHttpClient.ResponseWrapper<>("", 404, Map.of()));
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath()));
         OrasHttpClient.ResponseWrapper<InputStream> response =
                 client.download(uri, Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE));
         logResponse(response);
@@ -534,7 +576,8 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The response
      */
     private OrasHttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
         logResponse(response);
@@ -565,16 +608,17 @@ public final class Registry extends OCI<ContainerRef> {
      * @param response The response
      */
     private boolean switchTokenAuth(ContainerRef containerRef, OrasHttpClient.ResponseWrapper<String> response) {
+        ContainerRef ref = containerRef.forRegistry(getRegistry());
         if (response.statusCode() == 401 && !(authProvider instanceof BearerTokenProvider)) {
             LOG.debug("Requesting token with token flow");
-            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(containerRef, client, response));
+            setAuthProvider(new BearerTokenProvider(authProvider).refreshToken(ref, client, response));
             return true;
         }
         // Need token refresh (expired or wrong scope)
         if ((response.statusCode() == 401 || response.statusCode() == 403)
                 && authProvider instanceof BearerTokenProvider) {
             LOG.debug("Requesting new token with username password flow");
-            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(containerRef, client, response));
+            setAuthProvider(((BearerTokenProvider) authProvider).refreshToken(ref, client, response));
             return true;
         }
         return false;
@@ -633,7 +677,8 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The headers
      */
     Map<String, String> getHeaders(ContainerRef containerRef) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getManifestsPath()));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath()));
         OrasHttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE));
         logResponse(response);
@@ -671,7 +716,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         /**
-         * Return a new builder with username and password authentication
+         * Set username and password authentication
          * @param username The username
          * @param password The password
          * @return The builder
@@ -682,13 +727,23 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         /**
-         * Return a new builder with insecure communication and not authentification
+         * Set insecure communication and no authentification
          * @return The builder
          */
         public Builder insecure() {
             registry.setInsecure(true);
             registry.setSkipTlsVerify(true);
             registry.setAuthProvider(new NoAuthProvider());
+            return this;
+        }
+
+        /**
+         * Set the registry URL
+         * @param registry The registry URL
+         * @return The builder
+         */
+        public Builder withRegistry(String registry) {
+            this.registry.setRegistry(registry);
             return this;
         }
 
