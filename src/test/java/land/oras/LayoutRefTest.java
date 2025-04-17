@@ -35,6 +35,12 @@ public class LayoutRefTest {
     @TempDir
     public static Path tempDir;
 
+    @TempDir
+    public static Path ociLayoutTempDir;
+
+    @TempDir
+    public static Path otherOciLayout;
+
     @Test
     void shouldParseLayoutWithAllParts() {
         String ociLayout = tempDir.resolve("foo").toString();
@@ -60,6 +66,14 @@ public class LayoutRefTest {
         LayoutRef layoutRef = LayoutRef.parse("foo");
         assertNull(layoutRef.getTag());
         assertEquals("foo", layoutRef.getFolder().toString());
+    }
+
+    @Test
+    void shouldReturnForOciLayout() {
+        OCILayout ociLayout = OCILayout.builder().defaults(ociLayoutTempDir).build();
+        LayoutRef layoutRef =
+                LayoutRef.parse(otherOciLayout.getFileName().toString()).forLayout(ociLayout);
+        assertEquals(layoutRef.getFolder(), ociLayoutTempDir, "Path should be the same");
     }
 
     @Test

@@ -404,7 +404,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                 .withSubject(subject);
         return pushManifest(
                 ref.withDigest(
-                        SupportedAlgorithm.SHA256.digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
+                        SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
                 manifest);
     }
 }
