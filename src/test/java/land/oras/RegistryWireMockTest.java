@@ -175,7 +175,6 @@ public class RegistryWireMockTest {
 
         Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
 
-        ContainerRef containerRef = ContainerRef.forRegistry("localhost:%d".formatted(wmRuntimeInfo.getHttpPort()));
         AuthStoreAuthenticationProvider authProvider =
                 new AuthStoreAuthenticationProvider(AuthStore.newStore(List.of(configDir.resolve("config.json"))));
 

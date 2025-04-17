@@ -52,6 +52,14 @@ public final class OCILayout extends OCI<LayoutRef> {
      */
     private OCILayout() {}
 
+    /**
+     * Return a new builder for this oci layout
+     * @return The builder
+     */
+    public static OCILayout.Builder builder() {
+        return OCILayout.Builder.builder();
+    }
+
     @Override
     public Manifest pushArtifact(
             LayoutRef ref,

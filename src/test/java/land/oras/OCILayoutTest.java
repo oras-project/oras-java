@@ -651,7 +651,7 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        OCILayout ociLayout = OCILayout.builder().defaults(layoutPath).build();
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
@@ -689,14 +689,12 @@ public class OCILayoutTest {
 
         // Source
         LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout source =
-                OCILayout.Builder.builder().defaults(sourceRef.getFolder()).build();
+        OCILayout source = OCILayout.builder().defaults(sourceRef.getFolder()).build();
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutRecursive");
         LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        OCILayout target =
-                OCILayout.Builder.builder().defaults(targetRef.getFolder()).build();
+        OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
         CopyUtils.copy(source, sourceRef, target, targetRef, true);
@@ -721,14 +719,12 @@ public class OCILayoutTest {
 
         // Source
         LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout source =
-                OCILayout.Builder.builder().defaults(sourceRef.getFolder()).build();
+        OCILayout source = OCILayout.builder().defaults(sourceRef.getFolder()).build();
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutNonRecursive");
         LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        OCILayout target =
-                OCILayout.Builder.builder().defaults(targetRef.getFolder()).build();
+        OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
         CopyUtils.copy(source, sourceRef, target, targetRef, false);
