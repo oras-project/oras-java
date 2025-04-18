@@ -94,14 +94,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     /**
      * Get the API registry
+     * @param target The target registry
      * @return The API registry
      */
-    public String getApiRegistry() {
-        String registry = getRegistry();
+    public String getApiRegistry(@Nullable Registry target) {
+        String registry = target != null && target.getRegistry() != null ? target.getRegistry() : getRegistry();
         if (registry.equals("docker.io")) {
             return "registry-1.docker.io";
         }
         return registry;
+    }
+
+    /**
+     * Get the API registry
+     * @return The API registry
+     */
+    public String getApiRegistry() {
+        return getApiRegistry(null);
     }
 
     /**
@@ -111,6 +120,21 @@ public final class ContainerRef extends Ref<ContainerRef> {
     public @Nullable String getNamespace() {
         String registry = getRegistry();
         if (namespace == null && registry.equals("docker.io")) {
+            return "library";
+        }
+        return namespace;
+    }
+
+    /**
+     * Get the effective namespace based on given registry traget
+     * @param target The target registry
+     * @return The effective namespace
+     */
+    public @Nullable String getNamespace(@Nullable Registry target) {
+        if (target == null || target.getRegistry() == null) {
+            return getNamespace();
+        }
+        if (namespace == null && target.getRegistry().equals("docker.io")) {
             return "library";
         }
         return namespace;
@@ -134,7 +158,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     @Override
     public ContainerRef withDigest(String digest) {
-        return new ContainerRef(registry, getNamespace(), repository, tag, digest);
+        return new ContainerRef(registry, namespace, repository, tag, digest);
     }
 
     @Override
@@ -149,13 +173,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     /**
      * Get the API prefix
+     * @param target The target registry
      * @return The API prefix
      */
-    private String getApiPrefix() {
+    private String getApiPrefix(@Nullable Registry target) {
         if (namespace != null) {
-            return "%s/v2/%s/%s".formatted(getApiRegistry(), getNamespace(), repository);
+            return "%s/v2/%s/%s".formatted(getApiRegistry(target), getNamespace(target), repository);
         }
-        return "%s/v2/%s".formatted(getApiRegistry(), repository);
+        return "%s/v2/%s".formatted(getApiRegistry(target), repository);
+    }
+
+    /**
+     * Return the tag URL
+     * @param target The target registry
+     * @return The tag URL
+     */
+    public String getTagsPath(@Nullable Registry target) {
+        return "%s/tags/list".formatted(getApiPrefix(target));
     }
 
     /**
@@ -163,7 +197,24 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The tag URL
      */
     public String getTagsPath() {
-        return "%s/tags/list".formatted(getApiPrefix());
+        return getTagsPath(null);
+    }
+
+    /**
+     * Return the referrers URL for this container referrer
+     * @param artifactType The optional artifact type
+     * @param registry The optional registry
+     * @return The referrers URL
+     */
+    public String getReferrersPath(@Nullable Registry registry, @Nullable ArtifactType artifactType) {
+        if (artifactType == null) {
+            return "%s/referrers/%s".formatted(getApiPrefix(registry), digest);
+        }
+        return "%s/referrers/%s?artifactType=%s"
+                .formatted(
+                        getApiPrefix(registry),
+                        digest,
+                        URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
     }
 
     /**
@@ -172,11 +223,16 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The referrers URL
      */
     public String getReferrersPath(@Nullable ArtifactType artifactType) {
-        if (artifactType == null) {
-            return "%s/referrers/%s".formatted(getApiPrefix(), digest);
-        }
-        return "%s/referrers/%s?artifactType=%s"
-                .formatted(getApiPrefix(), digest, URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
+        return getReferrersPath(null, artifactType);
+    }
+
+    /**
+     * Return the manifests URL
+     * @param registry The registry
+     * @return The manifests URL
+     */
+    public String getManifestsPath(@Nullable Registry registry) {
+        return "%s/manifests/%s".formatted(getApiPrefix(registry), digest == null ? tag : digest);
     }
 
     /**
@@ -184,29 +240,31 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The manifests URL
      */
     public String getManifestsPath() {
-        return "%s/manifests/%s".formatted(getApiPrefix(), digest == null ? tag : digest);
+        return getManifestsPath(null);
     }
 
     /**
      * Return the blobs upload URL with the digest for single POST upload
+     * @param registry The registry
      * @return The blobs upload URL
      */
-    public String getBlobsUploadDigestPath() {
+    public String getBlobsUploadDigestPath(Registry registry) {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/uploads/?digest=%s".formatted(getApiPrefix(), digest);
+        return "%s/blobs/uploads/?digest=%s".formatted(getApiPrefix(registry), digest);
     }
 
     /**
      * Return the blobs URL
+     * @param registry The registry
      * @return The blobs URL
      */
-    public String getBlobsPath() {
+    public String getBlobsPath(@Nullable Registry registry) {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/%s".formatted(getApiPrefix(), digest);
+        return "%s/blobs/%s".formatted(getApiPrefix(registry), digest);
     }
 
     /**
