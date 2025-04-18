@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Map;
+import land.oras.utils.HttpClient;
 import land.oras.utils.JsonUtils;
-import land.oras.utils.OrasHttpClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -46,7 +46,7 @@ public class OrasExceptionTest {
 
     @Test
     void shouldWrapResponse() {
-        OrasHttpClient.ResponseWrapper<String> response = new OrasHttpClient.ResponseWrapper<>(
+        HttpClient.ResponseWrapper<String> response = new HttpClient.ResponseWrapper<>(
                 JsonUtils.toJson(new Error("5001", "foo", "the details")), 500, Map.of());
         OrasException orasException = new OrasException(response);
 
@@ -61,8 +61,7 @@ public class OrasExceptionTest {
 
     @Test
     void shouldWrapInvalidResponse() {
-        OrasHttpClient.ResponseWrapper<String> response =
-                new OrasHttpClient.ResponseWrapper<>("corrupted", 500, Map.of());
+        HttpClient.ResponseWrapper<String> response = new HttpClient.ResponseWrapper<>("corrupted", 500, Map.of());
         OrasException orasException = new OrasException(response);
         assertEquals("Response code: 500", orasException.getMessage(), "Message should be correct");
         assertNull(orasException.getError(), "Error should be null");

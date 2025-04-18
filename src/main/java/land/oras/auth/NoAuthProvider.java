@@ -36,4 +36,9 @@ public final class NoAuthProvider implements AuthProvider {
     public String getAuthHeader(ContainerRef registry) {
         return null;
     }
+
+    @Override
+    public AuthScheme getAuthScheme() {
+        return AuthScheme.NONE;
+    }
 }

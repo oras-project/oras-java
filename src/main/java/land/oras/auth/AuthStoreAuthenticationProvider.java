@@ -59,4 +59,9 @@ public final class AuthStoreAuthenticationProvider implements AuthProvider {
         }
         return new UsernamePasswordProvider(credential.username(), credential.password()).getAuthHeader(registry);
     }
+
+    @Override
+    public AuthScheme getAuthScheme() {
+        return AuthScheme.BASIC;
+    }
 }

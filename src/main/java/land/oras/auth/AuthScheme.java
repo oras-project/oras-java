@@ -20,26 +20,23 @@
 
 package land.oras.auth;
 
-import land.oras.ContainerRef;
-import org.jspecify.annotations.Nullable;
-
 /**
- * Interface for auth provider
- * Must return the authentication header to pass to HTTP requests
+ * Enum for authentication schemes
  */
-public interface AuthProvider {
+public enum AuthScheme {
 
     /**
-     * Get the authentication header for this provider
-     * @param registry The registry
-     * @return The authentication header or null if not applicable
+     * No authentication
      */
-    @Nullable
-    String getAuthHeader(ContainerRef registry);
+    NONE,
 
     /**
-     * Get the authentication scheme for this provider
-     * @return The authentication scheme
+     * Basic authentication
      */
-    AuthScheme getAuthScheme();
+    BASIC,
+
+    /**
+     * Bearer authentication
+     */
+    BEARER,
 }

@@ -46,11 +46,12 @@ import java.util.Map;
 import land.oras.auth.AuthStore;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
+import land.oras.auth.NoAuthProvider;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
+import land.oras.utils.HttpClient;
 import land.oras.utils.JsonUtils;
-import land.oras.utils.OrasHttpClient;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -305,7 +306,7 @@ public class RegistryWireMockTest {
                 WireMock.any(WireMock.urlEqualTo("/token?scope=repository:library/get-token:pull&service=localhost"))
                         .inScenario("get token")
                         .willSetStateTo("get")
-                        .willReturn(WireMock.okJson(JsonUtils.toJson(new BearerTokenProvider.TokenResponse(
+                        .willReturn(WireMock.okJson(JsonUtils.toJson(new HttpClient.TokenResponse(
                                 "fake-token", "access-token", 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
@@ -346,8 +347,8 @@ public class RegistryWireMockTest {
                         WireMock.urlEqualTo("/token?scope=repository:library/refresh-token:pull&service=localhost"))
                 .inScenario("get token")
                 .willSetStateTo("get")
-                .willReturn(WireMock.okJson(JsonUtils.toJson(new BearerTokenProvider.TokenResponse(
-                        "fake-token", "access-token", 300, ZonedDateTime.now())))));
+                .willReturn(WireMock.okJson(JsonUtils.toJson(
+                        new HttpClient.TokenResponse("fake-token", "access-token", 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
@@ -357,7 +358,7 @@ public class RegistryWireMockTest {
 
         // Insecure registry
         Registry registry = Registry.Builder.builder()
-                .withAuthProvider(new BearerTokenProvider(authProvider)) // Already bearer token
+                .withAuthProvider(new BearerTokenProvider()) // Already bearer token
                 .withInsecure(true)
                 .build();
 
@@ -371,8 +372,7 @@ public class RegistryWireMockTest {
     void shouldExecutePatchRequestWithHeaders(WireMockRuntimeInfo wMockRuntimeInfo) {
         WireMock wireMock = wMockRuntimeInfo.getWireMock();
         String registryUrl = wMockRuntimeInfo.getHttpBaseUrl().replace("http://", "");
-        OrasHttpClient client =
-                OrasHttpClient.Builder.builder().withSkipTlsVerify(true).build();
+        HttpClient client = HttpClient.Builder.builder().withSkipTlsVerify(true).build();
 
         // Setup Mock to craete a PATCH request with Headers
         wireMock.register(patch(urlEqualTo("/v2/test/blobs/uploads/session1"))
@@ -392,7 +392,7 @@ public class RegistryWireMockTest {
 
         // Execute Patch
         URI uri = URI.create("http://" + registryUrl + "/v2/test/blobs/uploads/session1");
-        OrasHttpClient.ResponseWrapper<String> response = client.patch(uri, data, headers);
+        HttpClient.ResponseWrapper<String> response = client.patch(uri, data, headers, new NoAuthProvider());
 
         // Verify response uses all our constants
         assertEquals(202, response.statusCode());

@@ -20,8 +20,8 @@
 
 package land.oras.exception;
 
+import land.oras.utils.HttpClient;
 import land.oras.utils.JsonUtils;
-import land.oras.utils.OrasHttpClient;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -60,7 +60,7 @@ public class OrasException extends RuntimeException {
      * New exception with a message and a response
      * @param response The response
      */
-    public OrasException(OrasHttpClient.ResponseWrapper<String> response) {
+    public OrasException(HttpClient.ResponseWrapper<String> response) {
         this("Response code: " + response.statusCode());
         try {
             this.statusCode = response.statusCode();

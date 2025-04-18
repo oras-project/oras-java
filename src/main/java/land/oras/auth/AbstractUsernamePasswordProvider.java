@@ -69,4 +69,9 @@ public abstract sealed class AbstractUsernamePasswordProvider implements AuthPro
     public String getAuthHeader(ContainerRef registry) {
         return "Basic " + java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
+
+    @Override
+    public AuthScheme getAuthScheme() {
+        return AuthScheme.BASIC;
+    }
 }
