@@ -20,11 +20,7 @@
 
 package land.oras;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.patch;
-import static com.github.tomakehurst.wiremock.client.WireMock.patchRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,6 +39,9 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import land.oras.auth.AuthStore;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
@@ -84,7 +83,7 @@ public class RegistryWireMockTest {
                         .formatted(wmRuntimeInfo.getHttpPort()))));
 
         // Return blob on new location
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
+        wireMock.register(head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
                 .willReturn(WireMock.ok()));
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
                 .willReturn(WireMock.ok().withBody("blob-data")));
@@ -108,7 +107,7 @@ public class RegistryWireMockTest {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
 
         // Return location without domain when pushing blob
-        wireMock.register(WireMock.head(WireMock.urlPathMatching("/v2/library/artifact-redirect/blobs/.*"))
+        wireMock.register(head(WireMock.urlPathMatching("/v2/library/artifact-redirect/blobs/.*"))
                 .willReturn(WireMock.status(404)));
         wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/artifact-redirect/blobs/uploads/.*"))
                 .willReturn(WireMock.status(202).withHeader("Location", "/foobar")));
@@ -211,7 +210,7 @@ public class RegistryWireMockTest {
         // Register the wiremock
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/error-artifact/tags/list"))
                 .willReturn(WireMock.serverError().withBody("Internal Server Error")));
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/error-artifact/blobs/sha256:1234"))
+        wireMock.register(head(WireMock.urlEqualTo("/v2/library/error-artifact/blobs/sha256:1234"))
                 .willReturn(WireMock.serverError().withBody("Internal Server Error")));
         Registry registry = Registry.Builder.builder().withInsecure(true).build();
 
@@ -404,5 +403,101 @@ public class RegistryWireMockTest {
         wireMock.verifyThat(patchRequestedFor(urlEqualTo("/v2/test/blobs/uploads/session1"))
                 .withHeader(Const.CONTENT_TYPE_HEADER, equalTo(Const.APPLICATION_OCTET_STREAM_HEADER_VALUE))
                 .withHeader(Const.CONTENT_RANGE_HEADER, equalTo("0-1023")));
+    }
+
+    @Test
+    void shouldHandleRateLimitingResponse(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Setup WireMock to return 429 Too Many Requests
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited/tags/list"))
+                .willReturn(aResponse()
+                        .withStatus(429)
+                        .withHeader("Retry-After", "5")
+                        .withBody("Rate limit exceeded")));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited".formatted(registryUrl));
+
+        // Verify that a 429 status code is thrown as an OrasException
+        OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
+        assertEquals(429, exception.getStatusCode());
+        assertEquals("Response code: 429", exception.getMessage());
+    }
+
+    @Test
+    void shouldFollowRedirectOnBlobFetch(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        // Setup WireMock to redirect to a new location
+        String redirectUrl = "http://%s/v2/library/redirect-blob/blobs/redirected/%s".formatted(registryUrl, digest);
+        wireMock.register(get(urlEqualTo("/v2/library/redirect-blob/blobs/%s".formatted(digest)))
+                .willReturn(aResponse().withStatus(307).withHeader("Location", redirectUrl)));
+
+        // Setup WireMock to serve blob at redirected location
+        wireMock.register(get(urlEqualTo("/v2/library/redirect-blob/blobs/redirected/%s".formatted(digest)))
+                .willReturn(aResponse().withStatus(200).withBody("blob-data")));
+
+        // Setup HEAD request for validation
+        wireMock.register(head(urlEqualTo("/v2/library/redirect-blob/blobs/%s".formatted(digest)))
+                .willReturn(aResponse().withStatus(200)));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse("%s/library/redirect-blob".formatted(registryUrl));
+        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
+        assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldHandleConcurrentBlobPushes(WireMockRuntimeInfo wmRuntimeInfo) throws IOException, InterruptedException {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("concurrent-data".getBytes());
+
+        // Setup WireMock for blob push
+        wireMock.register(head(urlPathMatching("/v2/library/concurrent-blob/blobs/.*"))
+                .willReturn(aResponse().withStatus(404)));
+        wireMock.register(post(urlPathMatching("/v2/library/concurrent-blob/blobs/uploads/.*"))
+                .willReturn(aResponse().withStatus(202).withHeader("Location", "/upload")));
+        wireMock.register(
+                put(urlPathMatching("/upload.*")).willReturn(aResponse().withStatus(201)));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse("%s/library/concurrent-blob@%s".formatted(registryUrl, digest));
+
+        // Create a temporary file for pushing
+        Path testFile = configDir.resolve("concurrent-data.temp");
+        Files.writeString(testFile, "concurrent-data");
+
+        // Execute concurrent blob pushes
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+        for (int i = 0; i < 3; i++) {
+            executor.submit(() -> {
+                try {
+                    registry.pushBlob(containerRef, testFile);
+                } catch (OrasException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+
+        executor.shutdown();
+        boolean completed = executor.awaitTermination(10, TimeUnit.SECONDS);
+        assertEquals(true, completed, "Concurrent blob pushes did not complete within timeout");
     }
 }
