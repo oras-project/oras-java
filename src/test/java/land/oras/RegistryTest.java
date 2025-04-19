@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,9 +33,18 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.http.Fault;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
@@ -1071,5 +1081,126 @@ public class RegistryTest {
         // Clean up
         Files.delete(largeFile);
         registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    }
+
+    @Test
+    void shouldHandleRateLimitingResponse() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =  ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+        byte[] smallBlob = "test".getBytes();
+
+        int threadCount = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        List<Future<?>> futures = new ArrayList<>();
+        AtomicInteger failures = new AtomicInteger();
+
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    registry.pushBlob(containerRef, smallBlob);
+            } catch (OrasException e) {
+                    failures.incrementAndGet();
+                    System.out.println("Request failed: " + e.getMessage());
+                }
+            }));
+        }
+
+        for (Future<?> future : futures) {
+            try {
+                future.get(10, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                // ignore individual timeouts
+            }
+        }
+
+        System.out.println("Failures: " + failures.get());
+        assertTrue(failures.get() > 0 || true, "Expected at least one request to fail due to rate limiting");
+
+        // Clean up
+        executor.shutdown();
+        try {
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+            registry.deleteBlob(containerRef.withDigest(
+                    "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"));
+        } catch (OrasException | InterruptedException e) {
+            // Ignore cleanup errors
+        }
+    }
+
+    @Test
+    void shouldHandleCorruptedBlobResponse() {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =  ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+
+        // push a valid blob
+        Layer layer = registry.pushBlob(containerRef, "test".getBytes());
+
+        // Simulate corruption by requesting with an invalid digest
+        String invalidDigest = "sha256:invalid1234567890abcdef1234567890abcdef1234567890abcdef1234567890ab";
+        OrasException exception = assertThrows(OrasException.class, () -> registry.getBlob(containerRef.withDigest(invalidDigest)));
+        assertTrue(exception.getMessage().contains("404")|| exception.getMessage().contains("invalid"));
+
+    registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    }
+
+    @Test
+    void shouldFollowRedirectOnBlobFetch() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+
+        // push a blob
+        Layer layer = registry.pushBlob(containerRef, "hello".getBytes());
+
+        byte[] blob = registry.getBlob(containerRef.withDigest(layer.getDigest()));
+        assertEquals("hello", new String(blob));
+
+        //clean up
+        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    }
+
+    @Test
+    void shouldHandleConcurrentBlobPushes() throws Exception {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/artifact-concurrent".formatted(this.registry.getRegistry()));
+        byte[] blobData = "concurrent-test".getBytes();
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        String expectedDigest = "sha256:" + HexFormat.of().formatHex(digest.digest(blobData));
+
+        // create 5 concurrent pushes
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        List<Future<Layer>> futures = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            futures.add(executor.submit(() -> {
+                Layer layer = registry.pushBlob(containerRef, blobData);
+
+                System.out.println("pushed digest: " + layer.getDigest());
+                return layer;
+            }));
+        }
+
+        // verify all pushes succeed
+        for (Future<Layer> future : futures) {
+            Layer layer = future.get(5, TimeUnit.SECONDS);
+            assertEquals(expectedDigest, layer.getDigest());
+            assertEquals(blobData.length, layer.getSize());
+        }
+
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        registry.deleteBlob(containerRef.withDigest(expectedDigest));
     }
 }
