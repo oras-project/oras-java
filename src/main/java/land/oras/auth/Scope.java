@@ -20,19 +20,31 @@
 
 package land.oras.auth;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
+/**
+ * Enum representing the different scopes for authentication.
+ */
+public enum Scope {
 
-import land.oras.ContainerRef;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
+    /**
+     * Scope for pulling images.
+     */
+    PULL,
 
-@Execution(ExecutionMode.CONCURRENT)
-public class NoAuthProviderTest {
+    /**
+     * Scope for pushing images.
+     */
+    PUSH,
 
-    @Test
-    void shouldHaveNoAuthHeader() {
-        NoAuthProvider authProvider = new NoAuthProvider();
-        assertNull(authProvider.getAuthHeader(ContainerRef.parse("localhost:5000/foo/bar")));
+    /**
+     * Scope for deleting images.
+     */
+    DELETE;
+
+    /**
+     * Converts the enum name to lowercase.
+     * @return the lowercase name of the enum
+     */
+    public String toLowerCase() {
+        return name().toLowerCase();
     }
 }
