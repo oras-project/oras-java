@@ -20,29 +20,17 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
 
-public class DockerIoITCase {
+public class JFrogArtifactoryITCase {
 
     @Test
-    void shouldPullAnonymousIndex() {
-
-        // FQDN
+    void shouldPull() {
         Registry registry = Registry.builder().build();
-        ContainerRef containerRef1 = ContainerRef.parse("docker.io/library/alpine");
-        Index index = registry.getIndex(containerRef1);
-        assertNotNull(index);
-
-        // Default registry
-        ContainerRef containerRef2 = ContainerRef.parse("library/alpine");
-        Index index2 = registry.getIndex(containerRef2);
-        assertNotNull(index2);
-
-        // Simple name
-        ContainerRef containerRef3 = ContainerRef.parse("alpine");
-        Index index3 = registry.getIndex(containerRef3);
-        assertNotNull(index3);
+        ContainerRef containerRef1 = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
+        Manifest manifest = registry.getManifest(containerRef1);
+        assertNotNull(manifest);
     }
 }

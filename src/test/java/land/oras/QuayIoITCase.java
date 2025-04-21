@@ -20,29 +20,17 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
 
-public class DockerIoITCase {
+public class QuayIoITCase {
 
     @Test
-    void shouldPullAnonymousIndex() {
-
-        // FQDN
+    void shouldPull() {
         Registry registry = Registry.builder().build();
-        ContainerRef containerRef1 = ContainerRef.parse("docker.io/library/alpine");
+        ContainerRef containerRef1 = ContainerRef.parse("quay.io/openshift/origin-cli:latest");
         Index index = registry.getIndex(containerRef1);
         assertNotNull(index);
-
-        // Default registry
-        ContainerRef containerRef2 = ContainerRef.parse("library/alpine");
-        Index index2 = registry.getIndex(containerRef2);
-        assertNotNull(index2);
-
-        // Simple name
-        ContainerRef containerRef3 = ContainerRef.parse("alpine");
-        Index index3 = registry.getIndex(containerRef3);
-        assertNotNull(index3);
     }
 }
