@@ -20,7 +20,7 @@
 
 package land.oras.exception;
 
-import land.oras.utils.HttpClient;
+import land.oras.auth.HttpClient;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;

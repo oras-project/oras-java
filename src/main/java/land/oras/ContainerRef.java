@@ -93,6 +93,27 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Get the full repository name including the namespace if any
+     * @param registry The registry
+     * @return The full repository name
+     */
+    public String getFullRepository(@Nullable Registry registry) {
+        String namespace = getNamespace(registry);
+        if (namespace != null) {
+            return "%s/%s".formatted(namespace, repository);
+        }
+        return repository;
+    }
+
+    /**
+     * Get the full repository name including the namespace if any
+     * @return The full repository name
+     */
+    public String getFullRepository() {
+        return getFullRepository(null);
+    }
+
+    /**
      * Get the API registry
      * @param target The target registry
      * @return The API registry

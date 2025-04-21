@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import land.oras.ContainerRef;
-import land.oras.Registry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -35,22 +34,18 @@ public class ScopeUtilsTest {
     @Test
     void shouldAppendRepositoryScope() {
         List<String> existingScopes = List.of("repository:test:pull");
-        Registry registry = Registry.builder()
-                .defaults()
-                .withRegistry("registry.example.com")
-                .build();
         ContainerRef ref = ContainerRef.parse("foo/bar:tag");
 
-        List<String> scopes = ScopeUtils.appendRepositoryScope(existingScopes, registry, ref, Scope.PULL);
-        scopes = ScopeUtils.appendRepositoryScope(scopes, registry, ref, Scope.PULL);
+        List<String> scopes = ScopeUtils.appendRepositoryScope(existingScopes, ref, Scope.PULL);
+        scopes = ScopeUtils.appendRepositoryScope(scopes, ref, Scope.PULL);
         assertEquals(List.of("repository:foo/bar:pull", "repository:test:pull"), scopes);
 
         // Null scopes
-        scopes = ScopeUtils.appendRepositoryScope(null, registry, ref, Scope.PULL);
+        scopes = ScopeUtils.appendRepositoryScope(null, ref, Scope.PULL);
         assertEquals(List.of("repository:foo/bar:pull"), scopes);
 
         // Empty scopes
-        scopes = ScopeUtils.appendRepositoryScope(List.of(), registry, ref);
+        scopes = ScopeUtils.appendRepositoryScope(List.of(), ref);
         assertEquals(List.of(), scopes);
     }
 
@@ -58,28 +53,24 @@ public class ScopeUtilsTest {
     void shouldScopeRepository() {
 
         // Pull
-        Registry registry = Registry.builder()
-                .defaults()
-                .withRegistry("registry.example.com")
-                .build();
         ContainerRef ref = ContainerRef.parse("foo/bar:tag");
-        String scope = ScopeUtils.scopeRepository(registry, ref, Scope.PULL);
+        String scope = ScopeUtils.scopeRepository(ref, Scope.PULL);
         assertEquals("repository:foo/bar:pull", scope);
 
         // Push
-        scope = ScopeUtils.scopeRepository(registry, ref, Scope.PUSH);
+        scope = ScopeUtils.scopeRepository(ref, Scope.PUSH);
         assertEquals("repository:foo/bar:push", scope);
 
         // Delete
-        scope = ScopeUtils.scopeRepository(registry, ref, Scope.DELETE);
+        scope = ScopeUtils.scopeRepository(ref, Scope.DELETE);
         assertEquals("repository:foo/bar:delete", scope);
 
         // Multiple scopes
-        scope = ScopeUtils.scopeRepository(registry, ref, Scope.PULL, Scope.PUSH);
+        scope = ScopeUtils.scopeRepository(ref, Scope.PULL, Scope.PUSH);
         assertEquals("repository:foo/bar:pull,push", scope);
 
         // Not scopes
-        scope = ScopeUtils.scopeRepository(registry, ref);
+        scope = ScopeUtils.scopeRepository(ref);
         assertEquals("", scope);
     }
 
