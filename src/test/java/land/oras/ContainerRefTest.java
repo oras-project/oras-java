@@ -87,13 +87,17 @@ public class ContainerRefTest {
         assertEquals("library", containerRef.getNamespace());
         assertEquals("library", containerRef.getNamespace(Registry.builder().build()));
         assertEquals("alpine", containerRef.getRepository());
+        assertEquals(
+                "registry-1.docker.io/v2/library/alpine/manifests/sha256:1234567890abcdef",
+                containerRef.getManifestsPath());
         assertEquals("latest", containerRef.getTag());
         assertEquals(
-                "registry-1.docker.io/v2/alpine/referrers/sha256:1234567890abcdef?artifactType=test%2Fbar",
+                "registry-1.docker.io/v2/library/alpine/referrers/sha256:1234567890abcdef?artifactType=test%2Fbar",
                 containerRef.getReferrersPath(ArtifactType.from("test/bar")));
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
         assertEquals(
-                "registry-1.docker.io/v2/alpine/manifests/sha256:1234567890abcdef", containerRef.getManifestsPath());
+                "registry-1.docker.io/v2/library/alpine/manifests/sha256:1234567890abcdef",
+                containerRef.getManifestsPath());
         containerRef = ContainerRef.parse("demo.goharbor.com/alpine:latest@sha256:1234567890abcdef");
         assertEquals("demo.goharbor.com", containerRef.getRegistry());
         assertEquals("demo.goharbor.com/v2/alpine/tags/list", containerRef.getTagsPath());
@@ -107,12 +111,14 @@ public class ContainerRefTest {
     void shouldParseImageWithNoTag() {
         ContainerRef containerRef = ContainerRef.parse("docker.io/alpine@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertEquals("registry-1.docker.io/v2/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("registry-1.docker.io/v2/library/alpine/tags/list", containerRef.getTagsPath());
         assertEquals("library", containerRef.getNamespace());
         assertEquals("library", containerRef.getNamespace(Registry.builder().build()));
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
-        assertEquals("registry-1.docker.io/v2/alpine/blobs/sha256:1234567890abcdef", containerRef.getBlobsPath(null));
+        assertEquals(
+                "registry-1.docker.io/v2/library/alpine/blobs/sha256:1234567890abcdef",
+                containerRef.getBlobsPath(null));
         assertEquals(
                 "foo.io/v2/alpine/blobs/sha256:1234567890abcdef",
                 containerRef.getBlobsPath(
@@ -153,7 +159,7 @@ public class ContainerRefTest {
                 "foo.io",
                 containerRef.getApiRegistry(
                         Registry.builder().withRegistry("foo.io").build()));
-        assertEquals("registry-1.docker.io/v2/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("registry-1.docker.io/v2/library/alpine/tags/list", containerRef.getTagsPath());
         assertEquals("library", containerRef.getNamespace());
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
@@ -175,6 +181,7 @@ public class ContainerRefTest {
                         Registry.builder().withRegistry("test").build()),
                 "Default library must be null when changing registry");
         assertEquals("alpine", containerRef.getRepository());
+        assertEquals("library", containerRef.getNamespace());
         assertEquals("latest", containerRef.getTag());
         assertNull(containerRef.getDigest());
 

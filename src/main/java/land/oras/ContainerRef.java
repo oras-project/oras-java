@@ -177,8 +177,9 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The API prefix
      */
     private String getApiPrefix(@Nullable Registry target) {
+        String namespace = getNamespace(target);
         if (namespace != null) {
-            return "%s/v2/%s/%s".formatted(getApiRegistry(target), getNamespace(target), repository);
+            return "%s/v2/%s/%s".formatted(getApiRegistry(target), namespace, repository);
         }
         return "%s/v2/%s".formatted(getApiRegistry(target), repository);
     }
