@@ -442,11 +442,13 @@ public final class HttpClient {
             ResponseWrapper<String> tokenResponse = refreshToken(toResponseWrapper(response), authProvider);
             HttpClient.TokenResponse token =
                     JsonUtils.fromJson(tokenResponse.response(), HttpClient.TokenResponse.class);
-            LOG.debug(
-                    "Found token issued_at {}, expire_id {} and expiring at {} ",
-                    token.issued_at(),
-                    token.expires_in(),
-                    token.issued_at().plusSeconds(token.expires_in()));
+            if (token.issued_at() != null && token.expires_in() != null) {
+                LOG.debug(
+                        "Found token issued_at {}, expire_id {} and expiring at {} ",
+                        token.issued_at(),
+                        token.expires_in(),
+                        token.issued_at().plusSeconds(token.expires_in()));
+            }
             try {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + token.token());
                 return toResponseWrapper(client.send(builder.build(), handler));
@@ -532,7 +534,11 @@ public final class HttpClient {
      * @param expires_in The expires in
      * @param issued_at The issued at
      */
-    public record TokenResponse(String token, String access_token, Integer expires_in, ZonedDateTime issued_at) {}
+    public record TokenResponse(
+            String token,
+            @Nullable String access_token,
+            @Nullable Integer expires_in,
+            @Nullable ZonedDateTime issued_at) {}
 
     /**
      * Builder for the HTTP client
