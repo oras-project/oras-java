@@ -230,10 +230,4 @@ public class ContainerRefTest {
                 containerRef.getBlobsPath(
                         Registry.builder().withRegistry("foo.io").build()));
     }
-
-    @Test
-    void shouldGetReferenceFromUrl() {
-        ContainerRef containerRef = ContainerRef.fromUrl("http://docker.io/foo/bar/test/api");
-        assertEquals("docker.io", containerRef.getRegistry());
-    }
 }

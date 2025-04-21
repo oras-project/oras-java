@@ -55,7 +55,7 @@ class AuthStoreAuthenticationProviderTest {
         AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
-        String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
+        String authHeader = authProvider.getAuthHeader(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine")));
         String expectedAuthString = "testUser:testPassword";
         String expectedEncodedAuth =
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
@@ -73,7 +73,7 @@ class AuthStoreAuthenticationProviderTest {
         AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
-        String authHeader = authProvider.getAuthHeader(ContainerRef.fromUrl(REGISTRY));
+        String authHeader = authProvider.getAuthHeader(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine")));
         String expectedAuthString = "testUser:testPassword";
         String expectedEncodedAuth =
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));

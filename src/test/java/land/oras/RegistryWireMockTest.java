@@ -391,7 +391,8 @@ public class RegistryWireMockTest {
 
         // Execute Patch
         URI uri = URI.create("http://" + registryUrl + "/v2/test/blobs/uploads/session1");
-        HttpClient.ResponseWrapper<String> response = client.patch(uri, data, headers, new NoAuthProvider());
+        HttpClient.ResponseWrapper<String> response =
+                client.patch(uri, data, headers, ContainerRef.parse("foo/bar"), new NoAuthProvider());
 
         // Verify response uses all our constants
         assertEquals(202, response.statusCode());

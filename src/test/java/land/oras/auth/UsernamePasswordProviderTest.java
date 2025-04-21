@@ -37,11 +37,11 @@ public class UsernamePasswordProviderTest {
         // Same for any registry
         assertEquals(
                 "Basic dXNlcjpwYXNz",
-                authProvider.getAuthHeader(ContainerRef.fromUrl("localhost:5000")),
+                authProvider.getAuthHeader(ContainerRef.parse("localhost:5000/foo")),
                 "Auth header should be correct");
         assertEquals(
                 "Basic dXNlcjpwYXNz",
-                authProvider.getAuthHeader(ContainerRef.fromUrl("docker.io")),
+                authProvider.getAuthHeader(ContainerRef.parse("docker.io/bar")),
                 "Auth header should be correct");
 
         // Getters

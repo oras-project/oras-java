@@ -140,10 +140,12 @@ public final class HttpClient {
      * Perform a GET request
      * @param uri The URI
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> get(URI uri, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> get(
+            URI uri, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "GET",
                 uri,
@@ -151,6 +153,7 @@ public final class HttpClient {
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
+                containerRef,
                 authProvider);
     }
 
@@ -159,10 +162,12 @@ public final class HttpClient {
      * @param uri The URI
      * @param headers The headers
      * @param file The file
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<Path> download(URI uri, Map<String, String> headers, Path file, AuthProvider authProvider) {
+    public ResponseWrapper<Path> download(
+            URI uri, Map<String, String> headers, Path file, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "GET",
                 uri,
@@ -170,6 +175,7 @@ public final class HttpClient {
                 new byte[0],
                 HttpResponse.BodyHandlers.ofFile(file),
                 HttpRequest.BodyPublishers.noBody(),
+                containerRef,
                 authProvider);
     }
 
@@ -177,10 +183,12 @@ public final class HttpClient {
      * Download to to input stream
      * @param uri The URI
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<InputStream> download(URI uri, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<InputStream> download(
+            URI uri, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "GET",
                 uri,
@@ -188,6 +196,7 @@ public final class HttpClient {
                 new byte[0],
                 HttpResponse.BodyHandlers.ofInputStream(),
                 HttpRequest.BodyPublishers.noBody(),
+                containerRef,
                 authProvider);
     }
 
@@ -197,11 +206,17 @@ public final class HttpClient {
      * @param uri The URI
      * @param headers The headers
      * @param file The file
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
     public ResponseWrapper<String> upload(
-            String method, URI uri, Map<String, String> headers, Path file, AuthProvider authProvider) {
+            String method,
+            URI uri,
+            Map<String, String> headers,
+            Path file,
+            ContainerRef containerRef,
+            AuthProvider authProvider) {
         try {
             return executeRequest(
                     method,
@@ -210,6 +225,7 @@ public final class HttpClient {
                     new byte[0],
                     HttpResponse.BodyHandlers.ofString(),
                     HttpRequest.BodyPublishers.ofFile(file),
+                    containerRef,
                     authProvider);
         } catch (Exception e) {
             throw new OrasException("Unable to upload file", e);
@@ -220,10 +236,12 @@ public final class HttpClient {
      * Perform a HEAD request
      * @param uri The URI
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> head(URI uri, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> head(
+            URI uri, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "HEAD",
                 uri,
@@ -231,6 +249,7 @@ public final class HttpClient {
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
+                containerRef,
                 authProvider);
     }
 
@@ -238,10 +257,12 @@ public final class HttpClient {
      * Perform a DELETE request
      * @param uri The URI
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> delete(URI uri, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> delete(
+            URI uri, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "DELETE",
                 uri,
@@ -249,6 +270,7 @@ public final class HttpClient {
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
+                containerRef,
                 authProvider);
     }
 
@@ -257,10 +279,12 @@ public final class HttpClient {
      * @param uri The URI.
      * @param body The body
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> post(URI uri, byte[] body, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> post(
+            URI uri, byte[] body, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "POST",
                 uri,
@@ -268,6 +292,7 @@ public final class HttpClient {
                 body,
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.ofByteArray(body),
+                containerRef,
                 authProvider);
     }
 
@@ -276,10 +301,12 @@ public final class HttpClient {
      * @param uri The URI
      * @param body The body
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> patch(URI uri, byte[] body, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> patch(
+            URI uri, byte[] body, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "PATCH",
                 uri,
@@ -287,6 +314,7 @@ public final class HttpClient {
                 body,
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.ofByteArray(body),
+                containerRef,
                 authProvider);
     }
 
@@ -295,10 +323,12 @@ public final class HttpClient {
      * @param uri The URI
      * @param body The body
      * @param headers The headers
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @return The response
      */
-    public ResponseWrapper<String> put(URI uri, byte[] body, Map<String, String> headers, AuthProvider authProvider) {
+    public ResponseWrapper<String> put(
+            URI uri, byte[] body, Map<String, String> headers, ContainerRef containerRef, AuthProvider authProvider) {
         return executeRequest(
                 "PUT",
                 uri,
@@ -306,18 +336,20 @@ public final class HttpClient {
                 body,
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.ofByteArray(body),
+                containerRef,
                 authProvider);
     }
 
     /**
      * Retrieve a token from the registry
      * @param response The response that may contain a the WWW-Authenticate header
+     * @param containerRef The container reference
      * @param authProvider The authentication provider
      * @param <T> The response type
      * @return The token
      */
     public <T> HttpClient.ResponseWrapper<String> refreshToken(
-            HttpClient.ResponseWrapper<T> response, AuthProvider authProvider) {
+            HttpClient.ResponseWrapper<T> response, ContainerRef containerRef, AuthProvider authProvider) {
 
         String wwwAuthHeader = response.headers().getOrDefault(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "");
         LOG.debug("WWW-Authenticate header: {}", wwwAuthHeader);
@@ -342,7 +374,7 @@ public final class HttpClient {
 
         // Perform the request to get the token
         Map<String, String> headers = new HashMap<>();
-        HttpClient.ResponseWrapper<String> responseWrapper = get(uri, headers, authProvider);
+        HttpClient.ResponseWrapper<String> responseWrapper = get(uri, headers, containerRef, authProvider);
 
         // Log the response
         LOG.debug(
@@ -383,15 +415,15 @@ public final class HttpClient {
             byte[] body,
             HttpResponse.BodyHandler<T> handler,
             HttpRequest.BodyPublisher bodyPublisher,
+            ContainerRef containerRef,
             AuthProvider authProvider) {
         try {
             HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, bodyPublisher);
 
             // Add authentication header if any
-            ContainerRef registry = ContainerRef.fromUrl(uri.toASCIIString());
-            if (authProvider.getAuthHeader(registry) != null
+            if (authProvider.getAuthHeader(containerRef) != null
                     && !authProvider.getAuthScheme().equals(AuthScheme.NONE)) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(registry));
+                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(containerRef));
             }
             headers.forEach(builder::header);
 
@@ -416,30 +448,25 @@ public final class HttpClient {
                 HttpRequest newRequest = newBuilder.build();
                 logRequest(newRequest, body);
                 HttpResponse<T> newResponse = client.send(newRequest, handler);
-                return redoRequest(newResponse, newBuilder, handler, authProvider);
+                return redoRequest(newResponse, newBuilder, handler, containerRef, authProvider);
             }
-            return redoRequest(response, builder, handler, authProvider);
+            return redoRequest(response, builder, handler, containerRef, authProvider);
         } catch (Exception e) {
             LOG.error("Failed to execute request", e);
             throw new OrasException("Unable to create HTTP request", e);
         }
     }
 
-    /**
-     * Redo the request based on the response
-     * @param response The response
-     * @param builder The request builder
-     * @return The response wrapper
-     * @param <T> The response type
-     */
     private <T> ResponseWrapper<T> redoRequest(
             HttpResponse<T> response,
             HttpRequest.Builder builder,
             HttpResponse.BodyHandler<T> handler,
+            ContainerRef containerRef,
             AuthProvider authProvider) {
         if ((response.statusCode() == 401 || response.statusCode() == 403)) {
             LOG.debug("Requesting new token...");
-            ResponseWrapper<String> tokenResponse = refreshToken(toResponseWrapper(response), authProvider);
+            ResponseWrapper<String> tokenResponse =
+                    refreshToken(toResponseWrapper(response), containerRef, authProvider);
             HttpClient.TokenResponse token =
                     JsonUtils.fromJson(tokenResponse.response(), HttpClient.TokenResponse.class);
             if (token.issued_at() != null && token.expires_in() != null) {
