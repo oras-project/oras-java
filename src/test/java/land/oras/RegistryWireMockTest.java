@@ -45,11 +45,12 @@ import java.util.concurrent.TimeUnit;
 import land.oras.auth.AuthStore;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
+import land.oras.auth.HttpClient;
 import land.oras.auth.NoAuthProvider;
+import land.oras.auth.Scopes;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
-import land.oras.utils.HttpClient;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Disabled;
@@ -391,8 +392,12 @@ public class RegistryWireMockTest {
 
         // Execute Patch
         URI uri = URI.create("http://" + registryUrl + "/v2/test/blobs/uploads/session1");
-        HttpClient.ResponseWrapper<String> response =
-                client.patch(uri, data, headers, ContainerRef.parse("foo/bar"), new NoAuthProvider());
+        HttpClient.ResponseWrapper<String> response = client.patch(
+                uri,
+                data,
+                headers,
+                Scopes.of(Registry.builder().build(), ContainerRef.parse("foo")),
+                new NoAuthProvider());
 
         // Verify response uses all our constants
         assertEquals(202, response.statusCode());

@@ -21,7 +21,6 @@
 package land.oras.auth;
 
 import land.oras.ContainerRef;
-import land.oras.utils.HttpClient;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
