@@ -304,6 +304,11 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     @Override
+    public Repositories getRepositories() {
+        return new Repositories(List.of(path.getFileName().toString()));
+    }
+
+    @Override
     public Referrers getReferrers(LayoutRef ref, @Nullable ArtifactType artifactType) {
         Index index = Index.fromPath(getIndexPath());
         ManifestDescriptor currentDescriptor = findManifestDescriptor(ref);

@@ -67,6 +67,21 @@ public class RegistryTest {
     }
 
     @Test
+    void shouldListRepositories() {
+
+        // Setup
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withRegistry(this.registry.getRegistry())
+                .withInsecure(true)
+                .build();
+
+        // Test
+        List<String> repositories = registry.getRepositories().repositories();
+        assertNotNull(repositories);
+    }
+
+    @Test
     void shouldFailToPushBlobForInvalidDigest() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")

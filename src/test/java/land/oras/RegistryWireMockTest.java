@@ -159,6 +159,32 @@ public class RegistryWireMockTest {
     }
 
     @Test
+    void shouldListRepositories(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/_catalog"))
+                .willReturn(
+                        WireMock.okJson(JsonUtils.toJson(new Repositories(List.of("foo", "bar", "library/alpine"))))));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .withRegistry(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))
+                .build();
+
+        // Test
+        List<String> repositories = registry.getRepositories().repositories();
+
+        // Assert
+        assertEquals(3, repositories.size());
+        assertEquals("foo", repositories.get(0));
+        assertEquals("bar", repositories.get(1));
+        assertEquals("library/alpine", repositories.get(2));
+    }
+
+    @Test
     void shouldListTagsWithFileStoreAuth(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
 
         // Auth file for current registry

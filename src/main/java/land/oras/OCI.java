@@ -257,6 +257,12 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Tags getTags(T ref);
 
     /**
+     * Get the tags for a ref
+     * @return The repositories
+     */
+    public abstract Repositories getRepositories();
+
+    /**
      * Push an artifact
      * @param ref The container
      * @param artifactType The artifact type. Can be null

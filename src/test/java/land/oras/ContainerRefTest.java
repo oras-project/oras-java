@@ -166,6 +166,7 @@ public class ContainerRefTest {
                 containerRef.getApiRegistry(
                         Registry.builder().withRegistry("foo.io").build()));
         assertEquals("registry-1.docker.io/v2/library/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("registry-1.docker.io/v2/_catalog", containerRef.getRepositoriesPath());
         assertEquals("library", containerRef.getNamespace());
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
@@ -243,6 +244,7 @@ public class ContainerRefTest {
     void shouldGetTagsPathOtherRegistry() {
         ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/foo/alpine:latest@sha256:1234567890abcdef");
         assertEquals("demo.goharbor.io/v2/foo/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("demo.goharbor.io/v2/_catalog", containerRef.getRepositoriesPath());
         assertEquals("demo.goharbor.io/v2/foo/alpine/blobs/sha256:1234567890abcdef", containerRef.getBlobsPath(null));
         assertEquals(
                 "foo/alpine",
