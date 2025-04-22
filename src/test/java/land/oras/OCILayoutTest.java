@@ -142,6 +142,19 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldListRepositories() throws Exception {
+        Path extractDir1 = extractDir.resolve("shouldListRepositories");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        Repositories repositories = ociLayout.getRepositories();
+        assertEquals(1, repositories.repositories().size());
+        assertEquals("subject", repositories.repositories().get(0));
+    }
+
+    @Test
     void shouldPushConfig() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfig");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));

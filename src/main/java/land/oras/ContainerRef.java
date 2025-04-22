@@ -206,6 +206,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Return the catalog repositories URL
+     * @param target The target registry
+     * @return The tag URL
+     */
+    public String getRepositoriesPath(@Nullable Registry target) {
+        return "%s/v2/_catalog".formatted(getApiRegistry(target));
+    }
+
+    /**
+     * Return the catalog repositories URL
+     * @return The tag URL
+     */
+    public String getRepositoriesPath() {
+        return getRepositoriesPath(null);
+    }
+
+    /**
      * Return the tag URL
      * @param target The target registry
      * @return The tag URL

@@ -162,6 +162,19 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     @Override
+    public Repositories getRepositories() {
+        ContainerRef containerRef = ContainerRef.parse("default").forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getRepositoriesPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.get(
+                uri,
+                Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE),
+                Scopes.of(this, containerRef),
+                authProvider);
+        handleError(response);
+        return JsonUtils.fromJson(response.response(), Repositories.class);
+    }
+
+    @Override
     public Referrers getReferrers(ContainerRef containerRef, @Nullable ArtifactType artifactType) {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
