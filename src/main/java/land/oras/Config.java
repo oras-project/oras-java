@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
  * Class for config
  */
 @NullUnmarked
+@OrasModel
 public final class Config extends Descriptor {
 
     /**

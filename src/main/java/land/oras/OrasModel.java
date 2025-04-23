@@ -20,13 +20,14 @@
 
 package land.oras;
 
-import java.util.List;
-import org.jspecify.annotations.NullMarked;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * The repositories response object
- * @param repositories The repositories
+ * Annotation to mark ORAS models
  */
-@NullMarked
-@OrasModel
-public record Repositories(List<String> repositories) {}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface OrasModel {}

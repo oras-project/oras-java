@@ -30,6 +30,7 @@ import org.jspecify.annotations.NullMarked;
  * A referer of a container on a {@link OCILayout}.
  */
 @NullMarked
+@OrasModel
 public final class LayoutRef extends Ref<LayoutRef> {
 
     private final Path folder;

@@ -29,4 +29,5 @@ import org.jspecify.annotations.NullMarked;
  * @param tags The tags
  */
 @NullMarked
+@OrasModel
 public record Tags(String name, List<String> tags) {}
