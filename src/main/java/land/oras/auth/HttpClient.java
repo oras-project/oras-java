@@ -44,6 +44,7 @@ import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.Versions;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -439,7 +440,7 @@ public final class HttpClient {
             headers.forEach(builder::header);
 
             // Add user agent
-            builder = builder.header(Const.USER_AGENT_HEADER, Const.USER_AGENT_VALUE);
+            builder = builder.header(Const.USER_AGENT_HEADER, Versions.USER_AGENT_VALUE);
 
             HttpRequest request = builder.build();
             logRequest(request, body);
