@@ -71,6 +71,7 @@
     <system.stubs.version>2.1.8</system.stubs.version>
 
     <!-- Plugin version -->
+    <build.helper-maven-plugin.version>3.6.0</build.helper-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
     <spotless-maven-plugin.version>2.44.4</spotless-maven-plugin.version>
     <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
@@ -254,15 +255,6 @@
   </dependencies>
 
   <build>
-    <resources>
-      <resource>
-        <filtering>true</filtering>
-        <directory>src/main/resources</directory>
-        <includes>
-          <include>version.properties</include>
-        </includes>
-      </resource>
-    </resources>
     <pluginManagement>
       <plugins>
         <plugin>
@@ -325,9 +317,49 @@
           <version>${maven-clean-plugin.version}</version>
         </plugin>
         <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>${build.helper-maven-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>add-generated-sources</id>
+              <goals>
+                <goal>add-source</goal>
+              </goals>
+              <phase>generate-resources</phase>
+              <configuration>
+                <sources>
+                  <source>${project.build.directory}/generated-sources</source>
+                </sources>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-resources-plugin</artifactId>
           <version>${maven-resources-plugin.version}</version>
+          <executions>
+            <execution>
+              <id>copy-const</id>
+              <goals>
+                <goal>copy-resources</goal>
+              </goals>
+              <phase>generate-sources</phase>
+              <configuration>
+                <outputDirectory>${project.build.directory}/generated-sources/land/oras/utils</outputDirectory>
+                <resources>
+                  <resource>
+                    <directory>src/main/generated</directory>
+                    <filtering>true</filtering>
+                    <includes>
+                      <include>Versions.java</include>
+                    </includes>
+                  </resource>
+                </resources>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -555,6 +587,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
       </plugin>
     </plugins>
 
