@@ -69,6 +69,7 @@
     <wiremock.version>3.12.1</wiremock.version>
     <mockito.version>5.17.0</mockito.version>
     <system.stubs.version>2.1.8</system.stubs.version>
+    <classgraph.version>4.8.177</classgraph.version>
 
     <!-- Plugin version -->
     <build.helper-maven-plugin.version>3.6.0</build.helper-maven-plugin.version>
@@ -114,6 +115,11 @@
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
         <version>${gson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.classgraph</groupId>
+        <artifactId>classgraph</artifactId>
+        <version>${classgraph.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
@@ -209,6 +215,11 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.classgraph</groupId>
+      <artifactId>classgraph</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

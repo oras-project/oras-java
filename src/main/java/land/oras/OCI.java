@@ -119,6 +119,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     /**
      * Collect layers from the ref
      * @param ref The ref
+     * @param contentType The content type
      * @param includeAll Include all layers or only the ones with title annotation
      * @return The layers
      */
@@ -147,6 +148,13 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
         return layers;
     }
 
+    /**
+     * Push layers to the target
+     * @param ref The ref
+     * @param withDigest Push with digest
+     * @param paths The paths to the files
+     * @return The layers
+     */
     protected final List<Layer> pushLayers(T ref, boolean withDigest, LocalPath... paths) {
         List<Layer> layers = new ArrayList<>();
         for (LocalPath path : paths) {

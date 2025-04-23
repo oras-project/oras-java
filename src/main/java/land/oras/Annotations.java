@@ -35,6 +35,7 @@ import org.jspecify.annotations.Nullable;
  * @param filesAnnotations    Annotations for the layers/files
  */
 @NullMarked
+@OrasModel
 public record Annotations(
         Map<String, String> configAnnotations,
         Map<String, String> manifestAnnotations,

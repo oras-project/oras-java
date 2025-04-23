@@ -23,6 +23,7 @@ package land.oras;
 /**
  * Interface for describable objects
  */
+@OrasModel
 public interface Describable {
 
     /**

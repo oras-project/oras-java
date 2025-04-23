@@ -29,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  * Class for artifact type
  */
 @NullMarked
+@OrasModel
 public class ArtifactType {
 
     private final String mediaType;

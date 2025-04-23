@@ -41,6 +41,7 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 import land.oras.ContainerRef;
+import land.oras.OrasModel;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -570,6 +571,7 @@ public final class HttpClient {
      * @param expires_in The expires in
      * @param issued_at The issued at
      */
+    @OrasModel
     public record TokenResponse(
             String token,
             @Nullable String access_token,

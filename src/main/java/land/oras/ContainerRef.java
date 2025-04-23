@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * A referer of a container on a {@link Registry}.
  */
 @NullMarked
+@OrasModel
 public final class ContainerRef extends Ref<ContainerRef> {
 
     /**

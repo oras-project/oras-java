@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
  * Manifest descriptor
  */
 @NullMarked
+@OrasModel
 public final class ManifestDescriptor {
 
     private final @Nullable String artifactType;

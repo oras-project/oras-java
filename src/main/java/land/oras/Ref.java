@@ -37,7 +37,8 @@ public abstract sealed class Ref<T extends Ref<T>> permits ContainerRef, LayoutR
     protected @Nullable final String tag;
 
     /**
-     * Default constructor
+     * Constructor
+     * @param tag The tag
      */
     protected Ref(String tag) {
         this.tag = tag;

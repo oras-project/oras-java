@@ -20,6 +20,7 @@
 
 package land.oras.exception;
 
+import land.oras.OrasModel;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -30,4 +31,5 @@ import org.jspecify.annotations.Nullable;
  * @param details The error details
  */
 @NullMarked
+@OrasModel
 public record Error(String code, String message, @Nullable String details) {}

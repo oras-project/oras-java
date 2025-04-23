@@ -36,6 +36,7 @@ import org.jspecify.annotations.Nullable;
  * Class for layer
  */
 @NullMarked
+@OrasModel
 public final class Layer extends Descriptor {
 
     /**

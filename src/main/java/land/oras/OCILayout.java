@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Index from an OCI layout
  */
+@OrasModel
 public final class OCILayout extends OCI<LayoutRef> {
 
     @SuppressWarnings("all")
