@@ -20,13 +20,18 @@
 
 package land.oras.utils;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import land.oras.LocalPath;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.CleanupMode;
@@ -94,6 +99,28 @@ public class ArchiveUtilsTest {
                         PosixFilePermission.OTHERS_READ,
                         PosixFilePermission.OTHERS_WRITE,
                         PosixFilePermission.OTHERS_EXECUTE));
+    }
+
+    @Test
+    void testEnsureSafeEntry() throws Exception {
+        TarArchiveEntry entry = mock(TarArchiveEntry.class);
+        doReturn("test").when(entry).getName();
+        ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+    }
+
+    @Test
+    void throwOnUnsafeEntries() throws Exception {
+        TarArchiveEntry entry = mock(TarArchiveEntry.class);
+
+        // Simulate a path traversal attack
+        assertThrows(IOException.class, () -> {
+            doReturn("/").when(entry).getName();
+            ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+        });
+        assertThrows(IOException.class, () -> {
+            doReturn("foo/bar/../../../test").when(entry).getName();
+            ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+        });
     }
 
     @Test

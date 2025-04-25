@@ -92,7 +92,13 @@ public final class ArchiveUtils {
                 paths.forEach(path -> {
                     LOG.trace("Visiting path: {}", path);
                     try {
-                        String entryName = sourceDir.getPath().relativize(path).toString();
+
+                        Path relativePath = sourceDir.getPath().relativize(path);
+                        if (relativePath.toString().isEmpty()) {
+                            LOG.trace("Skipping root directory: {}", path);
+                            return;
+                        }
+                        String entryName = relativePath.toString();
 
                         TarArchiveEntry entry = null;
                         BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class);
@@ -143,6 +149,21 @@ public final class ArchiveUtils {
     }
 
     /**
+     * Ensure that the entry is safe to extract
+     * @param entry The tar entry
+     * @param target The target directory
+     * @throws IOException
+     */
+    static void ensureSafeEntry(TarArchiveEntry entry, Path target) throws IOException {
+        // Prevent path traversal attacks
+        Path outputPath = target.resolve(entry.getName()).normalize();
+        Path normalizedTarget = target.toAbsolutePath().normalize();
+        if (!outputPath.startsWith(normalizedTarget)) {
+            throw new IOException("Entry is outside of the target dir: " + target);
+        }
+    }
+
+    /**
      * Extract a tar file to a target directory
      * @param fis The archive stream
      * @param target The target directory
@@ -160,6 +181,9 @@ public final class ArchiveUtils {
 
                     // Prevent path traversal attacks
                     Path outputPath = target.resolve(entry.getName()).normalize();
+
+                    // Check if the entry is outside the target directory
+                    ensureSafeEntry(entry, target);
 
                     LOG.trace("Extracting entry: {}", entry.getName());
 
