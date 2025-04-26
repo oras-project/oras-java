@@ -584,7 +584,7 @@ public final class OCILayout extends OCI<LayoutRef> {
     /**
      * Builder for the registry
      */
-    public static class Builder {
+    static class Builder {
 
         private final OCILayout layout = new OCILayout();
 
@@ -600,7 +600,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * @param path The path
          * @return The builder
          */
-        public OCILayout.Builder defaults(Path path) {
+        OCILayout.Builder defaults(Path path) {
             layout.setPath(path);
             return this;
         }
@@ -609,7 +609,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * Return a new builder
          * @return The builder
          */
-        public static OCILayout.Builder builder() {
+        static OCILayout.Builder builder() {
             return new OCILayout.Builder();
         }
 
@@ -617,7 +617,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * Build the registry
          * @return The registry
          */
-        public OCILayout build() {
+        OCILayout build() {
             if (!Files.isDirectory(layout.path)) {
                 try {
                     Files.createDirectory(layout.path);

@@ -64,7 +64,7 @@ public class OCILayoutTest {
     void shouldPushEmptyManifest() {
         Path path = layoutPath.resolve("shouldPushManifest");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Manifest manifest = Manifest.empty().withConfig(Config.empty());
         manifest = ociLayout.pushManifest(layoutRef, manifest);
 
@@ -109,7 +109,7 @@ public class OCILayoutTest {
     void shouldPushIndex() {
         Path path = layoutPath.resolve("shouldPushIndex");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
         index = ociLayout.pushIndex(layoutRef, index);
 
@@ -133,8 +133,7 @@ public class OCILayoutTest {
         Files.createDirectory(extractDir1);
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         Tags tags = ociLayout.getTags(layoutRef);
         assertEquals("subject", tags.name());
         assertEquals(1, tags.tags().size());
@@ -147,8 +146,7 @@ public class OCILayoutTest {
         Files.createDirectory(extractDir1);
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         Repositories repositories = ociLayout.getRepositories();
         assertEquals(1, repositories.repositories().size());
         assertEquals("subject", repositories.repositories().get(0));
@@ -158,7 +156,7 @@ public class OCILayoutTest {
     void shouldPushConfig() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfig");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Config config = Config.empty();
         ociLayout.pushConfig(layoutRef.withDigest(config.getDigest()), config);
 
@@ -176,7 +174,7 @@ public class OCILayoutTest {
     void shouldPushConfigWithReference() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfigWithReference");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Path configFile = blobDir.resolve("config.txt");
         Files.writeString(configFile, "hello");
         Layer configLayer = Layer.fromFile(configFile);
@@ -198,7 +196,7 @@ public class OCILayoutTest {
     void shouldPushIndexWithTag() {
         Path path = layoutPath.resolve("shouldPushIndexWithTag");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
         index = ociLayout.pushIndex(layoutRef.withTag("latest"), index);
 
@@ -221,7 +219,7 @@ public class OCILayoutTest {
 
         Path path = layoutPath.resolve("shouldPushManifetFromFile");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
 
         Manifest manifest = Manifest.fromPath(
                 Path.of(
@@ -259,7 +257,7 @@ public class OCILayoutTest {
     void shouldPushEmptyManifestWithRef() {
         Path path = layoutPath.resolve("shouldPushManifest");
         LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(path.toString()));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
         Manifest manifest = Manifest.empty().withConfig(Config.empty());
         manifest = ociLayout.pushManifest(layoutRef, manifest);
 
@@ -306,8 +304,7 @@ public class OCILayoutTest {
     @Test
     void shouldEnforceTagWhenPullArtifact() throws IOException {
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         assertThrows(OrasException.class, () -> {
             ociLayout.pullArtifact(layoutRef, extractDir, false);
         });
@@ -316,8 +313,7 @@ public class OCILayoutTest {
     @Test
     void shouldEnforceTagWhenGettingDescriptor() throws IOException {
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         assertThrows(OrasException.class, () -> {
             ociLayout.getDescriptor(layoutRef);
         });
@@ -329,7 +325,7 @@ public class OCILayoutTest {
         Files.createFile(path);
         assertThrows(OrasException.class, () -> {
             LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
-            OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+            OCILayoutFactory.build(layoutRef.getFolder());
         });
     }
 
@@ -341,8 +337,7 @@ public class OCILayoutTest {
         Files.writeString(artifactPath, "hi");
 
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        OCILayout ociLayout = OCILayoutFactory.build(ociLayoutPath);
 
         // Ensure we have time created time
         Annotations annotations = Annotations.ofManifest(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()));
@@ -408,8 +403,7 @@ public class OCILayoutTest {
         Files.writeString(artifactPath, "hi");
 
         LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        OCILayout ociLayout = OCILayoutFactory.build(ociLayoutPath);
 
         // Ensure we have time created time
         Annotations annotations = Annotations.ofManifest(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()));
@@ -452,8 +446,7 @@ public class OCILayoutTest {
         Files.createDirectory(extractDir1);
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         ociLayout.pullArtifact(layoutRef, extractDir1, false);
 
         // Check file exists
@@ -525,8 +518,7 @@ public class OCILayoutTest {
         Files.createDirectory(extractDir1);
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
 
         Referrers referrers = ociLayout.getReferrers(layoutRef, null);
         assertEquals(1, referrers.getManifests().size());
@@ -549,8 +541,7 @@ public class OCILayoutTest {
         Files.createDirectory(extractDir1);
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/artifact:latest");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         Index index = ociLayout.getIndex(layoutRef);
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
@@ -575,8 +566,7 @@ public class OCILayoutTest {
 
         LayoutRef layoutRef = LayoutRef.parse(
                 "src/test/resources/oci/artifact@sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34");
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutRef.getFolder());
         ociLayout.pullArtifact(layoutRef, extractDir1, false);
 
         // Check file exists
@@ -600,7 +590,7 @@ public class OCILayoutTest {
         String digest = SupportedAlgorithm.SHA256.digest(content);
 
         LayoutRef layoutRef = LayoutRef.parse("%s@%s".formatted(path.toString(), digest));
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        OCILayout ociLayout = OCILayoutFactory.build(path);
 
         // Push more blobs
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
@@ -623,8 +613,7 @@ public class OCILayoutTest {
 
         LayoutRef noTagLayout = LayoutRef.parse("%s".formatted(invalidBlobPushDir.toString()));
         LayoutRef noDigestLayout = LayoutRef.parse("%s:latest".formatted(invalidBlobPushDir.toString()));
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+        OCILayout ociLayout = OCILayoutFactory.build(invalidBlobPushDir);
 
         // Push more blobs
         assertThrows(OrasException.class, () -> {
@@ -640,8 +629,7 @@ public class OCILayoutTest {
         Path invalidBlobPushDir = layoutPath.resolve("cannotPushWithInvalidDigest");
 
         LayoutRef wrongDigest1 = LayoutRef.parse("%s@sha234:1234".formatted(invalidBlobPushDir.toString()));
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+        OCILayout ociLayout = OCILayoutFactory.build(invalidBlobPushDir);
 
         // Push more blobs
         assertThrows(OrasException.class, () -> {
@@ -664,7 +652,7 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout = OCILayout.builder().defaults(layoutPath).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutPath);
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
@@ -702,12 +690,12 @@ public class OCILayoutTest {
 
         // Source
         LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout source = OCILayout.builder().defaults(sourceRef.getFolder()).build();
+        OCILayout source = OCILayoutFactory.build(sourceRef.getFolder());
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutRecursive");
         LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
+        OCILayout target = OCILayoutFactory.build(targetRef.getFolder());
 
         // Copy to oci layout
         CopyUtils.copy(source, sourceRef, target, targetRef, true);
@@ -732,12 +720,12 @@ public class OCILayoutTest {
 
         // Source
         LayoutRef sourceRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
-        OCILayout source = OCILayout.builder().defaults(sourceRef.getFolder()).build();
+        OCILayout source = OCILayoutFactory.build(sourceRef.getFolder());
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutNonRecursive");
         LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
+        OCILayout target = OCILayoutFactory.build(targetRef.getFolder());
 
         // Copy to oci layout
         CopyUtils.copy(source, sourceRef, target, targetRef, false);
@@ -765,7 +753,7 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutPath);
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
@@ -816,7 +804,7 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutPath);
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
@@ -893,8 +881,7 @@ public class OCILayoutTest {
                 .withInsecure(true)
                 .build();
 
-        OCILayout ociLayout =
-                OCILayout.Builder.builder().defaults(layoutPathIndex).build();
+        OCILayout ociLayout = OCILayoutFactory.build(layoutPathIndex);
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =

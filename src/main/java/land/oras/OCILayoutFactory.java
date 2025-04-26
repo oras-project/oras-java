@@ -18,25 +18,25 @@
  * =LICENSEEND=
  */
 
-package land.oras.utils;
+package land.oras;
 
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import org.jspecify.annotations.NullMarked;
+import java.nio.file.Path;
 
 /**
- * SDK Version
+ * Factory class for creating
  */
-@NullMarked
-public final class Versions {
+public final class OCILayoutFactory {
 
-    private Versions() {
+    private OCILayoutFactory() {
         // Private constructor
     }
 
     /**
-     * User agent value
+     * Build a new OCI layout
+     * @param path The path to the OCI layout
+     * @return The OCI layout
      */
-    public static final String USER_AGENT_VALUE = "ORAS-Java-SDK/${project.version}";
+    public static OCILayout build(Path path) {
+        return OCILayout.builder().defaults(path).build();
+    }
 }
