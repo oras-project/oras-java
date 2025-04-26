@@ -30,6 +30,11 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 public final class Versions {
+
+    private Versions() {
+        // Prevent instantiation
+    }
+
     /**
      * User agent value
      */
