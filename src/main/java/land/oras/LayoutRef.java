@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A referer of a container on a {@link OCILayout}.
@@ -43,7 +44,7 @@ public final class LayoutRef extends Ref<LayoutRef> {
      * Private constructor
      * @param tag The tag.
      */
-    private LayoutRef(Path folder, String tag) {
+    private LayoutRef(Path folder, @Nullable String tag) {
         super(tag);
         this.folder = folder;
     }
@@ -83,6 +84,25 @@ public final class LayoutRef extends Ref<LayoutRef> {
         Path path = Path.of(matcher.group(1)); // Folder path
         String tag = matcher.group(2) != null ? matcher.group(2) : matcher.group(3); // Tag or digest
         return new LayoutRef(path, tag);
+    }
+
+    /**
+     * Return a new layout reference for a path and digest or tag
+     * @param layout The OCI layout
+     * @param digest The digest
+     * @return The layout ref
+     */
+    public static LayoutRef of(OCILayout layout, String digest) {
+        return new LayoutRef(layout.getPath(), digest);
+    }
+
+    /**
+     * Return a new layout reference for a path and digest or tag
+     * @param layout The OCI layout
+     * @return The layout ref
+     */
+    public static LayoutRef of(OCILayout layout) {
+        return new LayoutRef(layout.getPath(), null);
     }
 
     /**
