@@ -54,8 +54,8 @@ public final class OCILayout extends OCI<LayoutRef> {
      * Return a new builder for this oci layout
      * @return The builder
      */
-    public static Builder builder() {
-        return Builder.builder();
+    public static OCILayout.Builder builder() {
+        return OCILayout.Builder.builder();
     }
 
     @Override
@@ -657,7 +657,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * @param path The path
          * @return The builder
          */
-        public Builder defaults(Path path) {
+        public OCILayout.Builder defaults(Path path) {
             layout.setPath(path);
             return this;
         }
@@ -666,8 +666,8 @@ public final class OCILayout extends OCI<LayoutRef> {
          * Return a new builder
          * @return The builder
          */
-        public static Builder builder() {
-            return new Builder();
+        public static OCILayout.Builder builder() {
+            return new OCILayout.Builder();
         }
 
         /**

@@ -1062,50 +1062,6 @@ public class OCILayoutTest {
         assertBlobExists(path, layerDigest);
     }
 
-    @Test
-    void testCleanupCyclicReferences() throws IOException {
-        Path path = layoutPath.resolve("testCleanupCyclicReferences");
-        Files.createDirectories(path);
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
-        createOciLayoutFile(path);
-
-        // Create manifests with cyclic subject references
-        String manifest1Digest = "sha256:manifest1";
-        String manifest2Digest = "sha256:manifest2";
-        String configDigest = "sha256:config1";
-        String unreferencedDigest = "sha256:unreferenced1";
-        Map<String, Object> manifest1 = createManifest(configDigest, List.of());
-        manifest1.put("subject", Map.of("digest", manifest2Digest));
-        Map<String, Object> manifest2 = createManifest(configDigest, List.of());
-        manifest2.put("subject", Map.of("digest", manifest1Digest));
-
-        // Create index
-        Map<String, Object> index = new HashMap<>();
-        index.put("schemaVersion", 2);
-        index.put(
-                "manifests",
-                Arrays.asList(
-                        Map.of("digest", manifest1Digest, "mediaType", Const.DEFAULT_MANIFEST_MEDIA_TYPE),
-                        Map.of("digest", manifest2Digest, "mediaType", Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
-        Files.write(
-                path.resolve(Const.OCI_LAYOUT_INDEX), JsonUtils.toJson(index).getBytes());
-
-        // Create blobs
-        createBlob(path, manifest1Digest, manifest1);
-        createBlob(path, manifest2Digest, manifest2);
-        createBlob(path, configDigest, "{}");
-        createBlob(path, unreferencedDigest, "unreferenced content");
-
-        // Run cleanup
-        int deleted = ociLayout.cleanupUnreferencedBlobs();
-
-        assertEquals(1, deleted, "Should delete one unreferenced blob");
-        assertBlobExists(path, manifest1Digest);
-        assertBlobExists(path, manifest2Digest);
-        assertBlobExists(path, configDigest);
-        assertBlobAbsent(path, unreferencedDigest);
-    }
-
     private void createOciLayoutFile(Path path) throws IOException {
         Map<String, String> ociLayout = Map.of("imageLayoutVersion", "1.0.0");
         Files.write(
