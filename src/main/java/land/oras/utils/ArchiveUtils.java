@@ -75,6 +75,18 @@ public final class ArchiveUtils {
     }
 
     /**
+     * Create a temporary directory
+     * @return The path to the temporary directory
+     */
+    public static Path createTempDir() {
+        try {
+            return Files.createTempDirectory("oras");
+        } catch (IOException e) {
+            throw new OrasException("Failed to create temporary directory", e);
+        }
+    }
+
+    /**
      * Create a tar.gz file from a directory
      * @param sourceDir The source directory
      * @return The path to the tar.gz file
@@ -149,6 +161,16 @@ public final class ArchiveUtils {
     }
 
     /**
+     * Create a tar compressed file from a directory
+     * @param sourceDir The source directory
+     * @param mediaType The media type
+     * @return The path to the tar compressed file
+     */
+    public static LocalPath tarcompress(LocalPath sourceDir, String mediaType) {
+        return compress(tar(sourceDir), mediaType);
+    }
+
+    /**
      * Ensure that the entry is safe to extract
      * @param entry The tar entry
      * @param target The target directory
@@ -161,6 +183,57 @@ public final class ArchiveUtils {
         if (!outputPath.startsWith(normalizedTarget)) {
             throw new IOException("Entry is outside of the target dir: " + target);
         }
+    }
+
+    /**
+     * Extract a tar file to a target directory
+     * @param path The tar file
+     * @param target The target directory
+     */
+    public static void untar(Path path, Path target) {
+        try {
+            untar(Files.newInputStream(path), target);
+        } catch (IOException e) {
+            throw new OrasException("Failed to extract tar.gz file", e);
+        }
+    }
+
+    /**
+     * Uncompress a compressed file and untar it to the target directory
+     * @param path The compressed file
+     * @param target The target directory
+     * @param mediaType The media type of the compressed file
+     */
+    public static void uncompressuntar(Path path, Path target, String mediaType) {
+        try {
+            LocalPath tar = uncompress(Files.newInputStream(path), mediaType);
+            untar(tar.getPath(), target);
+        } catch (IOException e) {
+            throw new OrasException("Failed to extract tar.gz file", e);
+        }
+    }
+
+    /**
+     * Uncompress a compressed file and untar to a temporary directory
+     * @param path The compressed file
+     * @param mediaType The media type of the compressed file
+     * @return The path to the temporary directory
+     */
+    public static Path uncompressuntar(Path path, String mediaType) {
+        Path tempDir = createTempDir();
+        uncompressuntar(path, tempDir, mediaType);
+        return tempDir;
+    }
+
+    /**
+     * Convienience method to extract a tar file to a temporary directory
+     * @param path The tar file
+     * @return The path to the temporary directory
+     */
+    public static Path untar(Path path) {
+        Path tempDir = createTempDir();
+        untar(path, tempDir);
+        return tempDir;
     }
 
     /**
