@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import land.oras.LocalPath;
+import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -124,19 +125,37 @@ public class ArchiveUtilsTest {
     }
 
     @Test
+    void shouldFailWithUnknownDirectories() {
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.untar(Path.of("unknown"), Path.of("foo"));
+        });
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.uncompressuntar(Path.of("unknown"), SupportedCompression.GZIP.getMediaType());
+        });
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.tar(LocalPath.of("foo"));
+        });
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.tarcompress(LocalPath.of("foo"), SupportedCompression.ZSTD.getMediaType());
+        });
+    }
+
+    @Test
     void shouldCreateTarGzAndExtractIt() throws Exception {
         LocalPath directory = LocalPath.of(archiveDir);
         LocalPath archive = ArchiveUtils.tar(LocalPath.of(archiveDir));
         LOG.info("Archive created: {}", archive);
-        Path compressedArchive =
-                ArchiveUtils.compress(archive, directory.getMediaType()).getPath();
+        Path compressedArchive = ArchiveUtils.tarcompress(LocalPath.of(archiveDir), directory.getMediaType())
+                .getPath();
 
         assertTrue(Files.exists(compressedArchive), "Archive should exist");
 
-        Path uncompressedArchive = ArchiveUtils.uncompress(
-                        Files.newInputStream(compressedArchive), Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
-                .getPath();
-        ArchiveUtils.untar(Files.newInputStream(uncompressedArchive), targetGzDir);
+        ArchiveUtils.uncompressuntar(compressedArchive, targetGzDir, directory.getMediaType());
+
+        // Untar to temporary
+        Path tmp = ArchiveUtils.untar(archive.getPath());
+        assertTrue(Files.exists(tmp), "Temp should exist");
+        assertTrue(Files.exists(tmp.resolve("dir1")), "dir1 should exist");
 
         // Ensure all files are extracted
         assertTrue(Files.exists(targetGzDir.resolve("dir1")), "dir1 should exist");
@@ -164,6 +183,10 @@ public class ArchiveUtilsTest {
 
         // Ensure symlink is extracted
         assertTrue(Files.isSymbolicLink(targetGzDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+
+        // To temporary
+        Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
+        assertTrue(Files.exists(temp), "Temp should exist");
     }
 
     @Test
@@ -180,6 +203,11 @@ public class ArchiveUtilsTest {
                         Files.newInputStream(compressedArchive), Const.BLOB_DIR_ZSTD_MEDIA_TYPE)
                 .getPath();
         ArchiveUtils.untar(Files.newInputStream(uncompressedArchive), targetZstdDir);
+
+        // Untar to temporary
+        Path tmp = ArchiveUtils.untar(archive.getPath());
+        assertTrue(Files.exists(tmp), "Temp should exist");
+        assertTrue(Files.exists(tmp.resolve("dir1")), "dir1 should exist");
 
         // Ensure all files are extracted
         assertTrue(Files.exists(targetZstdDir.resolve("dir1")), "dir1 should exist");
@@ -207,5 +235,9 @@ public class ArchiveUtilsTest {
 
         // Ensure symlink is extracted
         assertTrue(Files.isSymbolicLink(targetZstdDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+
+        // To temporary
+        Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
+        assertTrue(Files.exists(temp), "Temp should exist");
     }
 }
