@@ -22,9 +22,15 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class DockerIoITCase {
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void shouldPullAnonymousIndex() {
@@ -44,5 +50,15 @@ public class DockerIoITCase {
         ContainerRef containerRef3 = ContainerRef.parse("alpine");
         Index index3 = registry.getIndex(containerRef3);
         assertNotNull(index3);
+    }
+
+    @Test
+    void shouldPullOneBlob() throws IOException {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef1 = ContainerRef.parse("jbangdev/jbang-action");
+        Manifest manifest = registry.getManifest(containerRef1);
+        Layer oneLayer = manifest.getLayers().get(0);
+        registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
+        assertNotNull(tempDir.resolve("my-blob"));
     }
 }

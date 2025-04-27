@@ -447,27 +447,30 @@ public final class HttpClient {
             logRequest(request, body);
             HttpResponse<T> response = client.send(request, handler);
 
-            if (response.statusCode() == HttpURLConnection.HTTP_MOVED_PERM
-                    || response.statusCode() == HttpURLConnection.HTTP_MOVED_TEMP
-                    || response.statusCode() == 307) {
-
-                LOG.debug(
-                        "Redirecting to {}",
-                        response.headers().firstValue("Location").orElseThrow());
-                URI redirectUri =
-                        new URI(response.headers().firstValue("Location").orElseThrow());
-                HttpRequest.Builder newBuilder =
-                        HttpRequest.newBuilder().uri(redirectUri).method(method, bodyPublisher);
-                HttpRequest newRequest = newBuilder.build();
-                logRequest(newRequest, body);
-                HttpResponse<T> newResponse = client.send(newRequest, handler);
-                return redoRequest(newResponse, newBuilder, handler, newScopes, authProvider);
+            // Follow redirect
+            if (shouldRedirect(response)) {
+                String location = getLocationHeader(response);
+                LOG.debug("Redirecting to {}", location);
+                return executeRequest(
+                        method, URI.create(location), headers, body, handler, bodyPublisher, newScopes, authProvider);
             }
             return redoRequest(response, builder, handler, newScopes, authProvider);
         } catch (Exception e) {
             LOG.error("Failed to execute request", e);
             throw new OrasException("Unable to create HTTP request", e);
         }
+    }
+
+    private <T> boolean shouldRedirect(HttpResponse<T> response) {
+        return response.statusCode() == HttpURLConnection.HTTP_MOVED_PERM
+                || response.statusCode() == HttpURLConnection.HTTP_MOVED_TEMP
+                || response.statusCode() == 307;
+    }
+
+    private <T> String getLocationHeader(HttpResponse<T> response) {
+        return response.headers()
+                .firstValue("Location")
+                .orElseThrow(() -> new OrasException("No Location header found"));
     }
 
     private <T> ResponseWrapper<T> redoRequest(
@@ -488,7 +491,17 @@ public final class HttpClient {
             }
             try {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + token.token());
-                return toResponseWrapper(client.send(builder.build(), handler));
+                HttpResponse<T> newResponse = client.send(builder.build(), handler);
+
+                // Follow redirect
+                if (shouldRedirect(newResponse)) {
+                    String location = getLocationHeader(newResponse);
+                    LOG.debug("Redirecting after auth to {}", location);
+                    return toResponseWrapper(
+                            client.send(builder.uri(URI.create(location)).build(), handler));
+                }
+                return toResponseWrapper(newResponse);
+
             } catch (Exception e) {
                 LOG.error("Failed to redo request", e);
                 throw new OrasException("Unable to redo HTTP request", e);

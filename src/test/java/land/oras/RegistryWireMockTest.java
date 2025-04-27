@@ -492,6 +492,62 @@ public class RegistryWireMockTest {
     }
 
     @Test
+    void shouldFollowRedirectAfterRequestingToken(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Redirect to a fake other storage
+        String redirectUrl = "http://%s/storage/%s".formatted(registryUrl, digest);
+
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+
+        // First we need to authenticate
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-first-token/blobs/%s".formatted(digest)))
+                .inScenario("redirect after token")
+                .willSetStateTo("auth requested")
+                .willReturn(WireMock.unauthorized()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/get-first-token:pull\""
+                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+
+        // Token is returned
+        wireMock.register(WireMock.any(
+                        WireMock.urlEqualTo("/token?scope=repository:library/get-first-token:pull&service=localhost"))
+                .inScenario("redirect after token")
+                .whenScenarioStateIs("auth requested")
+                .willSetStateTo("got token")
+                .willReturn(WireMock.okJson(JsonUtils.toJson(
+                        new HttpClient.TokenResponse("fake-token", "access-token", 300, ZonedDateTime.now())))));
+
+        // After getting token we get a redirect
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-first-token/blobs/%s".formatted(digest)))
+                .inScenario("redirect after token")
+                .whenScenarioStateIs("got token")
+                .willSetStateTo("redirect")
+                .willReturn(WireMock.temporaryRedirect(redirectUrl)));
+
+        // We finally get the blob
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/storage/%s".formatted(digest)))
+                .inScenario("redirect after token")
+                .whenScenarioStateIs("redirect")
+                .willSetStateTo("done")
+                .willReturn(WireMock.ok("blob-data")));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/get-first-token".formatted(wmRuntimeInfo.getHttpPort()));
+        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
+        assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
     void shouldHandleConcurrentBlobPushes(WireMockRuntimeInfo wmRuntimeInfo) throws IOException, InterruptedException {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
