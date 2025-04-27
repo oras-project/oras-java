@@ -24,10 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Stream;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -56,8 +54,8 @@ public final class OCILayout extends OCI<LayoutRef> {
      * Return a new builder for this oci layout
      * @return The builder
      */
-    public static OCILayout.Builder builder() {
-        return OCILayout.Builder.builder();
+    public static Builder builder() {
+        return Builder.builder();
     }
 
     @Override
@@ -331,6 +329,71 @@ public final class OCILayout extends OCI<LayoutRef> {
     private void setPath(Path path) {
         this.path = path;
     }
+    /**
+     * Clean up unreferenced blobs in the OCI layout.
+     *
+     * @return the number of blobs deleted
+     * @throws IOException if an I/O error occurs
+     */
+    public int cleanupUnreferencedBlobs() throws IOException {
+        LOG.info("Starting cleanup of unreferenced blobs in OCI layout: {}", path);
+
+        // Collect all referenced digests
+        Set<String> referencedDigests = new HashSet<>();
+        Path indexPath = path.resolve("index.json");
+        if (!Files.exists(indexPath)) {
+            LOG.warn("No index.json found in layout: {}", path);
+            return 0;
+        }
+
+        String indexContent = Files.readString(indexPath);
+        Map<String, Object> index = JsonUtils.fromJson(indexContent, Map.class);
+        if (index.containsKey("manifests")) {
+            List<Map<String, Object>> manifests = (List<Map<String, Object>>) index.get("manifests");
+            for (Map<String, Object> manifest : manifests) {
+                String digest = (String) manifest.get("digest");
+                if (digest != null) {
+                    referencedDigests.add(digest);
+                    referencedDigests.addAll(collectReferencedDigests(this, digest, new HashSet<>()));
+                }
+            }
+        } else {
+            LOG.warn("No manifests found in index.json: {}", indexPath);
+        }
+
+        // List all blobs in blobs/sha256
+        Path blobsDir = path.resolve("blobs").resolve("sha256");
+        if (!Files.exists(blobsDir)) {
+            LOG.warn("No blobs directory found in layout: {}", path);
+            return 0;
+        }
+
+        Set<String> allBlobs = new HashSet<>();
+        try (Stream<Path> blobPaths = Files.list(blobsDir)) {
+            blobPaths.forEach(blobPath -> {
+                String fileName = blobPath.getFileName().toString();
+                allBlobs.add("sha256:" + fileName);
+            });
+        }
+
+        // Identify and delete unreferenced blobs
+        int deletedCount = 0;
+        for (String blobDigest : allBlobs) {
+            if (!referencedDigests.contains(blobDigest)) {
+                Path blobPath = blobsDir.resolve(blobDigest.substring("sha256:".length()));
+                try {
+                    Files.delete(blobPath);
+                    LOG.info("Deleted unreferenced blob: {}", blobDigest);
+                    deletedCount++;
+                } catch (IOException e) {
+                    LOG.error("Failed to delete blob {}: {}", blobDigest, e.getMessage());
+                }
+            }
+        }
+
+        LOG.info("Cleanup completed. Deleted {} unreferenced blobs.", deletedCount);
+        return deletedCount;
+    }
 
     /**
      * Return the JSON representation of the referrers
@@ -594,7 +657,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * @param path The path
          * @return The builder
          */
-        public OCILayout.Builder defaults(Path path) {
+        public Builder defaults(Path path) {
             layout.setPath(path);
             return this;
         }
@@ -603,8 +666,8 @@ public final class OCILayout extends OCI<LayoutRef> {
          * Return a new builder
          * @return The builder
          */
-        public static OCILayout.Builder builder() {
-            return new OCILayout.Builder();
+        public static Builder builder() {
+            return new Builder();
         }
 
         /**

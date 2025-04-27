@@ -27,13 +27,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
+import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -406,5 +404,99 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                 ref.withDigest(
                         SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
                 manifest);
+    }
+    /**
+     * Collect all referenced digests from a manifest or index recursively.
+     *
+     * @param layout the OCI layout instance
+     * @param digest the digest of the manifest or index to process
+     * @param visited set of visited digests to avoid cycles
+     * @return set of referenced digests
+     * @throws IOException if an I/O error occurs
+     */
+    public Set<String> collectReferencedDigests(OCILayout layout, String digest, Set<String> visited)
+            throws IOException {
+        Set<String> digests = new HashSet<>();
+        if (visited.contains(digest) || digest == null) {
+            return digests; // Avoid infinite recursion or null digests
+        }
+        visited.add(digest);
+
+        // Read the manifest or index
+        Path blobPath = layout.getBlobPath(digest);
+        String content = Files.readString(blobPath);
+        Map<String, Object> node = JsonUtils.fromJson(content, Map.class);
+
+        // Handle index (has "manifests")
+        if (node.containsKey("manifests")) {
+            List<Map<String, Object>> manifests = (List<Map<String, Object>>) node.get("manifests");
+            for (Map<String, Object> manifest : manifests) {
+                String manifestDigest = (String) manifest.get("digest");
+                if (manifestDigest != null) {
+                    digests.add(manifestDigest);
+                    digests.addAll(collectReferencedDigests(layout, manifestDigest, visited));
+                }
+            }
+        } else {
+            // Handle manifest
+            // Collect config digest
+            if (node.containsKey("config")) {
+                Map<String, Object> config = (Map<String, Object>) node.get("config");
+                String configDigest = (String) config.get("digest");
+                if (configDigest != null) {
+                    digests.add(configDigest);
+                }
+            }
+            // Collect layer digests
+            if (node.containsKey("layers")) {
+                List<Map<String, Object>> layers = (List<Map<String, Object>>) node.get("layers");
+                for (Map<String, Object> layer : layers) {
+                    String layerDigest = (String) layer.get("digest");
+                    if (layerDigest != null) {
+                        digests.add(layerDigest);
+                    }
+                }
+            }
+            // Handle subject (for reference artifacts)
+            if (node.containsKey("subject")) {
+                Map<String, Object> subject = (Map<String, Object>) node.get("subject");
+                String subjectDigest = (String) subject.get("digest");
+                if (subjectDigest != null) {
+                    digests.add(subjectDigest);
+                    digests.addAll(collectReferencedDigests(layout, subjectDigest, visited));
+                }
+            }
+        }
+
+        return digests;
+    }
+
+    /**
+     * Get the blob path for a given digest.
+     *
+     * @param digest the digest (e.g., sha256:abc123)
+     * @return the file path to the blob
+     */
+    public Path getBlobPath(String digest) {
+        String[] parts = digest.split(":");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid digest format: " + digest);
+        }
+        String algorithm = parts[0];
+        String hash = parts[1];
+        if (this instanceof OCILayout) {
+            OCILayout layout = (OCILayout) this;
+            return layout.getPath().resolve("blobs").resolve(algorithm).resolve(hash);
+        }
+        throw new UnsupportedOperationException("getBlobPath not supported in this context");
+    }
+
+    /**
+     * Get the layout path.
+     *
+     * @return the path
+     */
+    protected Path getPath() {
+        throw new UnsupportedOperationException("getPath not supported in this context");
     }
 }

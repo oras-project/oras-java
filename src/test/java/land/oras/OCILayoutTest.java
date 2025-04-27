@@ -27,10 +27,13 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
+import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import org.junit.jupiter.api.Test;
@@ -980,6 +983,166 @@ public class OCILayoutTest {
         assertIndex(layoutPath, manifest, 1, 0);
     }
 
+    @Test
+    void testCleanupUnreferencedBlobs() throws IOException {
+        Path path = layoutPath.resolve("testCleanupUnreferencedBlobs");
+        Files.createDirectories(path);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        createOciLayoutFile(path);
+
+        // Create index with one manifest
+        String manifestDigest = "sha256:manifest1";
+        String configDigest = "sha256:config1";
+        String layerDigest = "sha256:layer1";
+        String unreferencedDigest = "sha256:unreferenced1";
+        Map<String, Object> index = createIndexWithManifest(manifestDigest);
+        Files.write(
+                path.resolve(Const.OCI_LAYOUT_INDEX), JsonUtils.toJson(index).getBytes());
+
+        // Create blobs
+        createBlob(path, manifestDigest, createManifest(configDigest, List.of(layerDigest)));
+        createBlob(path, configDigest, "{}");
+        createBlob(path, layerDigest, "layer content");
+        createBlob(path, unreferencedDigest, "unreferenced content");
+
+        // Run cleanup
+        int deleted = ociLayout.cleanupUnreferencedBlobs();
+
+        assertEquals(1, deleted, "Should delete one unreferenced blob");
+        assertBlobExists(path, manifestDigest);
+        assertBlobExists(path, configDigest);
+        assertBlobExists(path, layerDigest);
+        assertBlobAbsent(path, unreferencedDigest);
+    }
+
+    @Test
+    void testCleanupNoIndexJson() throws IOException {
+        Path path = layoutPath.resolve("testCleanupNoIndexJson");
+        Files.createDirectories(path);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        createOciLayoutFile(path);
+
+        // Create unreferenced blob
+        String unreferencedDigest = "sha256:unreferenced1";
+        createBlob(path, unreferencedDigest, "unreferenced content");
+
+        // Run cleanup
+        int deleted = ociLayout.cleanupUnreferencedBlobs();
+
+        assertEquals(1, deleted, "Should delete unreferenced blobs when index.json is missing");
+        assertBlobAbsent(path, unreferencedDigest);
+    }
+
+    @Test
+    void testCleanupNoUnreferencedBlobs() throws IOException {
+        Path path = layoutPath.resolve("testCleanupNoUnreferencedBlobs");
+        Files.createDirectories(path);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        createOciLayoutFile(path);
+
+        // Create index with one manifest
+        String manifestDigest = "sha256:manifest1";
+        String configDigest = "sha256:config1";
+        String layerDigest = "sha256:layer1";
+        Map<String, Object> index = createIndexWithManifest(manifestDigest);
+        Files.write(
+                path.resolve(Const.OCI_LAYOUT_INDEX), JsonUtils.toJson(index).getBytes());
+
+        // Create blobs
+        createBlob(path, manifestDigest, createManifest(configDigest, List.of(layerDigest)));
+        createBlob(path, configDigest, "{}");
+        createBlob(path, layerDigest, "layer content");
+
+        // Run cleanup
+        int deleted = ociLayout.cleanupUnreferencedBlobs();
+
+        assertEquals(0, deleted, "No deletions when all blobs are referenced");
+        assertBlobExists(path, manifestDigest);
+        assertBlobExists(path, configDigest);
+        assertBlobExists(path, layerDigest);
+    }
+
+    @Test
+    void testCleanupCyclicReferences() throws IOException {
+        Path path = layoutPath.resolve("testCleanupCyclicReferences");
+        Files.createDirectories(path);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        createOciLayoutFile(path);
+
+        // Create manifests with cyclic subject references
+        String manifest1Digest = "sha256:manifest1";
+        String manifest2Digest = "sha256:manifest2";
+        String configDigest = "sha256:config1";
+        String unreferencedDigest = "sha256:unreferenced1";
+        Map<String, Object> manifest1 = createManifest(configDigest, List.of());
+        manifest1.put("subject", Map.of("digest", manifest2Digest));
+        Map<String, Object> manifest2 = createManifest(configDigest, List.of());
+        manifest2.put("subject", Map.of("digest", manifest1Digest));
+
+        // Create index
+        Map<String, Object> index = new HashMap<>();
+        index.put("schemaVersion", 2);
+        index.put(
+                "manifests",
+                Arrays.asList(
+                        Map.of("digest", manifest1Digest, "mediaType", Const.DEFAULT_MANIFEST_MEDIA_TYPE),
+                        Map.of("digest", manifest2Digest, "mediaType", Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
+        Files.write(
+                path.resolve(Const.OCI_LAYOUT_INDEX), JsonUtils.toJson(index).getBytes());
+
+        // Create blobs
+        createBlob(path, manifest1Digest, manifest1);
+        createBlob(path, manifest2Digest, manifest2);
+        createBlob(path, configDigest, "{}");
+        createBlob(path, unreferencedDigest, "unreferenced content");
+
+        // Run cleanup
+        int deleted = ociLayout.cleanupUnreferencedBlobs();
+
+        assertEquals(1, deleted, "Should delete one unreferenced blob");
+        assertBlobExists(path, manifest1Digest);
+        assertBlobExists(path, manifest2Digest);
+        assertBlobExists(path, configDigest);
+        assertBlobAbsent(path, unreferencedDigest);
+    }
+
+    private void createOciLayoutFile(Path path) throws IOException {
+        Map<String, String> ociLayout = Map.of("imageLayoutVersion", "1.0.0");
+        Files.write(
+                path.resolve(Const.OCI_LAYOUT_FILE), JsonUtils.toJson(ociLayout).getBytes());
+        Files.createDirectories(path.resolve("blobs/sha256"));
+    }
+
+    private Map<String, Object> createIndexWithManifest(String manifestDigest) {
+        Map<String, Object> index = new HashMap<>();
+        index.put("schemaVersion", 2);
+        index.put(
+                "manifests", List.of(Map.of("digest", manifestDigest, "mediaType", Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
+        return index;
+    }
+
+    private Map<String, Object> createManifest(String configDigest, List<String> layerDigests) {
+        Map<String, Object> manifest = new HashMap<>();
+        manifest.put("schemaVersion", 2);
+        manifest.put("config", Map.of("digest", configDigest, "mediaType", "application/vnd.oci.image.config.v1+json"));
+        if (!layerDigests.isEmpty()) {
+            manifest.put(
+                    "layers",
+                    layerDigests.stream()
+                            .map(digest ->
+                                    Map.of("digest", digest, "mediaType", "application/vnd.oci.image.layer.v1.tar"))
+                            .toList());
+        }
+        return manifest;
+    }
+
+    private void createBlob(Path path, String digest, Object content) throws IOException {
+        String hash = SupportedAlgorithm.getDigest(digest);
+        Path blobPath = path.resolve("blobs/sha256/" + hash);
+        String jsonContent = content instanceof String ? (String) content : JsonUtils.toJson(content);
+        Files.write(blobPath, jsonContent.getBytes());
+    }
+
     private void assertOciLayout(Path layoutPath) {
         assertTrue(Files.exists(layoutPath.resolve(Const.OCI_LAYOUT_FILE)));
         OCILayout layoutFile = OCILayout.fromLayoutIndex(layoutPath);
@@ -1023,6 +1186,7 @@ public class OCILayoutTest {
     }
 
     private void assertBlobExists(Path ociLayoutPath, String digest) {
+        String digestWithPrefix = digest.startsWith("sha256:") ? digest : "sha256:" + digest;
         assertTrue(
                 Files.exists(ociLayoutPath
                         .resolve("blobs")
@@ -1032,6 +1196,7 @@ public class OCILayoutTest {
     }
 
     private void assertBlobAbsent(Path ociLayoutPath, String digest) {
+        String digestWithPrefix = digest.startsWith("sha256:") ? digest : "sha256:" + digest;
         assertFalse(
                 Files.exists(ociLayoutPath
                         .resolve("blobs")
