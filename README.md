@@ -36,6 +36,12 @@ Javadoc is published from main branch into: https://oras-project.github.io/oras-
 </dependency>
 ```
 
+### Quarkus
+
+Quarkus users can use the extension `quarkus-oras` to use the SDK in their applications.
+
+Follow the [Quarkus ORAS documentation](https://docs.quarkiverse.io/quarkus-oras/dev/index.html#) to get started with Quarkus.
+
 ### Only for SNAPSHOTS (only for testing)
 
 GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
@@ -69,27 +75,27 @@ Then on your `pom.xml`
 Using default existing login existing credentials (e.g. `~/.docker/config.json`)
 
 ```java
-Registry registry = Registry.Builder.builder().defaults().build();
+Registry registry = Registry.builder().defaults().build();
 ```
 
 Using username and password
 
 ```java
-Registry registry = Registry.Builder.builder().defaults("username", "password").build();
+Registry registry = Registry.builder().defaults("username", "password").build();
 ```
 
 ### Push an Artifact
 
 ```java
 LocalPath artifact = LocalPath.of("my-file.txt");
-Registry registry = Registry.Builder.builder().insecure().build();
+Registry registry = Registry.builder().insecure().build();
 Manifest manifest = registry.pushArtifact(ContainerRef.parse("localhost:5000/hello:v1"), artifact);
 ```
 
 ### Pull an Artifact
 
 ```java
-Registry registry = Registry.Builder.builder().insecure().build();
+Registry registry = Registry.builder().insecure().build();
 registry.pullArtifact(ContainerRef.parse("localhost:5000/hello:v1"), Path.of("folder"), false);
 ```
 

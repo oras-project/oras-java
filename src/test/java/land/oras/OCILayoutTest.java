@@ -145,6 +145,19 @@ public class OCILayoutTest {
     }
 
     @Test
+    void shouldListRepositories() throws Exception {
+        Path extractDir1 = extractDir.resolve("shouldListRepositories");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        Repositories repositories = ociLayout.getRepositories();
+        assertEquals(1, repositories.repositories().size());
+        assertEquals("subject", repositories.repositories().get(0));
+    }
+
+    @Test
     void shouldPushConfig() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfig");
         LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
@@ -589,8 +602,8 @@ public class OCILayoutTest {
         byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
         String digest = SupportedAlgorithm.SHA256.digest(content);
 
-        LayoutRef layoutRef = LayoutRef.parse("%s@%s".formatted(path.toString(), digest));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        LayoutRef layoutRef = LayoutRef.of(ociLayout, digest);
 
         // Push more blobs
         ociLayout.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
@@ -611,10 +624,11 @@ public class OCILayoutTest {
 
         Path invalidBlobPushDir = layoutPath.resolve("shouldPushArtifact");
 
-        LayoutRef noTagLayout = LayoutRef.parse("%s".formatted(invalidBlobPushDir.toString()));
-        LayoutRef noDigestLayout = LayoutRef.parse("%s:latest".formatted(invalidBlobPushDir.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+
+        LayoutRef noTagLayout = LayoutRef.of(ociLayout);
+        LayoutRef noDigestLayout = LayoutRef.of(ociLayout, "latest");
 
         // Push more blobs
         assertThrows(OrasException.class, () -> {
@@ -655,7 +669,7 @@ public class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.builder().defaults(layoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.of(ociLayout);
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));

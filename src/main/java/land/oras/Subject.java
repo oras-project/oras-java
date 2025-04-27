@@ -27,6 +27,7 @@ import org.jspecify.annotations.NullMarked;
  * Class for subject
  */
 @NullMarked
+@OrasModel
 public final class Subject {
 
     private final String mediaType;

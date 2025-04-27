@@ -20,21 +20,13 @@
 
 package land.oras;
 
+import java.util.List;
+import org.jspecify.annotations.NullMarked;
+
 /**
- * Interface for describable objects
+ * The repositories response object
+ * @param repositories The repositories
  */
+@NullMarked
 @OrasModel
-public interface Describable {
-
-    /**
-     * Get the manifest descriptor for this describable
-     * @return The manifest descriptor
-     */
-    ManifestDescriptor getDescriptor();
-
-    /**
-     * Get the subject
-     * @return The subject
-     */
-    Subject getSubject();
-}
+public record Repositories(List<String> repositories) {}

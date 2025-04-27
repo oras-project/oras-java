@@ -40,6 +40,9 @@ public class ContainerRefTest {
         assertEquals("sha256@12344", withDigest1.getDigest());
         assertEquals("library", withDigest1.getNamespace());
         assertEquals(
+                "library/foo",
+                containerRef1.getFullRepository(Registry.builder().build()));
+        assertEquals(
                 "library",
                 withDigest1.getNamespace(
                         Registry.builder().withRegistry("foo.io").build()));
@@ -85,6 +88,9 @@ public class ContainerRefTest {
         ContainerRef containerRef = ContainerRef.parse("docker.io/alpine:latest@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("library", containerRef.getNamespace());
+        assertEquals(
+                "library/alpine",
+                containerRef.getFullRepository(Registry.builder().build()));
         assertEquals("library", containerRef.getNamespace(Registry.builder().build()));
         assertEquals("alpine", containerRef.getRepository());
         assertEquals(
@@ -160,6 +166,7 @@ public class ContainerRefTest {
                 containerRef.getApiRegistry(
                         Registry.builder().withRegistry("foo.io").build()));
         assertEquals("registry-1.docker.io/v2/library/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("registry-1.docker.io/v2/_catalog", containerRef.getRepositoriesPath());
         assertEquals("library", containerRef.getNamespace());
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
@@ -171,6 +178,9 @@ public class ContainerRefTest {
         ContainerRef containerRef = ContainerRef.parse("alpine");
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("library", containerRef.getNamespace());
+        assertEquals(
+                "library/alpine",
+                containerRef.getFullRepository(Registry.builder().build()));
         assertEquals("library", containerRef.getNamespace(Registry.builder().build()));
         assertEquals(
                 "library",
@@ -218,15 +228,30 @@ public class ContainerRefTest {
     }
 
     @Test
+    void shouldHandleNoNamespace() {
+        Registry registry =
+                Registry.builder().defaults().withRegistry("demo.goharbor.io").build();
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/alpine:latest");
+        assertEquals("demo.goharbor.io", containerRef.getRegistry());
+        assertNull(containerRef.getNamespace(registry));
+        assertNull(containerRef.getNamespace());
+        assertEquals("alpine", containerRef.getRepository());
+        assertEquals("alpine", containerRef.getFullRepository());
+        assertEquals("alpine", containerRef.getFullRepository(registry));
+    }
+
+    @Test
     void shouldGetTagsPathOtherRegistry() {
-        ContainerRef containerRef =
-                ContainerRef.parse("demo.goharbor.io/library/foo/alpine:latest@sha256:1234567890abcdef");
-        assertEquals("demo.goharbor.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("demo.goharbor.io/v2/foo/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("demo.goharbor.io/v2/_catalog", containerRef.getRepositoriesPath());
+        assertEquals("demo.goharbor.io/v2/foo/alpine/blobs/sha256:1234567890abcdef", containerRef.getBlobsPath(null));
         assertEquals(
-                "demo.goharbor.io/v2/library/foo/alpine/blobs/sha256:1234567890abcdef",
-                containerRef.getBlobsPath(null));
+                "foo/alpine",
+                containerRef.getFullRepository(
+                        Registry.builder().withRegistry("demo.goharbor.io").build()));
         assertEquals(
-                "foo.io/v2/library/foo/alpine/blobs/sha256:1234567890abcdef",
+                "foo.io/v2/foo/alpine/blobs/sha256:1234567890abcdef",
                 containerRef.getBlobsPath(
                         Registry.builder().withRegistry("foo.io").build()));
     }

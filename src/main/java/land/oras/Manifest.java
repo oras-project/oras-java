@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * Class for manifest
  */
 @NullUnmarked
+@OrasModel
 public final class Manifest extends Descriptor implements Describable {
 
     private final int schemaVersion;

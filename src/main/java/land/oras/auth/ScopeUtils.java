@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import land.oras.ContainerRef;
-import land.oras.Registry;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -49,12 +48,12 @@ final class ScopeUtils {
      * @return the updated scopes
      */
     public static List<String> appendRepositoryScope(
-            @Nullable List<String> existingScopes, Registry registry, ContainerRef ref, Scope... scope) {
+            @Nullable List<String> existingScopes, ContainerRef ref, Scope... scope) {
         if (existingScopes == null) {
             existingScopes = new ArrayList<>();
         }
         List<String> cleaned = new LinkedList<>(cleanScopes(existingScopes));
-        String repositoryScope = scopeRepository(registry, ref, scope);
+        String repositoryScope = scopeRepository(ref, scope);
         if (!repositoryScope.isEmpty()) {
             cleaned.add(repositoryScope);
         }
@@ -67,20 +66,13 @@ final class ScopeUtils {
      * @param scopes the scopes to include
      * @return the formatted scope string
      */
-    static String scopeRepository(Registry registry, ContainerRef ref, Scope... scopes) {
+    static String scopeRepository(ContainerRef ref, Scope... scopes) {
         List<String> actions = Arrays.stream(scopes).map(Scope::toLowerCase).collect(Collectors.toList());
-
         List<String> cleaned = cleanActions(actions);
-        String namespace = ref.getNamespace(registry);
-        String repository = ref.getRepository();
-        if (namespace != null && !namespace.isEmpty()) {
-            repository = "%s/%s".formatted(namespace, repository);
-        }
-
-        if (repository == null || repository.isEmpty() || cleaned.isEmpty()) {
+        String repository = ref.getFullRepository();
+        if (cleaned.isEmpty()) {
             return "";
         }
-
         return String.join(":", "repository", repository, String.join(",", cleaned));
     }
 

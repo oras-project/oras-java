@@ -18,23 +18,25 @@
  * =LICENSEEND=
  */
 
-package land.oras;
+package land.oras.utils;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import org.jspecify.annotations.NullMarked;
 
 /**
- * Interface for describable objects
+ * SDK Version
  */
-@OrasModel
-public interface Describable {
+@NullMarked
+public final class Versions {
+
+    private Versions() {
+        // Prevent instantiation
+    }
 
     /**
-     * Get the manifest descriptor for this describable
-     * @return The manifest descriptor
+     * User agent value
      */
-    ManifestDescriptor getDescriptor();
-
-    /**
-     * Get the subject
-     * @return The subject
-     */
-    Subject getSubject();
+    public static final String USER_AGENT_VALUE = "ORAS-Java-SDK/${project.version}";
 }

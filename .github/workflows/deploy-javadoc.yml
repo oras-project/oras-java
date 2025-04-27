@@ -23,7 +23,7 @@ jobs:
           cache-enabled: true
 
       - name: Build javadoc
-        run: mvn javadoc:javadoc
+        run: mvn generate-resources javadoc:javadoc
 
       - name: Upload javadoc
         id: upload-javadoc

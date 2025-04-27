@@ -59,6 +59,9 @@ public class SupportedAlgorithmTest {
         assertEquals(
                 "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
                 SupportedAlgorithm.SHA256.digest(Files.newInputStream(file)));
+        assertEquals(
+                "sha1:aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d",
+                SupportedAlgorithm.SHA1.digest(Files.newInputStream(file)));
     }
 
     @Test
@@ -97,8 +100,9 @@ public class SupportedAlgorithmTest {
         assertTrue(SupportedAlgorithm.isSupported(
                 "blake3:0b8b60248fad7ac6dfac221b7e01a8b91c772421a15b387dd1fb2d6a94aee438"));
 
+        assertTrue(SupportedAlgorithm.isSupported("sha1:c22b5f9178342609428d6f51b2c5af4c0bde6a42"));
+
         // Not supported
-        assertFalse(SupportedAlgorithm.isSupported("sha1:c22b5f9178342609428d6f51b2c5af4c0bde6a42"));
         assertFalse(SupportedAlgorithm.isSupported("latest"));
     }
 
@@ -126,6 +130,7 @@ public class SupportedAlgorithmTest {
 
     @Test
     void shouldGetAlgorithmName() {
+        assertEquals("SHA-1", SupportedAlgorithm.SHA1.getAlgorithmName());
         assertEquals("SHA-256", SupportedAlgorithm.SHA256.getAlgorithmName());
         assertEquals("SHA-384", SupportedAlgorithm.SHA384.getAlgorithmName());
         assertEquals("SHA-512", SupportedAlgorithm.SHA512.getAlgorithmName());

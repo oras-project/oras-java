@@ -67,14 +67,25 @@ public class RegistryTest {
     }
 
     @Test
+    void shouldListRepositories() {
+
+        // Setup
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
+                .build();
+
+        // Test
+        List<String> repositories = registry.getRepositories().repositories();
+        assertNotNull(repositories);
+    }
+
+    @Test
     void shouldFailToPushBlobForInvalidDigest() {
-        Registry registry = Registry.Builder.builder()
-                .defaults("myuser", "mypass")
-                .withInsecure(true)
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
                 .build();
         ContainerRef containerRef1 = ContainerRef.parse(
-                "%s/library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-                        .formatted(this.registry.getRegistry()));
+                "library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
         // Ensure the blob is deleted
         assertThrows(OrasException.class, () -> {
             registry.pushBlob(containerRef1, "invalid".getBytes());
@@ -85,11 +96,11 @@ public class RegistryTest {
     void shouldPushAndGetBlobThenDeleteWithSha256() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
+                .withRegistry(this.registry.getRegistry())
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-                        .formatted(this.registry.getRegistry()));
+                "library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
         Layer layer = registry.pushBlob(containerRef, "hello".getBytes());
         assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", layer.getDigest());
         byte[] blob = registry.getBlob(
@@ -141,12 +152,29 @@ public class RegistryTest {
         Registry registry = Registry.Builder.builder().insecure().build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
-        assertThrows(
-                OrasException.class,
-                () -> {
-                    registry.pushBlob(containerRef, "hello".getBytes());
-                },
-                "Response code: 401");
+        assertThrows(OrasException.class, () -> {
+            registry.pushBlob(containerRef, "hello".getBytes());
+        });
+    }
+
+    @Test
+    void shouldFailWithoutAuthenticationAndRegistry() {
+        Registry registry =
+                Registry.Builder.builder().insecure(this.registry.getRegistry()).build();
+        ContainerRef containerRef = ContainerRef.parse("library/artifact-text");
+        assertThrows(OrasException.class, () -> {
+            registry.pushBlob(containerRef, "hello".getBytes());
+        });
+    }
+
+    @Test
+    void shouldFailWithSecureOnInsecure() {
+        Registry registry =
+                Registry.Builder.builder().defaults(this.registry.getRegistry()).build();
+        ContainerRef containerRef = ContainerRef.parse("library/artifact-text");
+        assertThrows(OrasException.class, () -> {
+            registry.pushBlob(containerRef, "hello".getBytes());
+        });
     }
 
     @Test

@@ -30,6 +30,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Main class for descriptor
  */
+@OrasModel
 public sealed class Descriptor permits Config, Manifest, Layer, Index {
 
     /**
@@ -42,8 +43,19 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     protected final @Nullable Map<String, String> annotations;
 
+    /**
+     * The digest of the layer
+     */
     protected final @Nullable String digest;
+
+    /**
+     * The size of the layer
+     */
     protected final @Nullable Long size;
+
+    /**
+     * The artifact type
+     */
     protected final @Nullable String artifactType;
 
     /**
@@ -51,6 +63,15 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     protected transient String json;
 
+    /**
+     * Constructor
+     * @param digest The digest
+     * @param size The size
+     * @param mediaType The media type
+     * @param annotations The annotations
+     * @param artifactType The artifact type
+     * @param json The original JSON
+     */
     protected Descriptor(
             String digest,
             Long size,

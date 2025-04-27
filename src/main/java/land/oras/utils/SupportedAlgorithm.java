@@ -35,6 +35,12 @@ import org.jspecify.annotations.NullMarked;
 public enum SupportedAlgorithm {
 
     /**
+     * SHA-1
+     * This is unsecure, only useful when computing digests for git content (like Flux CD)
+     */
+    SHA1("SHA-1", "sha1"),
+
+    /**
      * SHA-256
      */
     SHA256("SHA-256", "sha256"),

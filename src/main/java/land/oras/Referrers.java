@@ -27,6 +27,7 @@ import land.oras.utils.JsonUtils;
 /**
  * List of referrers
  */
+@OrasModel
 public class Referrers {
 
     private String mediaType;

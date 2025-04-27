@@ -20,12 +20,9 @@
 
 package land.oras.utils;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Properties;
-import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -39,16 +36,6 @@ public final class Const {
      */
     private Const() {
         // Private constructor
-    }
-
-    static {
-        Properties properties = new Properties();
-        try (var input = Const.class.getClassLoader().getResourceAsStream("version.properties")) {
-            properties.load(input);
-        } catch (IOException e) {
-            throw new OrasException("Failed to load properties file", e);
-        }
-        USER_AGENT_VALUE = "ORAS-Java-SDK/%s".formatted(properties.getProperty("version"));
     }
 
     /**
@@ -163,6 +150,16 @@ public final class Const {
     public static final String ANNOTATION_REF = "org.opencontainers.image.ref.name";
 
     /**
+     * Annotation for the source
+     */
+    public static final String ANNOTATION_SOURCE = "org.opencontainers.image.source";
+
+    /**
+     * Annotation for the revision
+     */
+    public static final String ANNOTATION_REVISION = "org.opencontainers.image.revision";
+
+    /**
      * Get the current timestamp for the created annotation
      * @return The current timestamp
      */
@@ -192,11 +189,6 @@ public final class Const {
      * User agent header
      */
     public static final String USER_AGENT_HEADER = "User-Agent";
-
-    /**
-     * User agent value
-     */
-    public static final String USER_AGENT_VALUE;
 
     /**
      * Content type header

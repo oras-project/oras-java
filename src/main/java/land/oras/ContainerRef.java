@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * A referer of a container on a {@link Registry}.
  */
 @NullMarked
+@OrasModel
 public final class ContainerRef extends Ref<ContainerRef> {
 
     /**
@@ -90,6 +91,27 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public String getRegistry() {
         return registry;
+    }
+
+    /**
+     * Get the full repository name including the namespace if any
+     * @param registry The registry
+     * @return The full repository name
+     */
+    public String getFullRepository(@Nullable Registry registry) {
+        String namespace = getNamespace(registry);
+        if (namespace != null) {
+            return "%s/%s".formatted(namespace, repository);
+        }
+        return repository;
+    }
+
+    /**
+     * Get the full repository name including the namespace if any
+     * @return The full repository name
+     */
+    public String getFullRepository() {
+        return getFullRepository(null);
     }
 
     /**
@@ -182,6 +204,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
             return "%s/v2/%s/%s".formatted(getApiRegistry(target), namespace, repository);
         }
         return "%s/v2/%s".formatted(getApiRegistry(target), repository);
+    }
+
+    /**
+     * Return the catalog repositories URL
+     * @param target The target registry
+     * @return The tag URL
+     */
+    public String getRepositoriesPath(@Nullable Registry target) {
+        return "%s/v2/_catalog".formatted(getApiRegistry(target));
+    }
+
+    /**
+     * Return the catalog repositories URL
+     * @return The tag URL
+     */
+    public String getRepositoriesPath() {
+        return getRepositoriesPath(null);
     }
 
     /**

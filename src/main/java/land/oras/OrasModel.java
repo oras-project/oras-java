@@ -20,21 +20,14 @@
 
 package land.oras;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
- * Interface for describable objects
+ * Annotation to mark ORAS models
  */
-@OrasModel
-public interface Describable {
-
-    /**
-     * Get the manifest descriptor for this describable
-     * @return The manifest descriptor
-     */
-    ManifestDescriptor getDescriptor();
-
-    /**
-     * Get the subject
-     * @return The subject
-     */
-    Subject getSubject();
-}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface OrasModel {}

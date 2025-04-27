@@ -32,6 +32,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Index from an OCI layout
  */
+@OrasModel
 public final class Index extends Descriptor implements Describable {
 
     private final int schemaVersion;
