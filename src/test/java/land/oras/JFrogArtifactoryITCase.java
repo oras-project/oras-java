@@ -22,9 +22,15 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class JFrogArtifactoryITCase {
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void shouldPull() {
@@ -32,5 +38,15 @@ public class JFrogArtifactoryITCase {
         ContainerRef containerRef1 = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
         Manifest manifest = registry.getManifest(containerRef1);
         assertNotNull(manifest);
+    }
+
+    @Test
+    void shouldPullOneBlob() throws IOException {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef1 = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
+        Manifest manifest = registry.getManifest(containerRef1);
+        Layer oneLayer = manifest.getLayers().get(0);
+        registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
+        assertNotNull(tempDir.resolve("my-blob"));
     }
 }
