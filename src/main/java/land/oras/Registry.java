@@ -695,6 +695,15 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         /**
+         * Return a new builder with default authentication using existing host auth and registry url
+         * @param registry The registry URL (ex: localhost:5000)
+         * @return The builder
+         */
+        public Builder defaults(String registry) {
+            return defaults().withRegistry(registry);
+        }
+
+        /**
          * Set username and password authentication
          * @param username The username
          * @param password The password
@@ -706,6 +715,17 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         /**
+         * Set username and password authentication
+         * @param registry The registry URL (ex: localhost:5000)
+         * @param username The username
+         * @param password The password
+         * @return The builder
+         */
+        public Builder defaults(String registry, String username, String password) {
+            return defaults(username, password).withRegistry(registry);
+        }
+
+        /**
          * Set insecure communication and no authentification
          * @return The builder
          */
@@ -714,6 +734,26 @@ public final class Registry extends OCI<ContainerRef> {
             registry.setSkipTlsVerify(true);
             registry.setAuthProvider(new NoAuthProvider());
             return this;
+        }
+
+        /**
+         * Set insecure communication and no authentification
+         * @param registry The registry (ex: localhost:5000)
+         * @return The builder
+         */
+        public Builder insecure(String registry) {
+            return insecure().withRegistry(registry);
+        }
+
+        /**
+         * Return a new insecure builder with username and password authentication
+         * @param registry The registry (ex: localhost:5000)
+         * @param username The username
+         * @param password The password
+         * @return The builder
+         */
+        public Builder insecure(String registry, String username, String password) {
+            return insecure().defaults(registry, username, password);
         }
 
         /**
