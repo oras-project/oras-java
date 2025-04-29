@@ -21,6 +21,7 @@
 package land.oras;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -587,5 +588,51 @@ public class RegistryWireMockTest {
         executor.shutdown();
         boolean completed = executor.awaitTermination(10, TimeUnit.SECONDS);
         assertEquals(true, completed, "Concurrent blob pushes did not complete within timeout");
+    }
+
+    @Test
+    void shouldHandleNetworkConnectivityLoss(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Setup WireMock to simulate a connection reset
+        wireMock.register(get(urlEqualTo("/v2/library/network-loss/tags/list"))
+                .willReturn(aResponse().withStatus(503).withBody("Service Unavailable")));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/network-loss".formatted(registryUrl));
+
+        // Verify that a network connectivity loss results in an OrasException
+        OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
+        assertEquals("Response code: 503", exception.getMessage());
+    }
+
+    @Test
+    void shouldHandleCorruptedResponse(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        // Setup WireMock to return a corrupted blob response
+        wireMock.register(head(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
+                .willReturn(aResponse().withStatus(200)));
+        wireMock.register(get(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
+                .willReturn(aResponse().withStatus(200).withBody("corrupted-data")));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse("%s/library/corrupted-blob".formatted(registryUrl));
+
+        // Expect digest mismatch exception
+        OrasException exception =
+                assertThrows(OrasException.class, () -> registry.getBlob(containerRef.withDigest(digest)));
+        assertTrue(exception.getMessage().startsWith("Digest mismatch"));
     }
 }
