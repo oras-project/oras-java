@@ -54,11 +54,14 @@ public class LayoutRefTest {
     @Test
     void shouldParseLayoutWithDigest() {
         String ociLayout = tempDir.resolve("foo").toString();
-        LayoutRef layoutRef = LayoutRef.parse("%s@sha256:12345".formatted(ociLayout));
-        assertEquals("sha256:12345", layoutRef.getTag());
+        LayoutRef layoutRef = LayoutRef.parse(
+                "%s@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".formatted(ociLayout));
+        assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
         assertEquals(ociLayout, layoutRef.getRepository());
-        assertTrue(layoutRef.isValidDigest(), "sha256:12345 should be a valid digest pattern");
+        assertTrue(
+                layoutRef.isValidDigest(),
+                "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824 should be a valid digest pattern");
     }
 
     @Test
@@ -85,9 +88,10 @@ public class LayoutRefTest {
     void shouldGetAlgorithm() {
         LayoutRef layoutRef = LayoutRef.parse("foo");
         assertEquals("sha256", layoutRef.getAlgorithm().getPrefix());
-        layoutRef = LayoutRef.parse("foo@sha256:12345");
+        layoutRef = LayoutRef.parse("foo@sha256:");
         assertEquals("sha256", layoutRef.getAlgorithm().getPrefix());
-        layoutRef = LayoutRef.parse("foo@sha512:12345");
+        layoutRef = LayoutRef.parse(
+                "foo@sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
         assertEquals("sha512", layoutRef.getAlgorithm().getPrefix());
     }
 }

@@ -130,7 +130,7 @@ public final class LayoutRef extends Ref<LayoutRef> {
             return SupportedAlgorithm.getDefault();
         }
         // See https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests
-        else if (SupportedAlgorithm.matchPattern(tag)) {
+        else if (SupportedAlgorithm.isSupported(tag)) {
             return SupportedAlgorithm.fromDigest(tag);
         }
 
@@ -145,7 +145,7 @@ public final class LayoutRef extends Ref<LayoutRef> {
         if (tag == null) {
             return false;
         }
-        return SupportedAlgorithm.matchPattern(tag);
+        return SupportedAlgorithm.isSupported(tag);
     }
 
     @Override

@@ -432,7 +432,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (ref.getTag() == null) {
             throw new OrasException("Tag is required to get blob from layout");
         }
-        boolean isDigest = SupportedAlgorithm.matchPattern(ref.getTag());
+        boolean isDigest = SupportedAlgorithm.isSupported(ref.getTag());
         if (isDigest) {
             SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());
             return getBlobPath().resolve(algorithm.getPrefix()).resolve(SupportedAlgorithm.getDigest(ref.getTag()));
@@ -552,7 +552,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (ref.getTag() == null) {
             throw new OrasException("Missing ref");
         }
-        if (!SupportedAlgorithm.matchPattern(ref.getTag())) {
+        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
             throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
         }
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());

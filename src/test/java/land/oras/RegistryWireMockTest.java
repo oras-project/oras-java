@@ -21,7 +21,6 @@
 package land.oras;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -88,7 +87,8 @@ public class RegistryWireMockTest {
         wireMock.register(head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
                 .willReturn(WireMock.ok()));
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
-                .willReturn(WireMock.ok().withBody("blob-data")));
+                .willReturn(
+                        WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Insecure registry
         Registry registry = Registry.Builder.builder()
@@ -340,7 +340,8 @@ public class RegistryWireMockTest {
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .whenScenarioStateIs("get")
-                .willReturn(WireMock.ok().withBody("blob-data")));
+                .willReturn(
+                        WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Insecure registry
         Registry registry = Registry.Builder.builder()
@@ -381,7 +382,8 @@ public class RegistryWireMockTest {
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
                 .inScenario("get token")
                 .whenScenarioStateIs("get")
-                .willReturn(WireMock.ok().withBody("blob-data")));
+                .willReturn(
+                        WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Insecure registry
         Registry registry = Registry.Builder.builder()
@@ -476,7 +478,10 @@ public class RegistryWireMockTest {
 
         // Setup WireMock to serve blob at redirected location
         wireMock.register(get(urlEqualTo("/v2/library/redirect-blob/blobs/redirected/%s".formatted(digest)))
-                .willReturn(aResponse().withStatus(200).withBody("blob-data")));
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)
+                        .withBody("blob-data")));
 
         // Setup HEAD request for validation
         wireMock.register(head(urlEqualTo("/v2/library/redirect-blob/blobs/%s".formatted(digest)))
@@ -490,6 +495,56 @@ public class RegistryWireMockTest {
         ContainerRef containerRef = ContainerRef.parse("%s/library/redirect-blob".formatted(registryUrl));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldValidateDockerContentDigestForUnknownAlgorithm(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+        wireMock.register(any(urlEqualTo("/v2/library/validate-digest/blobs/%s".formatted(digest)))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("blob-data")
+                        .withHeader("Docker-Content-Digest", "fake:12345")));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> registry.getBlob(containerRef.withDigest(digest)),
+                "Expected OrasException to be thrown");
+        assertEquals("Unsupported digest: fake:12345", e.getMessage());
+    }
+
+    @Test
+    void shouldValidateDockerContentDigestMismatch(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+        wireMock.register(any(urlEqualTo("/v2/library/validate-digest/blobs/%s".formatted(digest)))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("blob-data")
+                        .withHeader("Docker-Content-Digest", "sha256:12345")));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> registry.getBlob(containerRef.withDigest(digest)),
+                "Expected OrasException to be thrown");
+        assertEquals(
+                "Digest mismatch: sha256:12345 != sha256:c2752ad96ee652e4d37fd3852de632c50f193490d132f27a1794c986e1f112ef",
+                e.getMessage());
     }
 
     @Test
@@ -535,7 +590,7 @@ public class RegistryWireMockTest {
                 .inScenario("redirect after token")
                 .whenScenarioStateIs("redirect")
                 .willSetStateTo("done")
-                .willReturn(WireMock.ok("blob-data")));
+                .willReturn(WireMock.ok("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Test
         Registry registry = Registry.Builder.builder()
@@ -621,7 +676,10 @@ public class RegistryWireMockTest {
         wireMock.register(head(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
                 .willReturn(aResponse().withStatus(200)));
         wireMock.register(get(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
-                .willReturn(aResponse().withStatus(200).withBody("corrupted-data")));
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)
+                        .withBody("corrupted-data")));
 
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(authProvider)
@@ -633,6 +691,8 @@ public class RegistryWireMockTest {
         // Expect digest mismatch exception
         OrasException exception =
                 assertThrows(OrasException.class, () -> registry.getBlob(containerRef.withDigest(digest)));
-        assertTrue(exception.getMessage().startsWith("Digest mismatch"));
+        assertEquals(
+                "Digest mismatch: sha256:c2752ad96ee652e4d37fd3852de632c50f193490d132f27a1794c986e1f112ef != sha256:2be4e14a6587ab9b637afb553f0654c70e80fa14bd0b8fbf9fa09079f55a2ace",
+                exception.getMessage());
     }
 }
