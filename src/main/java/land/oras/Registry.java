@@ -484,11 +484,21 @@ public final class Registry extends OCI<ContainerRef> {
      */
     @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        try (InputStream is = fetchBlob(containerRef)) {
-            return ensureDigest(containerRef, is.readAllBytes());
-        } catch (IOException e) {
-            throw new OrasException("Failed to get blob", e);
+        if (!hasBlob(containerRef)) {
+            throw new OrasException(new HttpClient.ResponseWrapper<>("", 404, Map.of()));
         }
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.get(
+                uri,
+                Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
+                Scopes.of(this, containerRef),
+                authProvider);
+        logResponse(response);
+        handleError(response);
+        byte[] data = response.response().getBytes(StandardCharsets.UTF_8);
+        validateDockerContentDigest(response, data);
+        return data;
     }
 
     @Override
@@ -506,6 +516,7 @@ public final class Registry extends OCI<ContainerRef> {
                 authProvider);
         logResponse(response);
         handleError(response);
+        validateDockerContentDigest(response, path);
     }
 
     @Override
@@ -522,6 +533,7 @@ public final class Registry extends OCI<ContainerRef> {
                 authProvider);
         logResponse(response);
         handleError(response);
+        validateDockerContentDigest(response);
         return response.response();
     }
 
@@ -530,8 +542,8 @@ public final class Registry extends OCI<ContainerRef> {
         HttpClient.ResponseWrapper<String> response = headBlob(containerRef);
         handleError(response);
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
-        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
-        return Descriptor.of(digest, Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
+        return Descriptor.of(
+                validateDockerContentDigest(response), Long.parseLong(size), Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE);
     }
 
     @Override
@@ -562,15 +574,16 @@ public final class Registry extends OCI<ContainerRef> {
         HttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
         handleError(response);
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
-        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        return Descriptor.of(digest, Long.parseLong(size), contentType).withJson(response.response());
+        return Descriptor.of(validateDockerContentDigest(response), Long.parseLong(size), contentType)
+                .withJson(response.response());
     }
 
     @Override
     public Descriptor probeDescriptor(ContainerRef ref) {
         Map<String, String> headers = getHeaders(ref);
-        String digest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        String digest = validateDockerContentDigest(headers);
+        SupportedAlgorithm.fromDigest(digest);
         String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
         return Descriptor.of(digest, 0L, contentType);
     }
@@ -594,16 +607,58 @@ public final class Registry extends OCI<ContainerRef> {
                 uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, containerRef), authProvider);
     }
 
-    private byte[] ensureDigest(ContainerRef ref, byte[] data) {
+    private void validateDockerContentDigest(HttpClient.ResponseWrapper<String> response, byte[] data) {
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        // This might happen when blob are hosted other storage.
+        // We need a way to propagate the headers like scoped.
+        // For now just skip validation
+        if (digest == null) {
+            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            return;
+        }
+        String computedDigest = SupportedAlgorithm.fromDigest(digest).digest(data);
+        ensureDigest(digest, computedDigest);
+    }
+
+    private void validateDockerContentDigest(HttpClient.ResponseWrapper<Path> response, Path path) {
+        String digest = response.headers().get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        // This might happen when blob are hosted other storage.
+        // We need a way to propagate the headers like scoped.
+        // For now just skip validation
+        if (digest == null) {
+            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            return;
+        }
+        String computedDigest = SupportedAlgorithm.fromDigest(digest).digest(path);
+        ensureDigest(digest, computedDigest);
+    }
+
+    private String validateDockerContentDigest(HttpClient.ResponseWrapper<?> response) {
+        return validateDockerContentDigest(response.headers());
+    }
+
+    private String validateDockerContentDigest(Map<String, String> headers) {
+        String digest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        SupportedAlgorithm.fromDigest(digest);
+        return digest;
+    }
+
+    private void ensureDigest(ContainerRef ref, byte[] data) {
         if (ref.getDigest() == null) {
             throw new OrasException("Missing digest");
         }
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getDigest());
         String dataDigest = algorithm.digest(data);
-        if (!ref.getDigest().equals(dataDigest)) {
-            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getDigest(), dataDigest));
+        ensureDigest(ref.getDigest(), dataDigest);
+    }
+
+    private void ensureDigest(String expected, @Nullable String current) {
+        if (current == null) {
+            throw new OrasException("Received null digest");
         }
-        return data;
+        if (!expected.equals(current)) {
+            throw new OrasException("Digest mismatch: %s != %s".formatted(expected, current));
+        }
     }
 
     /**

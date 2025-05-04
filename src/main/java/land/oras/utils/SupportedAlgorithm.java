@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Supported algorithms for digest.
@@ -38,27 +39,28 @@ public enum SupportedAlgorithm {
      * SHA-1
      * This is unsecure, only useful when computing digests for git content (like Flux CD)
      */
-    SHA1("SHA-1", "sha1"),
+    SHA1("SHA-1", "sha1", 20),
 
     /**
      * SHA-256
      */
-    SHA256("SHA-256", "sha256"),
+    SHA256("SHA-256", "sha256", 32),
 
     /**
      * SHA-384
      */
-    SHA384("SHA-384", "sha384"),
+    SHA384("SHA-384", "sha384", 48),
 
     /**
      * SHA-512
      */
-    SHA512("SHA-512", "sha512"),
+    SHA512("SHA-512", "sha512", 64),
 
     /**
      * BLAKE3
      */
-    BLAKE3("BLAKE3-256", "blake3");
+    BLAKE3("BLAKE3-256", "blake3", 32),
+    ;
 
     /**
      * The algorithm
@@ -71,6 +73,11 @@ public enum SupportedAlgorithm {
     private final String prefix;
 
     /**
+     * Size of the digest in bytes
+     */
+    private final int size;
+
+    /**
      * Regex for a digest
      * <a href="https://github.com/opencontainers/image-spec/blob/main/descriptor.md#digests">Digests</a>
      */
@@ -81,9 +88,10 @@ public enum SupportedAlgorithm {
      * @param algorithm The algorithm
      * @param prefix The prefix
      */
-    SupportedAlgorithm(String algorithm, String prefix) {
+    SupportedAlgorithm(String algorithm, String prefix, int size) {
         this.algorithm = algorithm;
         this.prefix = prefix;
+        this.size = size;
     }
 
     /**
@@ -100,6 +108,14 @@ public enum SupportedAlgorithm {
      */
     public String getAlgorithmName() {
         return algorithm;
+    }
+
+    /**
+     * Get the size of the digest
+     * @return The size
+     */
+    public int getSize() {
+        return size;
     }
 
     /**
@@ -134,7 +150,7 @@ public enum SupportedAlgorithm {
      * @param digest The digest
      * @return True if supported
      */
-    public static boolean matchPattern(String digest) {
+    static boolean matchPattern(String digest) {
         return DIGEST_REGEX.matcher(digest).matches();
     }
 
@@ -149,6 +165,12 @@ public enum SupportedAlgorithm {
         }
         for (SupportedAlgorithm algorithm : SupportedAlgorithm.values()) {
             if (digest.startsWith(algorithm.getPrefix())) {
+                // Check the size
+                String value = digest.substring(algorithm.getPrefix().length() + 1);
+                if (value.length() != algorithm.getSize() * 2) {
+                    throw new OrasException("Invalid digest %s, expected size is %d, but got %d"
+                            .formatted(digest, algorithm.getSize(), value.length()));
+                }
                 return true;
             }
         }
@@ -160,7 +182,10 @@ public enum SupportedAlgorithm {
      * @param digest The digest
      * @return The algorithm
      */
-    public static SupportedAlgorithm fromDigest(String digest) {
+    public static SupportedAlgorithm fromDigest(@Nullable String digest) {
+        if (digest == null) {
+            throw new OrasException("Digest is null");
+        }
         if (!DIGEST_REGEX.matcher(digest).matches()) {
             throw new OrasException("Invalid digest: " + digest);
         }

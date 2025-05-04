@@ -126,6 +126,28 @@ public class SupportedAlgorithmTest {
 
         // Not match
         assertFalse(SupportedAlgorithm.matchPattern("latest"));
+
+        // Invalid size for all algorithms
+        assertEquals(
+                "Invalid digest sha1:1234, expected size is 20, but got 4",
+                assertThrows(OrasException.class, () -> SupportedAlgorithm.isSupported("sha1:1234"))
+                        .getMessage());
+        assertEquals(
+                "Invalid digest sha256:1234, expected size is 32, but got 4",
+                assertThrows(OrasException.class, () -> SupportedAlgorithm.isSupported("sha256:1234"))
+                        .getMessage());
+        assertEquals(
+                "Invalid digest sha384:1234, expected size is 48, but got 4",
+                assertThrows(OrasException.class, () -> SupportedAlgorithm.isSupported("sha384:1234"))
+                        .getMessage());
+        assertEquals(
+                "Invalid digest sha512:1234, expected size is 64, but got 4",
+                assertThrows(OrasException.class, () -> SupportedAlgorithm.isSupported("sha512:1234"))
+                        .getMessage());
+        assertEquals(
+                "Invalid digest blake3:1234, expected size is 32, but got 4",
+                assertThrows(OrasException.class, () -> SupportedAlgorithm.isSupported("blake3:1234"))
+                        .getMessage());
     }
 
     @Test
