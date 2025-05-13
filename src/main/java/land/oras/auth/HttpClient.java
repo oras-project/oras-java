@@ -490,7 +490,7 @@ public final class HttpClient {
                         token.issued_at().plusSeconds(token.expires_in()));
             }
             try {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + token.token());
+                builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + token.token());
                 HttpResponse<T> newResponse = client.send(builder.build(), handler);
 
                 // Follow redirect
