@@ -94,4 +94,33 @@ public class LayoutRefTest {
                 "foo@sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
         assertEquals("sha512", layoutRef.getAlgorithm().getPrefix());
     }
+
+    @Test
+    void testEqualsAndHashCode() {
+        LayoutRef layoutRef1 = LayoutRef.parse("foo:v1");
+        LayoutRef layoutRef2 = LayoutRef.parse("foo:v1");
+        LayoutRef layoutRef3 = LayoutRef.parse("bar:v1");
+
+        assertEquals(layoutRef1, layoutRef2);
+        assertNotEquals(layoutRef1, layoutRef3);
+        assertEquals(layoutRef1.hashCode(), layoutRef2.hashCode());
+
+        // Not equals
+        assertNotEquals(layoutRef1.withTag("newtag"), layoutRef1);
+        assertNotEquals("foo", layoutRef1);
+        assertNotEquals(null, layoutRef1);
+    }
+
+    @Test
+    void testToString() {
+        LayoutRef layoutRef = LayoutRef.parse(
+                "foo@sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
+        assertEquals(
+                "foo@sha512:cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+                layoutRef.toString());
+        layoutRef = LayoutRef.parse("foo:latest");
+        assertEquals("foo:latest", layoutRef.toString());
+        layoutRef = LayoutRef.parse("foo");
+        assertEquals("foo", layoutRef.toString());
+    }
 }

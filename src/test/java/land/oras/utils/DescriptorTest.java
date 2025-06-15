@@ -20,10 +20,8 @@
 
 package land.oras.utils;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Map;
 import land.oras.Descriptor;
@@ -72,5 +70,34 @@ public class DescriptorTest {
         assertEquals("bar", descriptor.getAnnotations().get("foo"));
         assertNotNull(descriptor.getArtifactType());
         assertEquals("foo/bar", descriptor.getArtifactType().getMediaType());
+    }
+
+    @Test
+    void testEqualsAndHashCode() {
+        Descriptor descriptor1 = Descriptor.of(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                556L,
+                Const.DEFAULT_MANIFEST_MEDIA_TYPE);
+        Descriptor descriptor2 = Descriptor.of(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                556L,
+                Const.DEFAULT_MANIFEST_MEDIA_TYPE);
+        assertEquals(descriptor1, descriptor2);
+        assertEquals(descriptor1.hashCode(), descriptor2.hashCode());
+
+        // Not equals
+        assertNotEquals("foo", descriptor1);
+        assertNotEquals(null, descriptor1);
+    }
+
+    @Test
+    void testToString() {
+        Descriptor descriptor = Descriptor.of(
+                "sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34",
+                556L,
+                Const.DEFAULT_MANIFEST_MEDIA_TYPE);
+        String expected =
+                "{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:cb1d49baba271af2c56d493d66dddb112ecf1c2c52f47e6f45f3617bb2155d34\",\"size\":556}";
+        assertEquals(expected, descriptor.toString());
     }
 }

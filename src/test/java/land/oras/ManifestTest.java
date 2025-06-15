@@ -20,8 +20,7 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -77,6 +76,39 @@ public class ManifestTest {
     void shouldHaveEmptyManifest() {
         assertEquals(
                 Manifest.fromJson(emptyManifest()).toJson(), Manifest.empty().toJson());
+    }
+
+    @Test
+    void testEqualsAndHashCode() {
+
+        // Empty
+        Manifest empty1 = Manifest.empty();
+        Manifest empty2 = Manifest.empty();
+        assertEquals(empty1, empty2);
+
+        // Manifest data
+        Manifest object1 = Manifest.fromJson(sampleManifest());
+        Manifest object2 = Manifest.fromJson(sampleManifest());
+        assertEquals(object1, object2);
+        assertEquals(object1.hashCode(), object2.hashCode());
+
+        // Not equals
+        object2 = object2.withArtifactType(ArtifactType.from("test/plain"));
+        assertNotEquals(object1, object2);
+        assertNotEquals(object1.hashCode(), object2.hashCode());
+
+        // Different type
+        assertNotEquals("not a manifest", object1);
+    }
+
+    @Test
+    void testToString() {
+        Manifest manifest = Manifest.fromJson(sampleManifest());
+        String json = manifest.toString();
+        assertNotNull(json);
+        assertEquals(
+                "{\"schemaVersion\":2,\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":7023},\"layers\":[{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":32654},{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\"size\":1048576}],\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\"}",
+                json);
     }
 
     @Test

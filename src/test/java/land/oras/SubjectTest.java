@@ -42,6 +42,28 @@ public class SubjectTest {
         subject.toJson();
     }
 
+    @Test
+    void testEqualsAndHashCode() {
+        String json = sampleSubject();
+        Subject subject1 = Subject.fromJson(json);
+        Subject subject2 = Subject.fromJson(json);
+
+        // Assert equals
+        assertEquals(subject1, subject2);
+        assertEquals(subject1.hashCode(), subject2.hashCode());
+    }
+
+    @Test
+    void testToString() {
+        String json = sampleSubject();
+        Subject subject = Subject.fromJson(json);
+
+        // Assert toString
+        String expected =
+                "{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":32654}";
+        assertEquals(expected, subject.toString());
+    }
+
     /**
      * A sample subject
      * @return The subject

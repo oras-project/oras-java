@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.util.Objects;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import org.jspecify.annotations.NullMarked;
@@ -46,11 +47,6 @@ public class ArtifactType {
         return mediaType;
     }
 
-    @Override
-    public String toString() {
-        return mediaType;
-    }
-
     /**
      * Create an artifact type
      * @param artifactType The artifact type. Can be null
@@ -73,5 +69,22 @@ public class ArtifactType {
      */
     public static ArtifactType unknown() {
         return new ArtifactType(Const.DEFAULT_ARTIFACT_MEDIA_TYPE);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        ArtifactType that = (ArtifactType) o;
+        return Objects.equals(getMediaType(), that.getMediaType());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getMediaType());
+    }
+
+    @Override
+    public String toString() {
+        return mediaType;
     }
 }

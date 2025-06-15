@@ -21,6 +21,7 @@
 package land.oras;
 
 import java.util.List;
+import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 
@@ -81,5 +82,22 @@ public class Referrers {
      */
     public static Referrers from(List<ManifestDescriptor> descriptors) {
         return new Referrers(descriptors);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Referrers referrers = (Referrers) o;
+        return Objects.equals(toJson(), referrers.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
     }
 }

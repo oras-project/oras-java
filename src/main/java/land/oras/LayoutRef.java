@@ -21,6 +21,7 @@
 package land.oras;
 
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
@@ -151,5 +152,29 @@ public final class LayoutRef extends Ref<LayoutRef> {
     @Override
     public String getRepository() {
         return getFolder().toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        LayoutRef layoutRef = (LayoutRef) o;
+        return Objects.equals(getFolder(), layoutRef.getFolder()) && Objects.equals(tag, layoutRef.tag);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getFolder(), tag);
+    }
+
+    @Override
+    public String toString() {
+        if (tag != null) {
+            if (isValidDigest()) {
+                return "%s@%s".formatted(getFolder().toString(), tag);
+            }
+            return "%s:%s".formatted(getFolder().toString(), tag);
+        } else {
+            return getFolder().toString();
+        }
     }
 }
