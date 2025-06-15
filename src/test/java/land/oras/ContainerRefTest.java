@@ -29,7 +29,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class ContainerRefTest {
+class ContainerRefTest {
 
     @Test
     void shouldReturnWithDigest() {
@@ -219,12 +219,85 @@ public class ContainerRefTest {
     }
 
     @Test
-    void shouldBuildNewRefForRegistrx() {
+    void shouldBuildNewRefForRegistry() {
         Registry registry =
                 Registry.builder().defaults().withRegistry("my-registry.io").build();
         ContainerRef containerRef = ContainerRef.parse("library/foo/alpine:latest@sha256:1234567890abcdef")
                 .forRegistry(registry);
         assertEquals("my-registry.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+        containerRef = ContainerRef.parse("library/foo/alpine:latest@sha256:1234567890abcdef")
+                .forRegistry("my-registry.io");
+        assertEquals("my-registry.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+    }
+
+    @Test
+    void testEqualsAndHashCode() {
+        ContainerRef containerRef1 = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        ContainerRef containerRef2 = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals(containerRef1, containerRef2);
+        assertEquals(containerRef1.hashCode(), containerRef2.hashCode());
+
+        // Not equals
+        assertNotEquals("foo", containerRef1);
+        assertNotEquals(null, containerRef1);
+    }
+
+    @Test
+    void testEqualsAndHashCodeWithoutNamespace() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry.com/alpine:latest");
+        ContainerRef containerRef2 = ContainerRef.parse("my-registry.com/alpine:latest");
+        assertEquals(containerRef1, containerRef2);
+        assertEquals(containerRef1.hashCode(), containerRef2.hashCode());
+    }
+
+    @Test
+    void testNotEqualsWithOtherTag() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry.com/alpine:latest");
+        ContainerRef containerRef2 = ContainerRef.parse("my-registry.com/alpine:latest2");
+        assertNotEquals(containerRef1, containerRef2);
+        assertNotEquals(containerRef1.hashCode(), containerRef2.hashCode());
+    }
+
+    @Test
+    void testNotEqualsWithOtherDigest() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry.com/alpine@sha256:1234567890abcdef");
+        ContainerRef containerRef2 = ContainerRef.parse("my-registry.com/alpine@sha256:5543535353535353");
+        assertNotEquals(containerRef1, containerRef2);
+        assertNotEquals(containerRef1.hashCode(), containerRef2.hashCode());
+    }
+
+    @Test
+    void testNotEqualsWithOtherRegistry() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry1.com/alpine:latest");
+        ContainerRef containerRef2 = ContainerRef.parse("my-registry2.com/alpine:latest");
+        assertNotEquals(containerRef1, containerRef2);
+        assertNotEquals(containerRef1.hashCode(), containerRef2.hashCode());
+    }
+
+    @Test
+    void testNotEqualsWithOtherRepository() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry/alpine1:latest");
+        ContainerRef containerRef2 = ContainerRef.parse("my-registry/alpine2:latest");
+        assertNotEquals(containerRef1, containerRef2);
+        assertNotEquals(containerRef1.hashCode(), containerRef2.hashCode());
+    }
+
+    @Test
+    void testToString() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry.com/alpine1:latest");
+        assertEquals("my-registry.com/alpine1:latest", containerRef1.toString());
+    }
+
+    @Test
+    void testToStringDefault() {
+        ContainerRef containerRef1 = ContainerRef.parse("alpine1@sha256:1234567890abcdef");
+        assertEquals("docker.io/alpine1:latest@sha256:1234567890abcdef", containerRef1.toString());
+    }
+
+    @Test
+    void testToStringWithNamespace() {
+        ContainerRef containerRef1 = ContainerRef.parse("my-registry.com/foo/alpine1:latest");
+        assertEquals("my-registry.com/foo/alpine1:latest", containerRef1.toString());
     }
 
     @Test

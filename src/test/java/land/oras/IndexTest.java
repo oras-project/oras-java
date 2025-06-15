@@ -224,4 +224,31 @@ public class IndexTest {
         assertEquals("hello", index.getManifests().get(2).getAnnotations().get("test"));
         assertNull(index.getManifests().get(3).getAnnotations());
     }
+
+    @Test
+    void testEquals() {
+
+        String json1 =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}";
+        String json2 =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}";
+
+        // Data
+        Index object1 = Index.fromJson(json1);
+        Index object2 = Index.fromJson(json2);
+        assertEquals(object1, object2);
+        assertEquals(object1.hashCode(), object2.hashCode());
+    }
+
+    @Test
+    void testToString() {
+        String json =
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}";
+        Index index = Index.fromJson(json);
+        String json1 = index.toString();
+        assertNotNull(json);
+        assertEquals(
+                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}",
+                json1);
+    }
 }

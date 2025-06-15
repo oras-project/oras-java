@@ -22,6 +22,7 @@ package land.oras;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
@@ -371,5 +372,29 @@ public final class ContainerRef extends Ref<ContainerRef> {
                 repository,
                 tag,
                 digest);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        ContainerRef that = (ContainerRef) o;
+        return Objects.equals(getRegistry(), that.getRegistry())
+                && Objects.equals(getRepository(), that.getRepository())
+                && Objects.equals(getNamespace(), that.getNamespace())
+                && Objects.equals(getDigest(), that.getDigest())
+                && Objects.equals(getTag(), that.getTag());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getRegistry(), getRepository(), getNamespace(), getDigest(), getTag());
+    }
+
+    @Override
+    public String toString() {
+        if (namespace != null && !namespace.isEmpty()) {
+            return "%s/%s/%s:%s%s".formatted(registry, namespace, repository, tag, digest != null ? "@" + digest : "");
+        }
+        return "%s/%s:%s%s".formatted(registry, repository, tag, digest != null ? "@" + digest : "");
     }
 }

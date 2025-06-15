@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -202,5 +203,22 @@ public final class Layer extends Descriptor {
                 2,
                 "e30=",
                 Map.of());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Layer layer = (Layer) o;
+        return Objects.equals(toJson(), layer.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
     }
 }

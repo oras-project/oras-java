@@ -203,4 +203,21 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     public static Descriptor of(String digest, Long size) {
         return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null, null);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Descriptor that = (Descriptor) o;
+        return Objects.equals(toJson(), that.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
+    }
 }

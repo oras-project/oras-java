@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import java.util.Objects;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 
@@ -96,5 +97,22 @@ public final class Subject {
      */
     public static Subject fromJson(String json) {
         return JsonUtils.fromJson(json, Subject.class);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Subject subject = (Subject) o;
+        return Objects.equals(toJson(), subject.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
     }
 }

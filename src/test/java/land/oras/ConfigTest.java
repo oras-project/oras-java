@@ -20,9 +20,8 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -74,5 +73,34 @@ public class ConfigTest {
         config = config.withAnnotations(Annotations.ofConfig(Map.of("foo", "bar")));
         assertNotNull(config.getAnnotations(), "Annotations should be null");
         assertEquals("bar", config.getAnnotations().get("foo"));
+    }
+
+    @Test
+    void testEqualsAndHashCode() {
+
+        Config empty1 = Config.empty();
+        Config empty2 = Config.empty();
+        assertEquals(empty1, empty2);
+
+        Config config1 = Config.fromJson(
+                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}");
+        Config config2 = Config.fromJson(
+                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}");
+
+        assertEquals(config1, config2);
+        assertEquals(config1.hashCode(), config2.hashCode());
+
+        // Not equals
+        assertNotEquals("foo", config1);
+        assertNotEquals(null, config1);
+    }
+
+    @Test
+    void testToString() {
+        Config config = Config.fromJson(
+                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}");
+        assertEquals(
+                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}",
+                config.toString());
     }
 }

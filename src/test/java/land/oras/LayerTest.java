@@ -21,6 +21,7 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -105,6 +106,36 @@ public class LayerTest {
         assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
         assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
         assertEquals("e30=", layer.getData());
+    }
+
+    @Test
+    void testEqualsAndHashCode() {
+        // Empty
+        Layer empty1 = Layer.empty();
+        Layer empty2 = Layer.empty();
+        assertEquals(empty1, empty2);
+
+        // Layer data
+        Layer object1 = Layer.fromJson(sampleLayer());
+        Layer object2 = Layer.fromJson(sampleLayer());
+        assertEquals(object1, object2);
+        assertEquals(object1.hashCode(), object2.hashCode());
+
+        // Not equals
+        Layer different = Layer.fromJson(emptyLayer()).withMediaType("fake/bar");
+        assertNotEquals(object1, different);
+        assertNotEquals(object1.hashCode(), different.hashCode());
+        assertNotEquals("foo", object1);
+        assertNotEquals(null, object1);
+    }
+
+    @Test
+    void testToString() {
+        Layer layer = Layer.fromJson(sampleLayer());
+        String json = layer.toString();
+        assertEquals(
+                "{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":32654}",
+                json);
     }
 
     private String emptyLayer() {

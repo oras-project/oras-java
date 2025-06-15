@@ -46,4 +46,12 @@ public class ArtifactTypeTest {
         assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, unknown.getMediaType());
         assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, unknown.toString());
     }
+
+    @Test
+    void testEquals() {
+        ArtifactType type1 = ArtifactType.from("application/vnd.oci.image.manifest.v1+json");
+        ArtifactType type2 = ArtifactType.from("application/vnd.oci.image.manifest.v1+json");
+        assertEquals(type1, type2);
+        assertEquals(type1.hashCode(), type2.hashCode());
+    }
 }

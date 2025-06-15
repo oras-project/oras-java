@@ -194,4 +194,21 @@ public final class ManifestDescriptor {
                 null,
                 descriptor.getAnnotations());
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        ManifestDescriptor that = (ManifestDescriptor) o;
+        return Objects.equals(toJson(), that.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
+    }
 }

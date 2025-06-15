@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NonNull;
@@ -287,5 +288,22 @@ public final class Manifest extends Descriptor implements Describable {
                 List.of(),
                 Annotations.empty(),
                 null);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Manifest manifest = (Manifest) o;
+        return Objects.equals(toJson(), manifest.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
     }
 }

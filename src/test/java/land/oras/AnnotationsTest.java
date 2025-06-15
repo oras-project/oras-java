@@ -73,6 +73,22 @@ public class AnnotationsTest {
         assertEquals(0, annotations.filesAnnotations().size());
     }
 
+    @Test
+    void testEquals() {
+        Annotations annotations1 = Annotations.fromJson(sampleAnnotations());
+        Annotations annotations2 = Annotations.fromJson(sampleAnnotations());
+        assertEquals(annotations1, annotations2);
+        assertEquals(annotations1.hashCode(), annotations2.hashCode());
+    }
+
+    @Test
+    void testToString() {
+        Annotations annotations = Annotations.fromJson(sampleAnnotations());
+        String expected =
+                "{\"cake.txt\":{\"fun\":\"more cream\"},\"$config\":{\"hello\":\"world\"},\"$manifest\":{\"foo\":\"bar\"}}";
+        assertEquals(expected, annotations.toString());
+    }
+
     private String sampleAnnotations() {
         return """
                 {

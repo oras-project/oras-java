@@ -23,6 +23,7 @@ package land.oras;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullUnmarked;
@@ -138,5 +139,22 @@ public final class Config extends Descriptor {
      */
     public static Config fromBlob(String mediaType, Layer layer) {
         return new Config(mediaType, layer.getDigest(), layer.getSize(), null, Annotations.empty());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Config config = (Config) o;
+        return Objects.equals(toJson(), config.toJson());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(toJson());
+    }
+
+    @Override
+    public String toString() {
+        return toJson();
     }
 }

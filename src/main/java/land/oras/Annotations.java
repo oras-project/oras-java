@@ -137,4 +137,9 @@ public record Annotations(
         file.putAll(filesAnnotations());
         return JsonUtils.toJson(file);
     }
+
+    @Override
+    public String toString() {
+        return toJson();
+    }
 }
