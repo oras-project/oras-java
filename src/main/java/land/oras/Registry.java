@@ -23,6 +23,7 @@ package land.oras;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -384,9 +385,12 @@ public final class Registry extends OCI<ContainerRef> {
                         .formatted(getScheme(), containerRef.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
+
+            URI uploadURI = createLocationWithDigest(location, digest);
+
             response = client.upload(
                     "PUT",
-                    URI.create("%s&digest=%s".formatted(location, digest)),
+                    uploadURI,
                     Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
                     blob,
                     Scopes.of(this, containerRef),
@@ -437,9 +441,12 @@ public final class Registry extends OCI<ContainerRef> {
                 location = "%s://%s/%s"
                         .formatted(getScheme(), containerRef.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
+
+            URI uploadURI = createLocationWithDigest(location, digest);
+
             LOG.debug("Location header: {}", location);
             response = client.put(
-                    URI.create("%s&digest=%s".formatted(location, digest)),
+                    uploadURI,
                     data,
                     Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
                     Scopes.of(this, containerRef),
@@ -706,6 +713,29 @@ public final class Registry extends OCI<ContainerRef> {
      */
     String getContentType(ContainerRef containerRef) {
         return getHeaders(containerRef).get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+    }
+
+    /**
+     * Append digest to location header returned from upload post
+     * @param location The location header from upload post
+     * @return URI with location + digest query parameter
+     */
+    URI createLocationWithDigest(String location, String digest) {
+        URI uploadURI;
+        try {
+            uploadURI = new URI(location);
+
+            // sometimes CI can add a query to this, so making sure we're using the right query param symbol
+            if (uploadURI.getQuery() == null) {
+                uploadURI = new URI(uploadURI + "?digest=%s".formatted(digest));
+            } else {
+                uploadURI = new URI(uploadURI + "&digest=%s".formatted(digest));
+            }
+        } catch (URISyntaxException e) {
+            throw new OrasException("Failed parse location header: %s".formatted(location));
+        }
+
+        return uploadURI;
     }
 
     /**
