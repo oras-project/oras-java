@@ -6,9 +6,9 @@ on:
   push:
   pull_request:
 jobs:
-  permissions:
-    actions: write
   updatecli:
+    permissions:
+      actions: write
     runs-on: ubuntu-latest
     if: github.repository_owner == 'oras-project'
     steps:
