@@ -1,0 +1,31 @@
+name: updatecli
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 1' # Every Monday at 2am UTC
+  push:
+  pull_request:
+jobs:
+  updatecli:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'oras-project'
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Updatecli in the runner
+        uses: updatecli/updatecli-action@1536e372d5f433385f11b5b133b23a9833c510ce # v2.86.0
+
+      - name: Run Updatecli in Dry Run mode
+        run: updatecli diff --config ./updatecli/updatecli.d --values ./updatecli/values.github-action.yaml
+        env:
+          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Updatecli in Apply mode
+        if: github.ref == 'refs/heads/main'
+        run: updatecli apply --config ./updatecli/updatecli.d --values ./updatecli/values.github-action.yaml
+        env:
+          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
