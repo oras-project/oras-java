@@ -14,12 +14,17 @@ jobs:
       pages: write
       id-token: write
     steps:
+
+      - name: Read Maven version
+        id: maven-version
+        run: echo "version=$(cat .github/vars/maven-version.txt)" >> $GITHUB_OUTPUT
+
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@4f7fb9d9675e899ca81c6161dadbba0189a4ebb1 # v1.18.0
         with:
           java-distribution: 'temurin'
           java-version: 17
-          maven-version: 3.9.9
+          maven-version: ${{ steps.maven.outputs.version }}
           cache-enabled: true
 
       - name: Build javadoc

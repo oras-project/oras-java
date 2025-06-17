@@ -51,13 +51,9 @@ targets:
     kind: file
     sourceid: mavenLatestVersion
     spec:
-      files:
-        - .github/workflows/build.yml
-        - .github/workflows/deploy-javadoc.yml
-        - .github/workflows/deploy-snapshots.yml
-        - .github/workflows/release.yml
-      matchPattern: "maven-version: (\\d.\\d.\\d)"
-      replacePattern: 'maven-version: {{ source "mavenLatestVersion" }}'
+      file: .github/vars/maven-version.txt
+      matchPattern: "(\\d.\\d.\\d)"
+      replacePattern: '{{ source "mavenLatestVersion" }}'
     scmid: default
 
 actions:

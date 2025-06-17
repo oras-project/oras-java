@@ -15,6 +15,10 @@ jobs:
       packages: write
     steps:
 
+      - name: Read Maven version
+        id: maven-version
+        run: echo "version=$(cat .github/vars/maven-version.txt)" >> $GITHUB_OUTPUT
+
       - name: Setup Java Action
         uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
         with:
@@ -26,7 +30,7 @@ jobs:
         with:
           java-distribution: 'temurin'
           java-version: 17
-          maven-version: 3.9.9
+          maven-version: ${{ steps.maven-version.outputs.version }}
           cache-enabled: true
           settings-servers: |
             [{
