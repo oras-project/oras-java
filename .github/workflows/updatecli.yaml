@@ -9,6 +9,8 @@ jobs:
   updatecli:
     permissions:
       actions: write
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     if: github.repository_owner == 'oras-project'
     steps:
