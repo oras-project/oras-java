@@ -34,7 +34,7 @@ targets:
     sourceid: mavenLatestVersion
     spec:
       file: pom.xml
-      matchPattern: "<version>\\[(\\d.\\d.\\d),\\)</version>"
+      matchPattern: "<version>\\[(\\d.\\d.\\d{1,2}),\\)</version>"
       replacePattern: '<version>[{{ source "mavenLatestVersion" }},)</version>'
     scmid: default
   updateSdkmanRC:
@@ -43,7 +43,7 @@ targets:
     sourceid: mavenLatestVersion
     spec:
       file: .sdkmanrc
-      matchPattern: "maven=(\\d.\\d.\\d)"
+      matchPattern: "maven=(\\d.\\d.\\d{1,2})"
       replacePattern: 'maven={{ source "mavenLatestVersion" }}'
     scmid: default
   updateWorkflowFiles:
@@ -52,7 +52,7 @@ targets:
     sourceid: mavenLatestVersion
     spec:
       file: .github/vars/maven-version.txt
-      matchPattern: "(\\d.\\d.\\d)"
+      matchPattern: "(\\d.\\d.\\d{1,2})"
       replacePattern: '{{ source "mavenLatestVersion" }}'
     scmid: default
 
