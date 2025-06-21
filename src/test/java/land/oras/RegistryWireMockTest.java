@@ -599,6 +599,23 @@ class RegistryWireMockTest {
     }
 
     @Test
+    void shouldNotValidateDockerContentDigestWhenProbingDescriptor(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        wireMock.register(head(urlEqualTo("/v2/library/validate-digest/manifests/latest"))
+                .willReturn(aResponse().withStatus(200).withBody("blob-data")));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        Descriptor descriptor = registry.probeDescriptor(containerRef);
+        assertNotNull(descriptor, "Descriptor should not be null");
+    }
+
+    @Test
     void shouldFollowRedirectAfterRequestingToken(WireMockRuntimeInfo wmRuntimeInfo) {
 
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
