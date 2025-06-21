@@ -30,7 +30,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Execution(ExecutionMode.SAME_THREAD)
-public class BearerTokenProviderTest {
+class BearerTokenProviderTest {
 
     private final ContainerRef containerRef = ContainerRef.parse("localhost:5000/library/test:latest");
 

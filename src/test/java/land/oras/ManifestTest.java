@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class ManifestTest {
+class ManifestTest {
 
     /**
      * Logger

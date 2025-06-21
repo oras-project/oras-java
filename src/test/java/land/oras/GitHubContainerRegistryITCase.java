@@ -30,7 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class GitHubContainerRegistryITCase {
+class GitHubContainerRegistryITCase {
 
     @TempDir
     Path tempDir;

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class SubjectTest {
+class SubjectTest {
 
     @Test
     void shouldReadSubject() {

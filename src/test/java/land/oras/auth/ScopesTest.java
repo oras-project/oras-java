@@ -32,7 +32,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  * Test for {@link Scopes}.
  */
 @Execution(ExecutionMode.CONCURRENT)
-public class ScopesTest {
+class ScopesTest {
 
     @Test
     void shouldBuildScopes() {

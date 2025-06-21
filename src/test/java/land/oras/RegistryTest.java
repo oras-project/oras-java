@@ -47,7 +47,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
-public class RegistryTest {
+class RegistryTest {
 
     @Container
     private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
