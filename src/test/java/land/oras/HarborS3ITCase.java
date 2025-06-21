@@ -18,24 +18,31 @@
  * =LICENSEEND=
  */
 
-package land.oras.exception;
+package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.nio.file.Path;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-class ErrorTest {
+class HarborS3ITCase {
+
+    @TempDir
+    Path tempDir;
 
     @Test
-    void shouldHaveCorrectValues() {
-        Error error = new Error("code", "message", "details");
-
-        // Getters
-        assertEquals("code", error.code(), "Code should be correct");
-        assertEquals("message", error.message(), "Message should be correct");
-        assertEquals("details", error.details(), "Details should be correct");
+    @Disabled("Only to test with demo Harbor S3 instance")
+    void shouldPullOneBlob() {
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef1 = ContainerRef.parse("demo.goharbor.io/oras/lib:foo");
+        Manifest manifest = registry.getManifest(containerRef1);
+        Layer oneLayer = manifest.getLayers().get(0);
+        registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
+        assertNotNull(tempDir.resolve("my-blob"));
     }
 }

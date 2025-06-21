@@ -33,6 +33,7 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -150,6 +151,7 @@ public final class HttpClient {
         return executeRequest(
                 "GET",
                 uri,
+                true,
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
@@ -172,6 +174,7 @@ public final class HttpClient {
         return executeRequest(
                 "GET",
                 uri,
+                true,
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofFile(file),
@@ -193,6 +196,7 @@ public final class HttpClient {
         return executeRequest(
                 "GET",
                 uri,
+                true,
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofInputStream(),
@@ -217,6 +221,7 @@ public final class HttpClient {
             return executeRequest(
                     method,
                     uri,
+                    true,
                     headers,
                     new byte[0],
                     HttpResponse.BodyHandlers.ofString(),
@@ -241,6 +246,7 @@ public final class HttpClient {
         return executeRequest(
                 "HEAD",
                 uri,
+                true,
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
@@ -262,6 +268,7 @@ public final class HttpClient {
         return executeRequest(
                 "DELETE",
                 uri,
+                true,
                 headers,
                 new byte[0],
                 HttpResponse.BodyHandlers.ofString(),
@@ -284,6 +291,7 @@ public final class HttpClient {
         return executeRequest(
                 "POST",
                 uri,
+                true,
                 headers,
                 body,
                 HttpResponse.BodyHandlers.ofString(),
@@ -306,6 +314,7 @@ public final class HttpClient {
         return executeRequest(
                 "PATCH",
                 uri,
+                true,
                 headers,
                 body,
                 HttpResponse.BodyHandlers.ofString(),
@@ -328,6 +337,7 @@ public final class HttpClient {
         return executeRequest(
                 "PUT",
                 uri,
+                true,
                 headers,
                 body,
                 HttpResponse.BodyHandlers.ofString(),
@@ -397,6 +407,22 @@ public final class HttpClient {
         return JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class);
     }
 
+    static boolean isSameOrigin(URI uri1, URI uri2) {
+        return Objects.equals(uri1.getScheme(), uri2.getScheme())
+                && Objects.equals(uri1.getHost(), uri2.getHost())
+                && getPort(uri1) == getPort(uri2);
+    }
+
+    static int getPort(URI uri) {
+        return uri.getPort() != -1 ? uri.getPort() : ("https".equals(uri.getScheme()) ? 443 : 80);
+    }
+
+    static <T> boolean shouldRedirect(HttpResponse<T> response) {
+        return response.statusCode() == HttpURLConnection.HTTP_MOVED_PERM
+                || response.statusCode() == HttpURLConnection.HTTP_MOVED_TEMP
+                || response.statusCode() == 307;
+    }
+
     /**
      * Execute a request
      * @param method The method
@@ -411,6 +437,7 @@ public final class HttpClient {
     private <T> ResponseWrapper<T> executeRequest(
             String method,
             URI uri,
+            boolean includeAuthHeader,
             Map<String, String> headers,
             byte[] body,
             HttpResponse.BodyHandler<T> handler,
@@ -435,7 +462,8 @@ public final class HttpClient {
 
             // Add authentication header if any
             if (authProvider.getAuthHeader(containerRef) != null
-                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)) {
+                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
+                    && includeAuthHeader) {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(containerRef));
             }
             headers.forEach(builder::header);
@@ -450,21 +478,28 @@ public final class HttpClient {
             // Follow redirect
             if (shouldRedirect(response)) {
                 String location = getLocationHeader(response);
-                LOG.debug("Redirecting to {}", location);
+                URI redirectUri = URI.create(location);
+                LOG.debug("Redirecting to {} from domain {} to domain {}", location, uri, redirectUri);
+                boolean includeAuthHeaderForRedirect = isSameOrigin(uri, redirectUri);
+                if (!includeAuthHeaderForRedirect) {
+                    LOG.debug("Skipping auth header for redirect from {} to {}", uri, redirectUri);
+                }
                 return executeRequest(
-                        method, URI.create(location), headers, body, handler, bodyPublisher, newScopes, authProvider);
+                        method,
+                        redirectUri,
+                        includeAuthHeaderForRedirect,
+                        headers,
+                        body,
+                        handler,
+                        bodyPublisher,
+                        newScopes,
+                        authProvider);
             }
             return redoRequest(response, builder, handler, newScopes, authProvider);
         } catch (Exception e) {
             LOG.error("Failed to execute request", e);
             throw new OrasException("Unable to create HTTP request", e);
         }
-    }
-
-    private <T> boolean shouldRedirect(HttpResponse<T> response) {
-        return response.statusCode() == HttpURLConnection.HTTP_MOVED_PERM
-                || response.statusCode() == HttpURLConnection.HTTP_MOVED_TEMP
-                || response.statusCode() == 307;
     }
 
     private <T> String getLocationHeader(HttpResponse<T> response) {

@@ -44,7 +44,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
-public class OCILayoutTest {
+class OCILayoutTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(OCILayoutTest.class);
 

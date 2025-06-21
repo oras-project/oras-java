@@ -32,7 +32,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class LayerTest {
+class LayerTest {
 
     @TempDir
     public static Path tempDir;

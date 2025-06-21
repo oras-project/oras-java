@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
@@ -63,7 +65,7 @@ import org.slf4j.LoggerFactory;
 
 @WireMockTest
 @Execution(ExecutionMode.SAME_THREAD)
-public class RegistryWireMockTest {
+class RegistryWireMockTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(RegistryWireMockTest.class);
 
@@ -132,6 +134,55 @@ public class RegistryWireMockTest {
         Path testFile = configDir.resolve("test-data.temp");
         Files.writeString(testFile, "Test Content");
         registry.pushBlob(containerRef, testFile);
+    }
+
+    @Test
+    void shouldNotSendAuthHeaderOnRedirectToDifferentDomain(WireMockRuntimeInfo wmRuntimeInfo) {
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        // Setup second WireMock instance on a different port
+        WireMockServer redirectTarget =
+                new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        redirectTarget.start();
+
+        try {
+            String redirectUrl = "http://localhost:%d/v2/other/blobs/sha256:other".formatted(redirectTarget.port());
+
+            WireMock mainMock = wmRuntimeInfo.getWireMock();
+
+            // Main mock responds with redirect to different domain
+            mainMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact/blobs/%s".formatted(digest)))
+                    .willReturn(WireMock.temporaryRedirect(redirectUrl)));
+
+            // Secondary server returns blob, we inspect headers here
+            redirectTarget.stubFor(WireMock.get(WireMock.urlEqualTo("/v2/other/blobs/sha256:other"))
+                    .willReturn(WireMock.ok()
+                            .withBody("blob-data")
+                            .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
+
+            redirectTarget.stubFor(WireMock.head(WireMock.urlEqualTo("/v2/other/blobs/sha256:other"))
+                    .willReturn(WireMock.ok()));
+
+            // Registry setup with auth that would inject an Authorization header
+            Registry registry = Registry.Builder.builder()
+                    .withAuthProvider(authProvider)
+                    .withInsecure(true)
+                    .build();
+
+            ContainerRef containerRef =
+                    ContainerRef.parse("localhost:%d/library/artifact".formatted(wmRuntimeInfo.getHttpPort()));
+            byte[] blob = registry.getBlob(containerRef.withDigest(digest));
+
+            assertEquals("blob-data", new String(blob));
+
+            // Assert Authorization header was not sent to the redirect target
+            redirectTarget.verify(
+                    1,
+                    WireMock.getRequestedFor(WireMock.urlEqualTo("/v2/other/blobs/sha256:other"))
+                            .withoutHeader("Authorization"));
+        } finally {
+            redirectTarget.stop();
+        }
     }
 
     @Test
