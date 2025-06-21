@@ -590,7 +590,9 @@ public final class Registry extends OCI<ContainerRef> {
     public Descriptor probeDescriptor(ContainerRef ref) {
         Map<String, String> headers = getHeaders(ref);
         String digest = validateDockerContentDigest(headers);
-        SupportedAlgorithm.fromDigest(digest);
+        if (digest != null) {
+            SupportedAlgorithm.fromDigest(digest);
+        }
         String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
         return Descriptor.of(digest, 0L, contentType);
     }
@@ -640,12 +642,19 @@ public final class Registry extends OCI<ContainerRef> {
         ensureDigest(digest, computedDigest);
     }
 
-    private String validateDockerContentDigest(HttpClient.ResponseWrapper<?> response) {
+    private @Nullable String validateDockerContentDigest(HttpClient.ResponseWrapper<?> response) {
         return validateDockerContentDigest(response.headers());
     }
 
-    private String validateDockerContentDigest(Map<String, String> headers) {
+    private @Nullable String validateDockerContentDigest(Map<String, String> headers) {
         String digest = headers.get(Const.DOCKER_CONTENT_DIGEST_HEADER.toLowerCase());
+        // This might happen when blob are hosted other storage.
+        // We need a way to propagate the headers like scoped.
+        // For now just skip validation
+        if (digest == null) {
+            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            return null;
+        }
         SupportedAlgorithm.fromDigest(digest);
         return digest;
     }

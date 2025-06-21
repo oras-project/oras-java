@@ -44,5 +44,6 @@ class HarborS3ITCase {
         Layer oneLayer = manifest.getLayers().get(0);
         registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
         assertNotNull(tempDir.resolve("my-blob"));
+        registry.pullArtifact(containerRef1, tempDir, true);
     }
 }
