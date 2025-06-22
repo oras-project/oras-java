@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -67,6 +68,19 @@ class LayerTest {
                 "sha512:150a14ed5bea6cc731cf86c41566ac427a8db48ef1b9fd626664b3bfbb99071fa4c922f33dde38719b8c8354e2b7ab9d77e0e67fc12843920a712e73d558e197",
                 layer.getDigest());
         assertEquals(2, layer.getSize());
+    }
+
+    @Test
+    void shouldCreateLayerForCompressedDir() {
+        ContainerRef containerRef = ContainerRef.parse("test/container:latest");
+        byte[] data = "test".getBytes(); // We don't really care about the content here
+        Layer layer = Layer.fromCompressedDirectory(containerRef, data);
+        assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
+        assertEquals("sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", layer.getDigest());
+
+        // Ensure unpack annotations is set
+        assertEquals(1, layer.getAnnotations().size());
+        assertEquals("true", layer.getAnnotations().get(Const.ANNOTATION_ORAS_UNPACK));
     }
 
     @Test

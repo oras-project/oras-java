@@ -183,6 +183,21 @@ public final class Layer extends Descriptor {
     }
 
     /**
+     * Create a layer from a compressed directory data (use gzip compression for unpacked directories)
+     * @param containerRef The container reference
+     * @param data The data
+     * @return The layer
+     */
+    public static Layer fromCompressedDirectory(ContainerRef containerRef, byte[] data) {
+        return new Layer(
+                Const.DEFAULT_BLOB_DIR_MEDIA_TYPE,
+                containerRef.getAlgorithm().digest(data),
+                data.length,
+                Base64.getEncoder().encodeToString(data),
+                Map.of(Const.ANNOTATION_ORAS_UNPACK, "true"));
+    }
+
+    /**
      * Create a layer from a digest
      * @param digest The digest
      * @param size The size
