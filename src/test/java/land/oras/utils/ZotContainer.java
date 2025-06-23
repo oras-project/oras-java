@@ -46,7 +46,7 @@ public class ZotContainer extends GenericContainer<ZotContainer> {
      * Create a new registry container
      */
     public ZotContainer() {
-        super("ghcr.io/project-zot/zot-linux-amd64:v2.1.2");
+        super("ghcr.io/project-zot/zot-linux-amd64:v2.1.5");
         addExposedPort(5000);
         setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(5000).forStatusCode(401));
 
