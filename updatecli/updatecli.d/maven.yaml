@@ -64,4 +64,3 @@ actions:
     spec:
       labels:
         - dependencies
-        - Dockerfile

@@ -1,0 +1,53 @@
+---
+name: Bump zot test container
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "{{ .github.user }}"
+      email: "{{ .github.email }}"
+      owner: "{{ .github.owner }}"
+      repository: "{{ .github.repository }}"
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      branch: "{{ .github.branch }}"
+
+sources:
+  zotLatestVersion:
+    kind: githubrelease
+    spec:
+      owner: project-zot
+      repository: zot
+      token: "{{ requiredEnv .github.token }}"
+      username: "{{ .github.username }}"
+      versioning:
+        kind: semver
+
+conditions:
+  zotImageExists:
+    name: zot image must exists
+    kind: dockerimage
+    spec:
+      image: ghcr.io/project-zot/zot-linux-amd64
+
+targets:
+  updateZotContainer:
+    name: "Update the value in the ZotContainer.java file"
+    kind: file
+    sourceid: zotLatestVersion
+    spec:
+      file: src/test/java/land/oras/utils/ZotContainer.java
+      matchPattern: "ghcr.io/project-zot/zot-linux-amd64:v(\\d.\\d.\\d{1,2})"
+      replacePattern: 'ghcr.io/project-zot/zot-linux-amd64:{{ source "zotLatestVersion" }}'
+    scmid: default
+
+actions:
+  default:
+    kind: github/pullrequest
+    scmid: default
+    title: 'Bump zot {{ source "zotLatestVersion" }}'
+    spec:
+      labels:
+        - tests
+        - dependencies
