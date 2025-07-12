@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Updatecli in the runner
-        uses: updatecli/updatecli-action@fe1c9dbd7a0442ffb01dcf150a21514fc8d09ab7 # v2.87.0
+        uses: updatecli/updatecli-action@60a9429087baeeaa732fd853d44ae16a8334027e # v2.87.1
 
       - name: Run Updatecli in Dry Run mode
         run: updatecli diff --config ./updatecli/updatecli.d --values ./updatecli/values.github-action.yaml
