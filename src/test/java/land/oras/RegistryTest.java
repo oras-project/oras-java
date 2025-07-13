@@ -36,6 +36,7 @@ import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
+import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,9 @@ class RegistryTest {
 
     @Container
     private final ZotContainer registry = new ZotContainer().withStartupAttempts(3);
+
+    @Container
+    private final ZotUnsecureContainer unsecureRegistry = new ZotUnsecureContainer().withStartupAttempts(3);
 
     @TempDir
     private Path blobDir;
@@ -155,6 +159,14 @@ class RegistryTest {
         assertThrows(OrasException.class, () -> {
             registry.pushBlob(containerRef, "hello".getBytes());
         });
+    }
+
+    @Test
+    void shouldPushUnsecure() {
+        Registry registry = Registry.Builder.builder().insecure().build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-text".formatted(this.unsecureRegistry.getRegistry()));
+        registry.pushBlob(containerRef, "hello".getBytes());
     }
 
     @Test
