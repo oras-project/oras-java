@@ -31,43 +31,34 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 @NullMarked
-public class ZotContainer extends GenericContainer<ZotContainer> {
+public class ZotUnsecureContainer extends GenericContainer<ZotUnsecureContainer> {
 
     /**
      * Logger
      */
-    private Logger LOG = LoggerFactory.getLogger(ZotContainer.class);
+    private Logger LOG = LoggerFactory.getLogger(ZotUnsecureContainer.class);
 
     // myuser:mypass
-    public static final String AUTH_STRING = "myuser:$2y$05$M1VYs6EzFkXBmuS.BrIreObAnJcWCgzSPeT9/Rh3aVEqTqtSL8XN.";
-    public static final int ZOT_PORT = 5000;
+    public static final int ZOT_PORT = 5001;
 
     /**
      * Create a new registry container
      */
-    public ZotContainer() {
+    public ZotUnsecureContainer() {
         super("ghcr.io/project-zot/zot-linux-amd64:v2.1.5");
         addExposedPort(ZOT_PORT);
-        setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(ZOT_PORT).forStatusCode(401));
+        setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(ZOT_PORT).forStatusCode(200));
 
         try {
-            // Auth file
-            Path authFile = Files.createTempFile("auth", ".htpasswd");
-            Files.writeString(authFile, AUTH_STRING);
-
             // Zot config file
             Path configFile = Files.createTempFile("zot-config", ".json");
-            // language=JSON
             String configJson =
                     """
                     {
                       "storage": { "rootDirectory": "/var/lib/registry" },
                       "http": {
                         "address": "0.0.0.0",
-                        "port": %s,
-                        "auth": {
-                          "htpasswd": { "path": "/etc/zot/auth.htpasswd" }
-                        }
+                        "port": %s
                       },
                       "extensions": {
                         "search": { "enable": true }
@@ -79,8 +70,6 @@ public class ZotContainer extends GenericContainer<ZotContainer> {
             Files.writeString(configFile, configJson);
 
             // Copy it into the container
-            withCopyFileToContainer(
-                    MountableFile.forHostPath(authFile.toAbsolutePath().toString()), "/etc/zot/auth.htpasswd");
             withCopyFileToContainer(
                     MountableFile.forHostPath(configFile.toAbsolutePath().toString()), "/etc/zot/config.json");
 
@@ -97,7 +86,7 @@ public class ZotContainer extends GenericContainer<ZotContainer> {
         return getHost() + ":" + getMappedPort(ZOT_PORT);
     }
 
-    public ZotContainer withFollowOutput() {
+    public ZotUnsecureContainer withFollowOutput() {
         followOutput(new Slf4jLogConsumer(LOG));
         return this;
     }
