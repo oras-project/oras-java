@@ -905,13 +905,14 @@ class RegistryTest {
         registry.pullArtifact(containerRef, extractDir, true);
 
         // Assert extracted files
-        assertEquals("foobar", Files.readString(extractDir.resolve("file1.txt")));
-        assertEquals("test1234", Files.readString(extractDir.resolve("file2.txt")));
-        assertEquals("barfoo", Files.readString(extractDir.resolve("file3.txt")));
+        Path extractedDir = extractDir.resolve(blobDir.getFileName());
+        assertEquals("foobar", Files.readString(extractedDir.resolve("file1.txt")));
+        assertEquals("test1234", Files.readString(extractedDir.resolve("file2.txt")));
+        assertEquals("barfoo", Files.readString(extractedDir.resolve("file3.txt")));
     }
 
     @Test
-    void testShouldPushAndPullUncompressedTarDirectory() throws IOException {
+    void testShouldPushAndPullUncompressedTarDirectoryWithAbsolutePath() throws IOException {
 
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -949,9 +950,47 @@ class RegistryTest {
         registry.pullArtifact(containerRef, extractDir, true);
 
         // Assert extracted files
-        assertEquals("foobar", Files.readString(extractDir.resolve("file1.txt")));
-        assertEquals("test1234", Files.readString(extractDir.resolve("file2.txt")));
-        assertEquals("barfoo", Files.readString(extractDir.resolve("file3.txt")));
+        Path extractedDir = this.extractDir.resolve(blobDir.getFileName());
+        assertEquals("foobar", Files.readString(extractedDir.resolve("file1.txt")));
+        assertEquals("test1234", Files.readString(extractedDir.resolve("file2.txt")));
+        assertEquals("barfoo", Files.readString(extractedDir.resolve("file3.txt")));
+    }
+
+    @Test
+    void testShouldPushAndPullUncompressedTarDirectoryWithRelativePath() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-relative-path".formatted(this.registry.getRegistry()));
+
+        // Source
+        Manifest manifest = registry.pushArtifact(
+                containerRef, LocalPath.of(Path.of("src/main/java"), Const.DEFAULT_BLOB_MEDIA_TYPE));
+        assertEquals(1, manifest.getLayers().size());
+
+        Layer layer = manifest.getLayers().get(0);
+
+        // A compressed directory file
+        assertEquals(Const.DEFAULT_BLOB_MEDIA_TYPE, layer.getMediaType());
+        Map<String, String> annotations = layer.getAnnotations();
+
+        // Assert annotations of the layer
+        assertEquals(3, annotations.size());
+        assertEquals("src/main/java", annotations.get(Const.ANNOTATION_TITLE)); // Keep relative path
+        assertEquals("true", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
+        assertEquals(
+                SupportedAlgorithm.SHA256,
+                SupportedAlgorithm.fromDigest(annotations.get(Const.ANNOTATION_ORAS_CONTENT_DIGEST)));
+
+        // Pull
+        registry.pullArtifact(containerRef, extractDir, false);
+
+        // Assert files under src/main/java
+        Path extractedDir = this.extractDir.resolve("src/main/java");
+        assertTrue(Files.exists(extractedDir.resolve("land/oras/Config.java")), "Config.java should exist");
     }
 
     @Test
@@ -993,9 +1032,10 @@ class RegistryTest {
         registry.pullArtifact(containerRef, extractDir, true);
 
         // Assert extracted files
-        assertEquals("foobar", Files.readString(extractDir.resolve("file1.txt")));
-        assertEquals("test1234", Files.readString(extractDir.resolve("file2.txt")));
-        assertEquals("barfoo", Files.readString(extractDir.resolve("file3.txt")));
+        Path extractedDir = extractDir.resolve(blobDir.getFileName());
+        assertEquals("foobar", Files.readString(extractedDir.resolve("file1.txt")));
+        assertEquals("test1234", Files.readString(extractedDir.resolve("file2.txt")));
+        assertEquals("barfoo", Files.readString(extractedDir.resolve("file3.txt")));
     }
 
     @Test

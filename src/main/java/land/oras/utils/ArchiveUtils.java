@@ -93,6 +93,7 @@ public final class ArchiveUtils {
      */
     public static LocalPath tar(LocalPath sourceDir) {
         Path tarFile = createTempTar();
+        boolean isAbsolute = sourceDir.getPath().isAbsolute();
         try (OutputStream fos = Files.newOutputStream(tarFile);
 
                 // Output stream chain
@@ -104,8 +105,8 @@ public final class ArchiveUtils {
                 paths.forEach(path -> {
                     LOG.trace("Visiting path: {}", path);
                     try {
-
-                        Path relativePath = sourceDir.getPath().relativize(path);
+                        Path baseName = isAbsolute ? sourceDir.getPath().getFileName() : sourceDir.getPath();
+                        Path relativePath = baseName.resolve(sourceDir.getPath().relativize(path));
                         if (relativePath.toString().isEmpty()) {
                             LOG.trace("Skipping root directory: {}", path);
                             return;

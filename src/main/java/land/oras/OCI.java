@@ -167,11 +167,15 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                         ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
                     }
                     try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
+                        String title = path.getPath().isAbsolute()
+                                ? path.getPath().getFileName().toString()
+                                : path.getPath().toString();
+                        LOG.debug("Uploading directory as archive with title: {}", title);
                         Layer layer = pushBlob(ref, is)
                                 .withMediaType(path.getMediaType())
                                 .withAnnotations(Map.of(
                                         Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString(),
+                                        title,
                                         Const.ANNOTATION_ORAS_CONTENT_DIGEST,
                                         ref.getAlgorithm().digest(tempTar.getPath()),
                                         Const.ANNOTATION_ORAS_UNPACK,
