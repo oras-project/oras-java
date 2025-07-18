@@ -12,6 +12,9 @@ jobs:
       packages: write
     steps:
 
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Read Maven version
         id: maven-version
         run: echo "version=$(cat .github/vars/maven-version.txt)" >> $GITHUB_OUTPUT
@@ -19,6 +22,7 @@ jobs:
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@4f7fb9d9675e899ca81c6161dadbba0189a4ebb1 # v1.18.0
         with:
+          checkout-enabled: false
           java-distribution: 'temurin'
           java-version: 17
           maven-version: ${{ steps.maven-version.outputs.version }}
