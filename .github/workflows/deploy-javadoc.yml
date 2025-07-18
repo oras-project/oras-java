@@ -28,7 +28,7 @@ jobs:
           checkout-enabled: false
           java-distribution: 'temurin'
           java-version: 17
-          maven-version: ${{ steps.maven.outputs.version }}
+          maven-version: ${{ steps.maven-version.outputs.version }}
           cache-enabled: true
 
       - name: Build javadoc
