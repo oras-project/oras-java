@@ -45,7 +45,7 @@ public class ZotUnsecureContainer extends GenericContainer<ZotUnsecureContainer>
      * Create a new registry container
      */
     public ZotUnsecureContainer() {
-        super("ghcr.io/project-zot/zot-linux-amd64:v2.1.5");
+        super("ghcr.io/project-zot/zot-linux-amd64:v2.1.6");
         addExposedPort(ZOT_PORT);
         setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(ZOT_PORT).forStatusCode(200));
 
