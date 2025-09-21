@@ -39,7 +39,7 @@ public final class Const {
     }
 
     /**
-     * Default registry
+     * Default registry when no unqualified-search-registries is set in the config
      */
     public static final String DEFAULT_REGISTRY = "docker.io";
 

@@ -598,6 +598,23 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return if the container ref manifests or index exists
+     * @param containerRef The container
+     * @return True if exists
+     */
+    boolean exists(ContainerRef containerRef) {
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.head(
+                uri,
+                Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE),
+                Scopes.of(this, containerRef),
+                authProvider);
+        logResponse(response);
+        return response.statusCode() == 200;
+    }
+
+    /**
      * Get a manifest response
      * @param containerRef The container
      * @return The response

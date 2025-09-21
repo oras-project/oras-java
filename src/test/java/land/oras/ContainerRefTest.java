@@ -37,6 +37,7 @@ class ContainerRefTest {
         // Explicit
         ContainerRef containerRef1 = ContainerRef.parse("docker.io/library/foo");
         ContainerRef withDigest1 = containerRef1.withDigest("sha256@12344");
+        assertFalse(containerRef1.isUnqualified(), "ContainerRef must be qualified");
         assertEquals("sha256@12344", withDigest1.getDigest());
         assertEquals("library", withDigest1.getNamespace());
         assertEquals(
@@ -159,6 +160,7 @@ class ContainerRefTest {
     @Test
     void shouldParseImageWithNoRegistry() {
         ContainerRef containerRef = ContainerRef.parse("alpine:latest");
+        assertTrue(containerRef.isUnqualified(), "ContainerRef must be unqualified");
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("registry-1.docker.io", containerRef.getApiRegistry());
         assertEquals(
@@ -171,12 +173,20 @@ class ContainerRefTest {
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertNull(containerRef.getDigest());
+        assertFalse(containerRef.forRegistry("docker.io").isUnqualified(), "ContainerRef must be qualified");
     }
 
     @Test
     void shouldParseImageWithNoTagAndNoRegistry() {
         ContainerRef containerRef = ContainerRef.parse("alpine");
         assertEquals("docker.io", containerRef.getRegistry());
+        assertEquals(
+                "docker.io",
+                containerRef.getEffectiveRegistry(Registry.builder().build()));
+        assertEquals(
+                "my-registry.com",
+                containerRef.getEffectiveRegistry(
+                        Registry.builder().withRegistry("my-registry.com").build()));
         assertEquals("library", containerRef.getNamespace());
         assertEquals(
                 "library/alpine",
