@@ -51,12 +51,6 @@ public class AuthStore {
     private final Config config;
 
     /**
-     * Error message indicating that the format of the provided credential is invalid.
-     * This is typically used when credentials do not match the expected structure or format.
-     */
-    public static final String ERR_BAD_CREDENTIAL_FORMAT = "Bad credential format";
-
-    /**
      * Constructor for FileStore.
      *
      * @param config configuration instance.

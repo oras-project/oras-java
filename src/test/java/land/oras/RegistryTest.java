@@ -693,6 +693,8 @@ class RegistryTest {
                 .build();
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
+        ContainerRef unknown =
+                ContainerRef.parse("%s/library/artifact-full:unknown".formatted(this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Files.writeString(file1, "foobar");
@@ -702,6 +704,9 @@ class RegistryTest {
         assertEquals(1, manifest.getLayers().size());
         assertEquals(
                 Const.DEFAULT_ARTIFACT_MEDIA_TYPE, manifest.getArtifactType().getMediaType());
+
+        assertTrue(registry.exists(containerRef), "Artifact should exist");
+        assertFalse(registry.exists(unknown), "Artifact should not exist");
 
         // Ensure one annotation (created by the SDK)
         Map<String, String> manifestAnnotations = manifest.getAnnotations();

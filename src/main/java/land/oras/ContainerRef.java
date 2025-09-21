@@ -70,16 +70,28 @@ public final class ContainerRef extends Ref<ContainerRef> {
     private final @Nullable String digest;
 
     /**
+     * Whether the container reference is unqualified without registry
+     */
+    private final boolean unqualified;
+
+    /**
      * Private constructor
      * @param registry The registry where the container is stored.
+     * @param unqualified Whether the container reference is unqualified without registry
      * @param namespace The namespace of the container.
      * @param repository The repository where the container is stored
      * @param tag The tag of the container.
      * @param digest The digest of the container.
      */
     private ContainerRef(
-            String registry, @Nullable String namespace, String repository, String tag, @Nullable String digest) {
+            String registry,
+            boolean unqualified,
+            @Nullable String namespace,
+            String repository,
+            String tag,
+            @Nullable String digest) {
         super(tag);
+        this.unqualified = unqualified;
         this.registry = registry;
         this.namespace = namespace;
         this.repository = repository;
@@ -92,6 +104,28 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public String getRegistry() {
         return registry;
+    }
+
+    /**
+     * Get the effective registry based on given target
+     * @param target The target registry
+     * @return The effective registry
+     */
+    public String getEffectiveRegistry(Registry target) {
+        if (isUnqualified()) {
+            if (target.getRegistry() != null) {
+                return target.getRegistry();
+            }
+        }
+        return registry;
+    }
+
+    /**
+     * Whether the container reference is unqualified without registry
+     * @return True if unqualified
+     */
+    public boolean isUnqualified() {
+        return unqualified;
     }
 
     /**
@@ -181,7 +215,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     @Override
     public ContainerRef withDigest(String digest) {
-        return new ContainerRef(registry, namespace, repository, tag, digest);
+        return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
     }
 
     @Override
@@ -329,11 +363,13 @@ public final class ContainerRef extends Ref<ContainerRef> {
         String repository = matcher.group(3);
         String tag = matcher.group(4);
         String digest = matcher.group(5);
+        boolean unqualified = false;
         if (repository == null) {
             throw new IllegalArgumentException("You are minimally required to include a <namespace>/<repository>");
         }
         if (registry == null) {
             registry = Const.DEFAULT_REGISTRY;
+            unqualified = true;
         }
         if (tag == null) {
             tag = Const.DEFAULT_TAG;
@@ -348,7 +384,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
             SupportedAlgorithm.fromDigest(digest);
         }
 
-        return new ContainerRef(registry, namespace, repository, tag, digest);
+        return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
     }
 
     /**
@@ -357,7 +393,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The container reference
      */
     public ContainerRef forRegistry(String registry) {
-        return new ContainerRef(registry, namespace, repository, tag, digest);
+        return new ContainerRef(registry, false, namespace, repository, tag, digest);
     }
 
     /**
@@ -368,6 +404,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
     public ContainerRef forRegistry(Registry registry) {
         return new ContainerRef(
                 registry.getRegistry() != null ? registry.getRegistry() : this.registry,
+                false, // not unqualified if registry is set
                 namespace,
                 repository,
                 tag,
