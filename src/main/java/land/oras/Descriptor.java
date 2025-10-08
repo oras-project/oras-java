@@ -20,6 +20,9 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -31,6 +34,7 @@ import org.jspecify.annotations.Nullable;
  * Main class for descriptor
  */
 @OrasModel
+@JsonPropertyOrder({Const.JSON_PROPERTY_MEDIA_TYPE, Const.JSON_PROPERTY_DIGEST, Const.JSON_PROPERTY_SIZE})
 public sealed class Descriptor permits Config, Manifest, Layer, Index {
 
     /**
@@ -61,7 +65,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     /**
      * Original json
      */
-    protected transient String json;
+    protected String json;
 
     /**
      * Constructor
@@ -91,6 +95,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * Return the original JSON
      * @return The original JSON
      */
+    @JsonIgnore
     public String getJson() {
         return json;
     }
@@ -99,11 +104,25 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * Get the annotations
      * @return The annotations
      */
+    @JsonIgnore
     public Map<String, String> getAnnotations() {
         if (annotations == null) {
             return Map.of();
         }
         return Collections.unmodifiableMap(annotations);
+    }
+
+    /**
+     * We never serialize empty annotations
+     * @return The annotations or null
+     */
+    @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS)
+    @SuppressWarnings("unused")
+    public @Nullable Map<String, String> getAnnotationsForJson() {
+        if (annotations == null || annotations.isEmpty()) {
+            return null;
+        }
+        return annotations;
     }
 
     /**

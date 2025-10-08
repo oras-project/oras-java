@@ -20,6 +20,10 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,6 +42,13 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+    Const.JSON_PROPERTY_ANNOTATIONS,
+    Const.JSON_PROPERTY_DATA
+})
 public final class Layer extends Descriptor {
 
     /**
@@ -48,21 +59,15 @@ public final class Layer extends Descriptor {
     /**
      * The path to the blob. Might be null if data is set
      */
-    private final transient @Nullable Path blobPath;
+    private final @Nullable Path blobPath;
 
-    /**
-     * Constructor that can directly set the data
-     * Not adapted for large blob due to memory usage but convenient for small data
-     * @param mediaType The media type
-     * @param digest The digest
-     * @param size The size
-     */
+    @JsonCreator
     private Layer(
-            String mediaType,
-            String digest,
-            long size,
-            @Nullable String data,
-            @Nullable Map<String, String> annotations) {
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) @Nullable Long size,
+            @JsonProperty(Const.JSON_PROPERTY_DATA) @Nullable String data,
+            @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) @Nullable Map<String, String> annotations) {
         super(digest, size, mediaType, annotations, null, null);
         this.data = data;
         this.blobPath = null;
@@ -93,6 +98,7 @@ public final class Layer extends Descriptor {
      * Get the blob path
      * @return The blob path
      */
+    @JsonIgnore
     public @Nullable Path getBlobPath() {
         return blobPath;
     }
@@ -119,6 +125,7 @@ public final class Layer extends Descriptor {
      * Get the data as bytes
      * @return The data as bytes
      */
+    @JsonIgnore
     public byte[] getDataBytes() {
         if (data != null) {
             return Base64.getDecoder().decode(data);
@@ -177,7 +184,7 @@ public final class Layer extends Descriptor {
         return new Layer(
                 Const.DEFAULT_BLOB_MEDIA_TYPE,
                 containerRef.getAlgorithm().digest(data),
-                data.length,
+                (long) data.length,
                 Base64.getEncoder().encodeToString(data),
                 Map.of());
     }
@@ -200,7 +207,7 @@ public final class Layer extends Descriptor {
         return new Layer(
                 Const.DEFAULT_EMPTY_MEDIA_TYPE,
                 "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-                2,
+                2L,
                 "e30=",
                 Map.of());
     }

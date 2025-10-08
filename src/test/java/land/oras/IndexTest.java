@@ -88,7 +88,7 @@ class IndexTest {
     @Test
     void shouldReadAndWriteIndexWithArtifactType() {
         String json =
-                "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}],\"artifactType\":\"foo/bar\"}";
+                "{\"schemaVersion\":2,\"artifactType\":\"foo/bar\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559}]}";
         Index index = Index.fromJson(json);
         assertNull(index.getMediaType());
         assertEquals(2, index.getSchemaVersion());
@@ -133,7 +133,7 @@ class IndexTest {
         assertEquals("sha256:123", subject.getDigest());
         assertEquals(123, subject.getSize());
         assertEquals(
-                "{\"schemaVersion\":2,\"manifests\":[],\"subject\":{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:123\",\"size\":123},\"mediaType\":\"application/vnd.oci.image.index.v1+json\"}",
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"subject\":{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:123\",\"size\":123},\"manifests\":[]}",
                 index.toJson());
     }
 

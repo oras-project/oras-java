@@ -20,6 +20,10 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
@@ -34,19 +38,38 @@ import org.jspecify.annotations.Nullable;
  */
 @NullUnmarked
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+    Const.JSON_PROPERTY_ANNOTATIONS,
+    Const.JSON_PROPERTY_DATA
+})
 public final class Config extends Descriptor {
 
     /**
-     * The base 64 encoded data
+     * The data, base64 encoded
      */
     private final @Nullable String data;
 
-    /**
-     * Constructor
-     * @param mediaType The media type
-     * @param digest The digest
-     * @param size The size
-     */
+    @JsonCreator
+    @SuppressWarnings("unused")
+    private Config(
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) long size,
+            @Nullable @JsonProperty(Const.JSON_PROPERTY_DATA) String data,
+            @Nullable @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) Map<String, String> annotations) {
+        super(
+                digest,
+                size,
+                mediaType,
+                annotations != null && !annotations.isEmpty() ? Map.copyOf(annotations) : null,
+                null,
+                null);
+        this.data = data;
+    }
+
     private Config(String mediaType, String digest, long size, @Nullable String data, Annotations annotations) {
         super(
                 digest,
@@ -94,6 +117,7 @@ public final class Config extends Descriptor {
      * Get the data as bytes
      * @return The data as bytes
      */
+    @JsonIgnore
     public byte[] getDataBytes() {
         if (data != null) {
             return Base64.getDecoder().decode(data);

@@ -20,6 +20,10 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.List;
 import java.util.Objects;
 import land.oras.utils.Const;
@@ -29,6 +33,8 @@ import land.oras.utils.JsonUtils;
  * List of referrers
  */
 @OrasModel
+@JsonPropertyOrder({Const.JSON_PROPERTY_MEDIA_TYPE, Const.JSON_PROPERTY_MANIFESTS})
+@JsonInclude(JsonInclude.Include.NON_NULL) // We need to serialize empty list of manifests
 public class Referrers {
 
     private String mediaType;
@@ -37,7 +43,8 @@ public class Referrers {
     /**
      * Private constructor
      */
-    private Referrers(List<ManifestDescriptor> manifests) {
+    @JsonCreator
+    private Referrers(@JsonProperty(Const.JSON_PROPERTY_MANIFESTS) List<ManifestDescriptor> manifests) {
         this.mediaType = Const.DEFAULT_INDEX_MEDIA_TYPE;
         this.manifests = manifests;
     }

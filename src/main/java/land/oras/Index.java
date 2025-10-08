@@ -20,6 +20,10 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -34,6 +38,18 @@ import org.jspecify.annotations.Nullable;
  * Index from an OCI layout
  */
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_SCHEMA_VERSION,
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_ARTIFACT_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+    Const.JSON_PROPERTY_CONFIG,
+    Const.JSON_PROPERTY_SUBJECT,
+    Const.JSON_PROPERTY_ANNOTATIONS,
+    Const.JSON_PROPERTY_MANIFESTS,
+})
+@JsonInclude(JsonInclude.Include.NON_NULL) // We need to serialize empty list of manifests
 public final class Index extends Descriptor implements Describable {
 
     private final int schemaVersion;
@@ -43,7 +59,19 @@ public final class Index extends Descriptor implements Describable {
     /**
      * The manifest descriptor
      */
-    private final transient ManifestDescriptor descriptor;
+    private final ManifestDescriptor descriptor;
+
+    @JsonCreator
+    @SuppressWarnings("unused")
+    private Index(
+            @JsonProperty(Const.JSON_PROPERTY_SCHEMA_VERSION) int schemaVersion,
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_ARTIFACT_TYPE) String artifactType,
+            @JsonProperty(Const.JSON_PROPERTY_MANIFESTS) List<ManifestDescriptor> manifests,
+            @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) Map<String, String> annotations,
+            @JsonProperty(Const.JSON_PROPERTY_SUBJECT) Subject subject) {
+        this(schemaVersion, mediaType, artifactType, manifests, annotations, subject, null, null);
+    }
 
     private Index(
             int schemaVersion,
@@ -75,6 +103,16 @@ public final class Index extends Descriptor implements Describable {
      */
     public List<ManifestDescriptor> getManifests() {
         return manifests;
+    }
+
+    /**
+     * Get the artifact type as string for JSON serialization
+     * @return The artifact type as string
+     */
+    @JsonProperty(Const.JSON_PROPERTY_ARTIFACT_TYPE)
+    @SuppressWarnings("unused")
+    public String getArtifactTypeAsString() {
+        return artifactType;
     }
 
     /**

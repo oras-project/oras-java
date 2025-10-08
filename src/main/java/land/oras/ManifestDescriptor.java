@@ -20,8 +20,12 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Map;
 import java.util.Objects;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -31,6 +35,14 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_ARTIFACT_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+    Const.JSON_PROPERTY_PLATFORM,
+    Const.JSON_PROPERTY_ANNOTATIONS,
+})
 public final class ManifestDescriptor {
 
     private final @Nullable String artifactType;
@@ -44,20 +56,14 @@ public final class ManifestDescriptor {
     @Nullable
     private final Map<String, String> annotations;
 
-    /**
-     * Constructor
-     * @param artifactType The optional artifact type
-     * @param mediaType The media type
-     * @param digest The digest
-     * @param size The size
-     */
+    @JsonCreator
     private ManifestDescriptor(
-            @Nullable String artifactType,
-            String mediaType,
-            String digest,
-            long size,
-            @Nullable Map<String, String> platform,
-            @Nullable Map<String, String> annotations) {
+            @JsonProperty(Const.JSON_PROPERTY_ARTIFACT_TYPE) @Nullable String artifactType,
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) long size,
+            @JsonProperty(Const.JSON_PROPERTY_PLATFORM) @Nullable Map<String, String> platform,
+            @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) @Nullable Map<String, String> annotations) {
         this.artifactType = artifactType;
         this.mediaType = mediaType;
         this.digest = digest;

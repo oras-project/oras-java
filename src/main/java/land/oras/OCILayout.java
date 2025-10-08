@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -46,7 +47,7 @@ public final class OCILayout extends OCI<LayoutRef> {
     /**
      * Path on the file system of the OCI Layout
      */
-    private transient Path path;
+    private Path path;
 
     /**
      * Private constructor
@@ -577,6 +578,7 @@ public final class OCILayout extends OCI<LayoutRef> {
      * Return the path to the OCI layout
      * @return The path to the OCI layout
      */
+    @JsonIgnore
     public Path getPath() {
         return path;
     }

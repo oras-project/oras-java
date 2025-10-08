@@ -72,7 +72,7 @@ class OCILayoutTest {
         assertOciLayout(path);
         assertIndex(path, manifest, 1, 0);
         assertBlobExists(path, manifest.getDescriptor().getDigest());
-        assertEquals(425, manifest.getDescriptor().getSize());
+        assertEquals(408, manifest.getDescriptor().getSize());
 
         // One element in the index
         Index index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
@@ -85,7 +85,7 @@ class OCILayoutTest {
 
         // Copy again
         manifest = ociLayout.pushManifest(layoutRef, manifest);
-        assertEquals(425, manifest.getDescriptor().getSize());
+        assertEquals(408, manifest.getDescriptor().getSize());
 
         // Same manifest
         index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
@@ -267,7 +267,7 @@ class OCILayoutTest {
         assertOciLayout(path);
         assertIndex(path, manifest, 1, 0);
         assertBlobExists(path, manifest.getDescriptor().getDigest());
-        assertEquals(425, manifest.getDescriptor().getSize());
+        assertEquals(408, manifest.getDescriptor().getSize());
 
         // One element in the index
         Index index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
@@ -283,7 +283,7 @@ class OCILayoutTest {
 
         // Copy again
         manifest = ociLayout.pushManifest(layoutRef, manifest);
-        assertEquals(425, manifest.getDescriptor().getSize());
+        assertEquals(408, manifest.getDescriptor().getSize());
 
         index = Index.fromPath(path.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(1, index.getManifests().size());
