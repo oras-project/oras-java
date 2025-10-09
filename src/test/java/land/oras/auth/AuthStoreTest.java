@@ -63,6 +63,10 @@ class AuthStoreTest {
             "another.registry.com": {
                 "auth": "dXNlcjpwYXNzd29yZA=="
             }
+        },
+        "credHelpers": {
+            "registry.other.com": "foo-binary",
+            "another.other.com": "bar-binary"
         }
     }
     """;
@@ -78,6 +82,10 @@ class AuthStoreTest {
             "another.other.com": {
                 "auth": "dXNlcjpwYXNzd29yZA=="
             }
+        },
+        "credHelpers": {
+            "registry.other.com": "foo-binary",
+            "another.other.com": "bar-binary"
         }
     }
     """;
@@ -124,6 +132,14 @@ class AuthStoreTest {
                         authStoreInstance.get(ContainerRef.parse("registry.example.com/foo/bar:latest"));
                 assertNotNull(credential);
                 assertEquals(USERNAME, credential.username());
+
+                String binary = authStoreInstance.getCredentialHelperBinary(
+                        ContainerRef.parse("registry.other.com/foo/bar:latest"));
+                assertNotNull(binary);
+                assertEquals("docker-credential-foo-binary", binary);
+
+                assertNull(authStoreInstance.getCredentialHelperBinary(
+                        ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
             });
         });
     }
@@ -144,6 +160,14 @@ class AuthStoreTest {
                                 authStoreInstance.get(ContainerRef.parse("registry.other.com/foo/bar:latest"));
                         assertNotNull(credential);
                         assertEquals(USERNAME, credential.username());
+
+                        String binary = authStoreInstance.getCredentialHelperBinary(
+                                ContainerRef.parse("registry.other.com/foo/bar:latest"));
+                        assertNotNull(binary);
+                        assertEquals("docker-credential-foo-binary", binary);
+
+                        assertNull(authStoreInstance.getCredentialHelperBinary(
+                                ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
                     });
                 });
     }

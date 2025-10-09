@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -71,6 +72,7 @@ public class AuthStore {
             if (Files.exists(configPath)) {
                 ConfigFile configFile = JsonUtils.fromJson(configPath, ConfigFile.class);
                 LOG.debug("Loaded auth config file: {}", configPath);
+                LOG.debug(configFile.toString());
                 files.add(configFile);
             }
         }
@@ -104,10 +106,26 @@ public class AuthStore {
     }
 
     /**
+     * Get the credential helper binary for the given containerRef.
+     * @param containerRef ContainerRef.
+     * @return Credential helper binary name or null if not found.
+     */
+    public @Nullable String getCredentialHelperBinary(ContainerRef containerRef) {
+        String helper = config.credentialHelperStore.get(containerRef.getRegistry());
+        if (helper == null) {
+            return null;
+        }
+        return "docker-credential-" + helper;
+    }
+
+    /**
      * Nested ConfigFile class to represent the configuration file.
      * @param auths The auths map.
      */
-    record ConfigFile(Map<String, Map<String, String>> auths) {
+    record ConfigFile(
+            Map<String, Map<String, String>> auths,
+            @Nullable Map<String, String> credHelpers,
+            @Nullable Map<String, String> credsStore) {
 
         /**
          * Constructs a new {@code ConfigFile} object with the specified auths.
@@ -115,12 +133,16 @@ public class AuthStore {
          * @return ConfigFile object.
          */
         static ConfigFile fromCredential(Credential credential) {
-            return new ConfigFile(Map.of(
-                    "auths",
+            return new ConfigFile(
                     Map.of(
-                            "auth",
-                            java.util.Base64.getEncoder()
-                                    .encodeToString((credential.username + ":" + credential.password).getBytes()))));
+                            "auths",
+                            Map.of(
+                                    "auth",
+                                    java.util.Base64.getEncoder()
+                                            .encodeToString(
+                                                    (credential.username + ":" + credential.password).getBytes()))),
+                    Map.of(),
+                    Map.of());
         }
     }
 
@@ -140,6 +162,11 @@ public class AuthStore {
         private final ConcurrentHashMap<String, Credential> credentialStore = new ConcurrentHashMap<>();
 
         /**
+         * Stores the credential helpers binaries
+         */
+        private final ConcurrentHashMap<String, String> credentialHelperStore = new ConcurrentHashMap<>();
+
+        /**
          * Loads the configuration from a JSON file at the specified path and populates the credential store.
          *
          * @param configFiles The config files
@@ -149,6 +176,8 @@ public class AuthStore {
         public static Config load(List<ConfigFile> configFiles) throws OrasException {
             Config config = new Config();
             for (ConfigFile configFile : configFiles) {
+                config.credentialHelperStore.putAll(configFile.credHelpers != null ? configFile.credHelpers : Map.of());
+                config.credentialHelperStore.putAll(configFile.credsStore != null ? configFile.credsStore : Map.of());
                 configFile.auths.forEach((host, value) -> {
                     String auth = value.get("auth");
                     if (auth != null) {
@@ -193,4 +222,15 @@ public class AuthStore {
             this.password = Objects.requireNonNull(password, "Password cannot be null");
         }
     }
+
+    /**
+     * Credential helper response
+     * @param serverUrl The server URL
+     * @param username The username
+     * @param secret The secret (password or token)
+     */
+    public record CredentialHelpResponse(
+            @JsonProperty("ServerURL") String serverUrl,
+            @JsonProperty("Username") String username,
+            @JsonProperty("Secret") String secret) {}
 }
