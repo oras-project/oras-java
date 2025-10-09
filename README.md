@@ -23,8 +23,10 @@ OCI Registry as Storage enables libraries to push OCI Artifacts to [OCI Conforma
 
 ## Consuming SDK
 
-SNAPSHOT version are published on GitHub Maven packages.
-Releases are published on Maven Central
+SNAPSHOT for version 0.2.x are published on GitHub Maven packages.
+SNAPSHOT for version 0.3.x and above are published on Maven Central at: https://central.sonatype.com/repository/maven-snapshots/
+
+Releases are published on Maven Central since version 0.2.x.
 
 Javadoc is published from main branch into: https://oras-project.github.io/oras-java/
 

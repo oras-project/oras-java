@@ -32,7 +32,7 @@ jobs:
           cache-enabled: true
           settings-servers: |
             [{
-                "id": "central",
+                "id": "central-snapshots",
                 "username": "${{ secrets.CENTRAL_USERNAME }}",
                 "password": "${{ secrets.CENTRAL_PASSWORD }}"
             }]
