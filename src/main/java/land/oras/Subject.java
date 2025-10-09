@@ -20,7 +20,11 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Objects;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 
@@ -29,19 +33,22 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+})
 public final class Subject {
 
     private final String mediaType;
     private final String digest;
     private final long size;
 
-    /**
-     * Constructor
-     * @param mediaType The media type
-     * @param digest The digest
-     * @param size The size
-     */
-    private Subject(String mediaType, String digest, long size) {
+    @JsonCreator
+    private Subject(
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) long size) {
         this.mediaType = mediaType;
         this.digest = digest;
         this.size = size;

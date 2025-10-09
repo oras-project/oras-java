@@ -26,16 +26,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Execution(ExecutionMode.CONCURRENT)
 class ManifestTest {
-
-    /**
-     * Logger
-     */
-    private static final Logger LOG = LoggerFactory.getLogger(ManifestTest.class);
 
     @Test
     void shouldReadManifest() {
@@ -107,7 +100,7 @@ class ManifestTest {
         String json = manifest.toString();
         assertNotNull(json);
         assertEquals(
-                "{\"schemaVersion\":2,\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":7023},\"layers\":[{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":32654},{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\"size\":1048576}],\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\"}",
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.image.config.v1+json\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":7023},\"layers\":[{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\"size\":32654},{\"mediaType\":\"application/vnd.oci.image.layer.v1.tar+gzip\",\"digest\":\"sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\"size\":1048576}]}",
                 json);
     }
 

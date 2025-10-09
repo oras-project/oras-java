@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,6 +41,11 @@ public record Annotations(
         Map<String, String> configAnnotations,
         Map<String, String> manifestAnnotations,
         Map<String, Map<String, String>> filesAnnotations) {
+
+    @JsonCreator
+    private Annotations() {
+        this(new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
 
     /**
      * Create a new annotations record with only manifest annotations

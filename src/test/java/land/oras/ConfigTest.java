@@ -35,7 +35,7 @@ class ConfigTest {
     void shouldSerializeEmptyConfig() {
         Config config = Config.empty();
         assertEquals(
-                "{\"data\":\"e30=\",\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}",
+                "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2,\"data\":\"e30=\"}",
                 config.toJson());
     }
 
@@ -56,6 +56,7 @@ class ConfigTest {
         assertEquals("application/vnd.oci.empty.v1+json", config.getMediaType());
         assertEquals("sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a", config.getDigest());
         assertEquals(2, config.getSize());
+        assertNotNull(config.getAnnotations(), "Annotations should not be null");
         assertEquals(1, config.getAnnotations().size());
         assertEquals("value", config.getAnnotations().get("key"));
     }

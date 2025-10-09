@@ -39,6 +39,66 @@ public final class Const {
     }
 
     /**
+     * JSON property for media type
+     */
+    public static final String JSON_PROPERTY_MEDIA_TYPE = "mediaType";
+
+    /**
+     * JSON property for artifact type
+     */
+    public static final String JSON_PROPERTY_ARTIFACT_TYPE = "artifactType";
+
+    /**
+     * JSON property for schema version
+     */
+    public static final String JSON_PROPERTY_SCHEMA_VERSION = "schemaVersion";
+
+    /**
+     * JSON property for subject
+     */
+    public static final String JSON_PROPERTY_SUBJECT = "subject";
+
+    /**
+     * JSON property for config
+     */
+    public static final String JSON_PROPERTY_CONFIG = "config";
+
+    /**
+     * JSON property for layers
+     */
+    public static final String JSON_PROPERTY_LAYERS = "layers";
+
+    /**
+     * JSON property for digest
+     */
+    public static final String JSON_PROPERTY_DIGEST = "digest";
+
+    /**
+     * JSON property for size
+     */
+    public static final String JSON_PROPERTY_SIZE = "size";
+
+    /**
+     * JSON property for annotations
+     */
+    public static final String JSON_PROPERTY_ANNOTATIONS = "annotations";
+
+    /**
+     * JSON property for platform
+     */
+    public static final String JSON_PROPERTY_PLATFORM = "platform";
+
+    /**
+     * JSON property for manifests
+     */
+    public static final String JSON_PROPERTY_MANIFESTS = "manifests";
+
+    /**
+     * JSON property for data (base64 encoded)
+     */
+    public static final String JSON_PROPERTY_DATA = "data";
+
+    /**
      * Default registry when no unqualified-search-registries is set in the config
      */
     public static final String DEFAULT_REGISTRY = "docker.io";

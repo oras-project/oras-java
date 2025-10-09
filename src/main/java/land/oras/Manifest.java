@@ -20,6 +20,11 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +41,19 @@ import org.jspecify.annotations.Nullable;
  */
 @NullUnmarked
 @OrasModel
+@JsonPropertyOrder({
+    Const.JSON_PROPERTY_SCHEMA_VERSION,
+    Const.JSON_PROPERTY_MEDIA_TYPE,
+    Const.JSON_PROPERTY_ARTIFACT_TYPE,
+    Const.JSON_PROPERTY_DIGEST,
+    Const.JSON_PROPERTY_SIZE,
+    Const.JSON_PROPERTY_CONFIG,
+    Const.JSON_PROPERTY_SUBJECT,
+    Const.JSON_PROPERTY_ANNOTATIONS,
+    Const.JSON_PROPERTY_DATA,
+    Const.JSON_PROPERTY_LAYERS
+})
+@JsonInclude(JsonInclude.Include.NON_NULL) // We need to serialize empty list of layers
 public final class Manifest extends Descriptor implements Describable {
 
     private final int schemaVersion;
@@ -46,7 +64,33 @@ public final class Manifest extends Descriptor implements Describable {
     /**
      * The manifest descriptor
      */
-    private final transient ManifestDescriptor descriptor;
+    private final ManifestDescriptor descriptor;
+
+    @JsonCreator
+    @SuppressWarnings("unused")
+    private Manifest(
+            @JsonProperty(Const.JSON_PROPERTY_SCHEMA_VERSION) int schemaVersion,
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) Long size,
+            @JsonProperty(Const.JSON_PROPERTY_ARTIFACT_TYPE) String artifactType,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
+            @JsonProperty(Const.JSON_PROPERTY_CONFIG) Config config,
+            @JsonProperty(Const.JSON_PROPERTY_SUBJECT) Subject subject,
+            @JsonProperty(Const.JSON_PROPERTY_LAYERS) List<Layer> layers,
+            @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) Map<String, String> annotations) {
+        super(
+                digest,
+                size,
+                mediaType,
+                annotations != null && !annotations.isEmpty() ? Map.copyOf(annotations) : null,
+                artifactType,
+                null);
+        this.schemaVersion = schemaVersion;
+        this.descriptor = null;
+        this.config = config;
+        this.subject = subject;
+        this.layers = layers;
+    }
 
     private Manifest(
             int schemaVersion,
@@ -81,6 +125,7 @@ public final class Manifest extends Descriptor implements Describable {
     }
 
     @Override
+    @JsonIgnore
     public @NonNull ArtifactType getArtifactType() {
         if (artifactType != null) {
             return ArtifactType.from(artifactType);
@@ -92,17 +137,39 @@ public final class Manifest extends Descriptor implements Describable {
         return ArtifactType.unknown();
     }
 
+    /**
+     * Get the artifact type as string for JSON serialization
+     * @return The artifact type as string
+     */
+    @JsonProperty(Const.JSON_PROPERTY_ARTIFACT_TYPE)
+    @SuppressWarnings("unused")
+    public String getArtifactTypeAsString() {
+        return artifactType;
+    }
+
     @Override
+    @JsonIgnore
     public ManifestDescriptor getDescriptor() {
         return descriptor;
     }
 
     @Override
+    @JsonIgnore
     public String getDigest() {
         if (descriptor == null) {
             return super.getDigest();
         }
         return descriptor.getDigest();
+    }
+
+    /**
+     * Get the top-level digest (for JSON serialization)
+     * @return The top-level digest
+     */
+    @JsonProperty(Const.JSON_PROPERTY_DIGEST)
+    @SuppressWarnings("unused")
+    public String getTopLevelDigest() {
+        return digest;
     }
 
     /**

@@ -20,33 +20,30 @@
 
 package land.oras.utils;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.ZonedDateTime;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for JSON operations.
- * Use Gson internally for JSON operations
+ * Use Jackson 3 internally for JSON operations
  */
 @NullMarked
 public final class JsonUtils {
 
     /**
-     * Gson instance
+     * JSON mapper instance
      */
-    private static final Gson gson;
+    private static final ObjectMapper jsonMapper;
 
     /**
      * Utils class
@@ -55,26 +52,10 @@ public final class JsonUtils {
         // Hide constructor
     }
 
-    /**
-     * Type adapter for ZonedDateTime
-     */
-    private static final class ZonedDateTimeTypeAdapter extends TypeAdapter<ZonedDateTime> {
-        @Override
-        public void write(JsonWriter out, ZonedDateTime value) throws IOException {
-            out.value(value.toString());
-        }
-
-        @Override
-        public ZonedDateTime read(JsonReader in) throws IOException {
-            return ZonedDateTime.parse(in.nextString());
-        }
-    }
-
     static {
-        gson = new GsonBuilder()
-                .registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeTypeAdapter())
-                .disableHtmlEscaping()
-                .create();
+        jsonMapper = JsonMapper.builder()
+                .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_EMPTY))
+                .build();
     }
 
     /**
@@ -83,7 +64,11 @@ public final class JsonUtils {
      * @return The JSON string
      */
     public static String toJson(Object object) {
-        return gson.toJson(object);
+        try {
+            return jsonMapper.writeValueAsString(object);
+        } catch (JacksonException e) {
+            throw new OrasException("Unable to convert object to JSON string", e);
+        }
     }
 
     /**
@@ -95,8 +80,8 @@ public final class JsonUtils {
      */
     public static <T> T fromJson(String json, Class<T> clazz) {
         try {
-            return gson.fromJson(json, clazz);
-        } catch (JsonSyntaxException e) {
+            return jsonMapper.readValue(json, clazz);
+        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON string", e);
         }
     }
@@ -112,10 +97,10 @@ public final class JsonUtils {
      */
     public static <T> T fromJson(Path path, Class<T> clazz) {
         try {
-            return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), clazz);
+            return jsonMapper.readValue(Files.readString(path, StandardCharsets.UTF_8), clazz);
         } catch (IOException e) {
             throw new OrasException("Unable to read JSON file due to IO error", e);
-        } catch (JsonSyntaxException e) {
+        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON file", e);
         }
     }
@@ -131,10 +116,12 @@ public final class JsonUtils {
      */
     public static <T> T fromJson(Path path, Type type) {
         try {
-            return gson.fromJson(Files.readString(path, StandardCharsets.UTF_8), type);
+            return jsonMapper.readValue(
+                    Files.readString(path, StandardCharsets.UTF_8),
+                    jsonMapper.getTypeFactory().constructType(type));
         } catch (IOException e) {
             throw new OrasException("Unable to read JSON file due to IO error", e);
-        } catch (JsonSyntaxException e) {
+        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON file", e);
         }
     }
@@ -150,8 +137,8 @@ public final class JsonUtils {
      */
     public static <T> T fromJson(Reader reader, Type type) {
         try {
-            return gson.fromJson(reader, type);
-        } catch (JsonSyntaxException e) {
+            return jsonMapper.readValue(reader, jsonMapper.getTypeFactory().constructType(type));
+        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON content", e);
         }
     }
