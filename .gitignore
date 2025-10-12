@@ -31,6 +31,7 @@ target/
 
 # When testing JSON files
 *.json
+!.backportrc.json
 oci/
 !src/test/resources/oci/
 !src/test/resources/oci/**/*.json

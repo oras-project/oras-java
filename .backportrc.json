@@ -1,0 +1,9 @@
+{
+  "repoOwner": "oras-project",
+  "repoName": "oras-java",
+  "targetBranchChoices": ["release/0.2.x"],
+  "autoMerge": false,
+  "branchLabelMapping": {
+    "to-backport": "release/0.2.x"
+  }
+}
