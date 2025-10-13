@@ -19,6 +19,12 @@ If using `sdkman` you can install the required versions with:
 sdk env
 ```
 
+Some tests require the `docker-credential-secretservice` to be installed to run tests
+
+```
+brew install docker-credential-helper
+```
+
 ### Before opening a PR
 
 - All commits are signed off with `git commit -s`

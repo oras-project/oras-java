@@ -22,6 +22,7 @@ package land.oras.utils;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -81,6 +82,21 @@ public final class JsonUtils {
     public static <T> T fromJson(String json, Class<T> clazz) {
         try {
             return jsonMapper.readValue(json, clazz);
+        } catch (JacksonException e) {
+            throw new OrasException("Unable to parse JSON string", e);
+        }
+    }
+
+    /**
+     * Convert a JSON string to an object
+     * @param is The JSON input stream
+     * @param clazz The class of the object
+     * @param <T> The type of the object
+     * @return The object
+     */
+    public static <T> T fromJson(InputStream is, Class<T> clazz) {
+        try {
+            return jsonMapper.readValue(is, clazz);
         } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON string", e);
         }
