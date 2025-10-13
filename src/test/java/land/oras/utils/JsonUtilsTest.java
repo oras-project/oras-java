@@ -23,6 +23,7 @@ package land.oras.utils;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.google.gson.internal.LinkedTreeMap;
 import java.io.ByteArrayInputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -32,7 +33,6 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.List;
 import land.oras.exception.OrasException;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ public class JsonUtilsTest {
     void shouldParseInputStream() {
         InputStream inputStream = new ByteArrayInputStream("{}".getBytes(StandardCharsets.UTF_8));
         Object obj = JsonUtils.fromJson(inputStream, Object.class);
-        assertEquals(LinkedHashMap.class, obj.getClass());
+        assertEquals(LinkedTreeMap.class, obj.getClass());
 
         // Invalid input stream
         InputStream invalidInputStream = new ByteArrayInputStream("not a json".getBytes(StandardCharsets.UTF_8));

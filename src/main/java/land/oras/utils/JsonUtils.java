@@ -28,6 +28,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -111,9 +112,9 @@ public final class JsonUtils {
      */
     public static <T> T fromJson(InputStream is, Class<T> clazz) {
         try {
-            return jsonMapper.readValue(is, clazz);
-        } catch (JacksonException e) {
-            throw new OrasException("Unable to parse JSON string", e);
+            return gson.fromJson(new InputStreamReader(is), clazz);
+        } catch (JsonSyntaxException e) {
+            throw new OrasException("Unable to parse JSON file", e);
         }
     }
 

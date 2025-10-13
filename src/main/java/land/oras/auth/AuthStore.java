@@ -20,7 +20,6 @@
 
 package land.oras.auth;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -286,20 +285,17 @@ public class AuthStore {
 
     /**
      * Credential helper response
-     * @param serverUrl The server URL
-     * @param username The username
-     * @param secret The secret (password or token)
+     * @param ServerURL The server URL
+     * @param Username The username
+     * @param Secret The secret (password or token)
      */
-    public record CredentialHelperResponse(
-            @JsonProperty("ServerURL") String serverUrl,
-            @JsonProperty("Username") String username,
-            @JsonProperty("Secret") String secret) {
+    public record CredentialHelperResponse(String ServerURL, String Username, String Secret) {
         /**
          * Convert to Credential
          * @return Credential
          */
         public Credential asCredential() {
-            return new Credential(username, secret);
+            return new Credential(Username, Secret);
         }
     }
 }
