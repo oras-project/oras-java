@@ -46,26 +46,20 @@ Follow the [Quarkus ORAS documentation](https://docs.quarkiverse.io/quarkus-oras
 
 ### Only for SNAPSHOTS (only for testing)
 
-GitHub requires authentication to download packages. You can use a personal access token to authenticate with GitHub Packages. To authenticate with GitHub Packages, you need to update your `~/.m2/settings.xml` file to include your personal access token.
-
-```xml
-<server>
-    <id>oras-java</id>
-    <username>YOUR_USERNAME</username>
-    <password>YOUR_ACCESS_TOKEN_WITH_PACKAGE_READ_SCOPE</password>
-</server>
-```
-
 Then on your `pom.xml`
 
 ```xml
 <repositories>
     <repository>
-        <id>oras-java</id>
-        <url>https://maven.pkg.github.com/oras-project/oras-java</url>
+        <id>central-snapshots</id>
+        <name>ORAS Maven Central SNAPSHOTS</name>
+        <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         <snapshots>
             <enabled>true</enabled>
         </snapshots>
+        <releases>
+            <enabled>false</enabled>
+        </releases>
     </repository>
 </repositories>
 ```
