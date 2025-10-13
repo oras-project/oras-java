@@ -3,7 +3,10 @@ name: PR build
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, release/0.2.x]
+  push:
+    branches:
+      - release/0.2.x
 
 permissions:
   contents: read
