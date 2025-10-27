@@ -58,7 +58,7 @@
     <jspecify.version>1.0.0</jspecify.version>
     <jackson.version>3.0.1</jackson.version>
     <apache.common-compress.version>1.28.0</apache.common-compress.version>
-    <zstd-jni.version>1.5.7-5</zstd-jni.version>
+    <zstd-jni.version>1.5.7-6</zstd-jni.version>
     <bcprov-jdk18on.version>1.82</bcprov-jdk18on.version>
 
     <!-- Test dependencies version -->
