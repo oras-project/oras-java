@@ -50,6 +50,11 @@ public class AuthStore {
     private static final Logger LOG = LoggerFactory.getLogger(AuthStore.class);
 
     /**
+     * Credentials helper for all registries
+     */
+    private static final String ALL_REGISTRIES_HELPER = "*";
+
+    /**
      * The internal config
      */
     private final Config config;
@@ -123,11 +128,13 @@ public class AuthStore {
     /**
      * Nested ConfigFile class to represent the configuration file.
      * @param auths The auths map.
+     * @param credHelpers The credential helpers map.
+     * @param credsStore The credentials store.
      */
     record ConfigFile(
             Map<String, Map<String, String>> auths,
             @Nullable Map<String, String> credHelpers,
-            @Nullable Map<String, String> credsStore) {
+            @Nullable String credsStore) {
 
         /**
          * Constructs a new {@code ConfigFile} object with the specified auths.
@@ -144,7 +151,7 @@ public class AuthStore {
                                             .encodeToString(
                                                     (credential.username + ":" + credential.password).getBytes()))),
                     Map.of(),
-                    Map.of());
+                    null);
         }
     }
 
@@ -179,7 +186,10 @@ public class AuthStore {
             Config config = new Config();
             for (ConfigFile configFile : configFiles) {
                 config.credentialHelperStore.putAll(configFile.credHelpers != null ? configFile.credHelpers : Map.of());
-                config.credentialHelperStore.putAll(configFile.credsStore != null ? configFile.credsStore : Map.of());
+                config.credentialHelperStore.putAll(
+                        configFile.credsStore != null
+                                ? Map.of(ALL_REGISTRIES_HELPER, configFile.credsStore)
+                                : Map.of());
                 configFile.auths.forEach((host, value) -> {
                     String auth = value.get("auth");
                     if (auth != null) {
@@ -217,9 +227,23 @@ public class AuthStore {
             String helperSuffix = credentialHelperStore.get(registry);
             if (helperSuffix != null) {
                 try {
+                    LOG.debug("Using credential helper '{}' for registry '{}'", helperSuffix, registry);
                     return getFromCredentialHelper(helperSuffix, registry);
                 } catch (OrasException e) {
                     LOG.warn("Failed to get credential from helper for registry {}: {}", registry, e.getMessage());
+                }
+            }
+            // Finally, try all-registries helper
+            helperSuffix = credentialHelperStore.get(ALL_REGISTRIES_HELPER);
+            if (helperSuffix != null) {
+                try {
+                    LOG.debug("Using all-registries credential helper for registry '{}'", registry);
+                    return getFromCredentialHelper(helperSuffix, registry);
+                } catch (OrasException e) {
+                    LOG.warn(
+                            "Failed to get credential from all-registries helper for registry {}: {}",
+                            registry,
+                            e.getMessage());
                 }
             }
 
