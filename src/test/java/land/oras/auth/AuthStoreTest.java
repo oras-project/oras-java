@@ -64,11 +64,12 @@ class AuthStoreTest {
                 "auth": "dXNlcjpwYXNzd29yZA=="
             }
         },
+        "credsStore": "unknown",
         "credHelpers": {
             "registry.other.com": "foo-binary",
             "another.other.com": "bar-binary",
             "new.other.com": "pass",
-            "other.other.com": "secretservice",
+            "other.other.com": "other-binary",
             "creds.other.com": "fake",
             "error.other.com": "fake"
         }
@@ -87,11 +88,12 @@ class AuthStoreTest {
                 "auth": "dXNlcjpwYXNzd29yZA=="
             }
         },
+        "credsStore": "unknown",
         "credHelpers": {
             "registry.other.com": "foo-binary",
             "another.other.com": "bar-binary",
             "new.other.com": "pass",
-            "other.other.com": "secretservice",
+            "other.other.com": "other-binary",
             "creds.other.com": "fake",
             "error.other.com": "fake"
         }
@@ -143,6 +145,22 @@ class AuthStoreTest {
                 // Verify
                 AuthStore.Credential credential =
                         authStoreInstance.get(ContainerRef.parse("other.other.com/foo/bar:latest"));
+                assertNull(credential);
+            });
+        });
+    }
+
+    @Test
+    void testShouldReadCredentialsFromCredentialStoreNullCheck() throws Exception {
+        new EnvironmentVariables().set("XDG_RUNTIME_DIR", "not-used").execute(() -> {
+            new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
+                AuthStore authStoreInstance = AuthStore.newStore();
+                assertNotNull(authStoreInstance);
+
+                // Verify
+                AuthStore.Credential credential =
+                        authStoreInstance.get(ContainerRef.parse("otherfromstore.other.com/foo/bar:latest"));
                 assertNull(credential);
             });
         });
