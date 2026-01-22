@@ -44,7 +44,6 @@ public final class CopyUtils {
         // Utils class
     }
 
-
     /**
      * Copy a container from source to target (Old Method - Backward Compatibility).
      * @param source The source OCI
@@ -54,12 +53,12 @@ public final class CopyUtils {
      * @param recursive Whether to copy referrers recursively
      */
     public static <SourceRefType extends Ref<@NonNull SourceRefType>, TargetRefType extends Ref<@NonNull TargetRefType>>
-    void copy(
-            OCI<SourceRefType> source,
-            SourceRefType sourceRef,
-            OCI<TargetRefType> target,
-            TargetRefType targetRef,
-            boolean recursive) {
+            void copy(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef,
+                    boolean recursive) {
         // This converts the old boolean into your new class!
         copy(source, sourceRef, target, targetRef, new CopyOptions(recursive));
     }
