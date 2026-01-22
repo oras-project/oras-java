@@ -44,13 +44,32 @@ public final class CopyUtils {
         // Utils class
     }
 
+
+    /**
+     * Copy a container from source to target (Old Method - Backward Compatibility).
+     * @param source The source OCI
+     * @param sourceRef The source reference
+     * @param target The target OCI
+     * @param targetRef The target reference
+     * @param recursive Whether to copy referrers recursively
+     */
+    public static <SourceRefType extends Ref<@NonNull SourceRefType>, TargetRefType extends Ref<@NonNull TargetRefType>>
+    void copy(
+            OCI<SourceRefType> source,
+            SourceRefType sourceRef,
+            OCI<TargetRefType> target,
+            TargetRefType targetRef,
+            boolean recursive) {
+        // This converts the old boolean into your new class!
+        copy(source, sourceRef, target, targetRef, new CopyOptions(recursive));
+    }
     /**
      * Copy a container from source to target.
      * @param source The source OCI
      * @param sourceRef The source reference
      * @param target The target OCI
      * @param targetRef The target reference
-     * @param recursive Whether to copy referrers recursively
+     * @param options The copy options
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
@@ -60,7 +79,7 @@ public final class CopyUtils {
                     SourceRefType sourceRef,
                     OCI<TargetRefType> target,
                     TargetRefType targetRef,
-                    boolean recursive) {
+                    CopyOptions options) {
 
         try {
 
@@ -94,12 +113,12 @@ public final class CopyUtils {
                 // Push the manifest
                 target.pushManifest(targetRef.withDigest(tag), manifest);
 
-                if (recursive) {
+                if (options.isRecursive()) {
                     LOG.debug("Recursively copy referrers");
                     Referrers referrers = source.getReferrers(sourceRef.withDigest(manifestDigest), null);
                     for (ManifestDescriptor referer : referrers.getManifests()) {
                         LOG.info("Copy reference {}", referer.getDigest());
-                        copy(source, sourceRef.withDigest(referer.getDigest()), target, targetRef, recursive);
+                        copy(source, sourceRef.withDigest(referer.getDigest()), target, targetRef, options);
                     }
                 }
 
