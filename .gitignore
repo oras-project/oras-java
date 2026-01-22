@@ -28,6 +28,7 @@ target/
 
 # IDEs
 .idea/
+*.iml
 
 # When testing JSON files
 *.json
