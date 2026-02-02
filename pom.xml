@@ -74,7 +74,7 @@
     <palantir.java.format.version>2.74.0</palantir.java.format.version>
     <build.helper-maven-plugin.version>3.6.1</build.helper-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
-    <spotless-maven-plugin.version>3.2.0</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.2.1</spotless-maven-plugin.version>
     <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
     <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
     <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
