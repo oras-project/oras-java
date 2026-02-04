@@ -188,14 +188,24 @@ public final class ManifestDescriptor {
      * @return The subject
      */
     public static ManifestDescriptor of(Descriptor descriptor) {
-        Objects.requireNonNull(descriptor.getDigest());
+        return of(descriptor, descriptor.getDigest());
+    }
+
+    /**
+     * Create a manifest descriptor with the given digest
+     * @param descriptor The descriptor
+     * @param digest The digest
+     * @return The subject
+     */
+    public static ManifestDescriptor of(Descriptor descriptor, @Nullable String digest) {
         Objects.requireNonNull(descriptor.getSize());
+        Objects.requireNonNull(digest);
         return new ManifestDescriptor(
                 descriptor.getArtifactType() != null
                         ? descriptor.getArtifactType().getMediaType()
                         : null,
                 descriptor.getMediaType(),
-                descriptor.getDigest(),
+                digest,
                 descriptor.getSize(),
                 null,
                 descriptor.getAnnotations());

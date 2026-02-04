@@ -22,25 +22,26 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.nio.file.Path;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
 class PublicECRITCase {
 
-    @TempDir
-    Path tempDir;
-
     @Test
-    @Disabled("Failing until #514 is fixed")
     void shouldPullAnonymousIndex() {
+
+        // Via tag
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest");
         Index index = registry.getIndex(containerRef1);
         assertNotNull(index);
+
+        // Via digest
+        ContainerRef containerRef2 = ContainerRef.parse(
+                "public.ecr.aws/docker/library/alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659");
+        Index index2 = registry.getIndex(containerRef2);
+        assertNotNull(index2);
     }
 }
