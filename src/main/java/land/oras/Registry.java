@@ -572,8 +572,19 @@ public final class Registry extends OCI<ContainerRef> {
         if (!isIndexMediaType(contentType)) {
             throw new OrasException("Expected index but got %s".formatted(contentType));
         }
-        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
-        return Index.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
+        String json = descriptor.getJson();
+        String digest = descriptor.getDigest();
+        if (digest == null) {
+            LOG.debug("Digest missing from header, using from reference");
+            digest = containerRef.getDigest();
+            if (digest == null) {
+                LOG.debug("Digest missing from reference, computing from content");
+                digest = containerRef.getAlgorithm().digest(json.getBytes(StandardCharsets.UTF_8));
+                LOG.debug("Computed index digest: {}", digest);
+            }
+        }
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
+        return Index.fromJson(json).withDescriptor(manifestDescriptor);
     }
 
     @Override
