@@ -579,10 +579,17 @@ public final class Registry extends OCI<ContainerRef> {
     @Override
     public Descriptor getDescriptor(ContainerRef containerRef) {
         HttpClient.ResponseWrapper<String> response = getManifestResponse(containerRef);
+        logResponse(response);
         handleError(response);
         String size = response.headers().get(Const.CONTENT_LENGTH_HEADER.toLowerCase());
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        return Descriptor.of(validateDockerContentDigest(response), Long.parseLong(size), contentType)
+        return Descriptor.of(
+                        validateDockerContentDigest(response),
+                        Long.parseLong(
+                                size == null
+                                        ? String.valueOf(response.response().length())
+                                        : size),
+                        contentType)
                 .withJson(response.response());
     }
 

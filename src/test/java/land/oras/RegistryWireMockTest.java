@@ -549,6 +549,53 @@ class RegistryWireMockTest {
     }
 
     @Test
+    void shouldComputeSizeWhenGettingDescriptorIfNull(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        wireMock.register(any(urlEqualTo("/v2/library/null-size/manifests/latest"))
+                .willReturn(
+                        aResponse().withStatus(200).withBody("{}") // Empty JSON, no test on index
+                        ));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/null-size".formatted(registryUrl));
+
+        Descriptor descriptor = registry.getDescriptor(containerRef);
+        assertNotNull(descriptor, "Descriptor should not be null");
+        assertEquals(2, descriptor.getSize(), "Size should be 0 when not provided by registry");
+    }
+
+    @Test
+    void shouldGetSizeFromHeaderWhenGettingDescriptor(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        wireMock.register(any(urlEqualTo("/v2/library/header-size-size/manifests/latest"))
+                .willReturn(
+                        aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Length", "42")
+                                .withBody("{}") // Empty JSON, no test on index
+                        ));
+
+        // Test
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/header-size-size".formatted(registryUrl));
+
+        Descriptor descriptor = registry.getDescriptor(containerRef);
+        assertNotNull(descriptor, "Descriptor should not be null");
+        assertEquals(42, descriptor.getSize(), "Size should be 0 when not provided by registry");
+    }
+
+    @Test
     void shouldValidateDockerContentDigestForUnknownAlgorithm(WireMockRuntimeInfo wmRuntimeInfo) {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
