@@ -462,9 +462,7 @@ public final class HttpClient {
 
             // Add authentication header if any
             var authHeader = authProvider.getAuthHeader(containerRef);
-            if (authHeader != null
-                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
-                    && includeAuthHeader) {
+            if (authHeader != null && !authProvider.getAuthScheme().equals(AuthScheme.NONE) && includeAuthHeader) {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, authHeader);
             }
             headers.forEach(builder::header);
