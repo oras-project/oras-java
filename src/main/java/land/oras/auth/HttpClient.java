@@ -461,10 +461,9 @@ public final class HttpClient {
             LOG.debug("New scopes: {}", newScopes.getScopes());
 
             // Add authentication header if any
-            if (authProvider.getAuthHeader(containerRef) != null
-                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
-                    && includeAuthHeader) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, authProvider.getAuthHeader(containerRef));
+            var authHeader = authProvider.getAuthHeader(containerRef);
+            if (authHeader != null && !authProvider.getAuthScheme().equals(AuthScheme.NONE) && includeAuthHeader) {
+                builder = builder.header(Const.AUTHORIZATION_HEADER, authHeader);
             }
             headers.forEach(builder::header);
 
@@ -524,8 +523,16 @@ public final class HttpClient {
                         token.expires_in(),
                         token.issued_at().plusSeconds(token.expires_in()));
             }
+            String bearerToken = token.token();
+            if (bearerToken == null) {
+                // Docker registry auth spec allows either token or auth_token (or both if they are the same)
+                bearerToken = token.access_token();
+            }
+            if (bearerToken == null) {
+                throw new OrasException("No Bearer token received");
+            }
             try {
-                builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + token.token());
+                builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + bearerToken);
                 HttpResponse<T> newResponse = client.send(builder.build(), handler);
 
                 // Follow redirect

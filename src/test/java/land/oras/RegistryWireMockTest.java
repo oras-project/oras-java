@@ -60,14 +60,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @WireMockTest
 @Execution(ExecutionMode.SAME_THREAD)
 class RegistryWireMockTest {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RegistryWireMockTest.class);
 
     private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
 
@@ -366,44 +362,21 @@ class RegistryWireMockTest {
 
     @Test
     void shouldGetToken(WireMockRuntimeInfo wmRuntimeInfo) {
-
-        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
-
-        // Return data from wiremock
-        WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/%s".formatted(digest)))
-                .inScenario("get token")
-                .willReturn(WireMock.unauthorized()
-                        .withHeader(
-                                Const.WWW_AUTHENTICATE_HEADER,
-                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/get-token:pull\""
-                                        .formatted(wmRuntimeInfo.getHttpPort()))));
-
-        // Return token
-        wireMock.register(
-                WireMock.any(WireMock.urlEqualTo("/token?scope=repository:library/get-token:pull&service=localhost"))
-                        .inScenario("get token")
-                        .willSetStateTo("get")
-                        .willReturn(WireMock.okJson(JsonUtils.toJson(new HttpClient.TokenResponse(
-                                "fake-token", "access-token", 300, ZonedDateTime.now())))));
-
-        // On the second call we return ok
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-token/blobs/%s".formatted(digest)))
-                .inScenario("get token")
-                .whenScenarioStateIs("get")
-                .willReturn(
-                        WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
-
-        // Insecure registry
-        Registry registry = Registry.Builder.builder()
-                .withAuthProvider(authProvider)
-                .withInsecure(true)
-                .build();
-
-        ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/get-token".formatted(wmRuntimeInfo.getHttpPort()));
-        byte[] blob = registry.getBlob(containerRef.withDigest(digest));
+        byte[] blob = tokenScenario(wmRuntimeInfo, "get-token", "token", null);
         assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldGetAuthToken(WireMockRuntimeInfo wmRuntimeInfo) {
+        byte[] blob = tokenScenario(wmRuntimeInfo, "get-auth-token", null, "access-token");
+        assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void shouldThrowIfNoTokenFound(WireMockRuntimeInfo wmRuntimeInfo) {
+        assertThrows(OrasException.class, () -> {
+            tokenScenario(wmRuntimeInfo, "get-auth-token", null, null);
+        });
     }
 
     @Test
@@ -809,5 +782,45 @@ class RegistryWireMockTest {
         assertEquals(
                 "Digest mismatch: sha256:c2752ad96ee652e4d37fd3852de632c50f193490d132f27a1794c986e1f112ef != sha256:2be4e14a6587ab9b637afb553f0654c70e80fa14bd0b8fbf9fa09079f55a2ace",
                 exception.getMessage());
+    }
+
+    private byte[] tokenScenario(
+            WireMockRuntimeInfo wmRuntimeInfo, String registryName, String token, String accessToken) {
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(registryName, digest)))
+                .inScenario(registryName)
+                .willReturn(WireMock.unauthorized()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/%s:pull\""
+                                        .formatted(wmRuntimeInfo.getHttpPort(), registryName))));
+
+        // Return token
+        wireMock.register(WireMock.any(WireMock.urlEqualTo(
+                        "/token?scope=repository:library/%s:pull&service=localhost".formatted(registryName)))
+                .inScenario(registryName)
+                .willSetStateTo("get")
+                .willReturn(WireMock.okJson(
+                        JsonUtils.toJson(new HttpClient.TokenResponse(token, accessToken, 300, ZonedDateTime.now())))));
+
+        // On the second call we return ok
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(registryName, digest)))
+                .inScenario(registryName)
+                .whenScenarioStateIs("get")
+                .willReturn(
+                        WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/%s".formatted(wmRuntimeInfo.getHttpPort(), registryName));
+        return registry.getBlob(containerRef.withDigest(digest));
     }
 }
