@@ -533,6 +533,10 @@ public final class HttpClient {
             }
             try {
                 builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + bearerToken);
+                if (builder.build().method() == "HEAD") {
+                    LOG.debug("Redoing HEAD request to GET with new token");
+                    builder = builder.GET();
+                }
                 HttpResponse<T> newResponse = client.send(builder.build(), handler);
 
                 // Follow redirect

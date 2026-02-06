@@ -475,6 +475,7 @@ public final class Registry extends OCI<ContainerRef> {
     private HttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        LOG.debug("Checking blob existence with HEAD request to: {}", uri);
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
@@ -561,8 +562,19 @@ public final class Registry extends OCI<ContainerRef> {
             throw new OrasException(
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
-        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
-        return Manifest.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
+        String json = descriptor.getJson();
+        String digest = descriptor.getDigest();
+        if (digest == null) {
+            LOG.debug("Digest missing from header, using from reference");
+            digest = containerRef.getDigest();
+            if (digest == null) {
+                LOG.debug("Digest missing from reference, computing from content");
+                digest = containerRef.getAlgorithm().digest(json.getBytes(StandardCharsets.UTF_8));
+                LOG.debug("Computed index digest: {}", digest);
+            }
+        }
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
+        return Manifest.fromJson(json).withDescriptor(manifestDescriptor);
     }
 
     @Override
@@ -734,9 +746,13 @@ public final class Registry extends OCI<ContainerRef> {
     private void logResponse(HttpClient.ResponseWrapper<?> response) {
         LOG.debug("Status Code: {}", response.statusCode());
         LOG.debug("Headers: {}", response.headers());
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        boolean isBinaryResponse = contentType != null && contentType.contains("octet-stream");
         // Only log non-binary responses
-        if (response.response() instanceof String) {
+        if (response.response() instanceof String && !isBinaryResponse) {
             LOG.debug("Response: {}", response.response());
+        } else {
+            LOG.debug("Not logging binary response of content type: {}", contentType);
         }
     }
 
