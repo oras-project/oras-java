@@ -22,7 +22,6 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -47,13 +46,20 @@ class PublicECRITCase {
     }
 
     @Test
-    @Disabled("https://github.com/oras-project/oras-java/issues/522")
     void shouldPullManifest() {
-        Registry registry = Registry.builder().build();
-        ContainerRef containerRef = ContainerRef.parse(
+
+        // Via tag
+        Registry registry1 = Registry.builder().build();
+        ContainerRef containerRef1 = ContainerRef.parse("public.ecr.aws/bitnami/contour-operator:latest");
+        Manifest manifest1 = registry1.getManifest(containerRef1);
+        assertNotNull(manifest1);
+
+        // Via digest
+        Registry registry2 = Registry.builder().build();
+        ContainerRef containerRef2 = ContainerRef.parse(
                 "public.ecr.aws/docker/library/alpine@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95");
-        Manifest manifest = registry.getManifest(containerRef);
-        assertNotNull(manifest);
+        Manifest manifest2 = registry2.getManifest(containerRef2);
+        assertNotNull(manifest2);
     }
 
     @Test

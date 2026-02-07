@@ -29,6 +29,11 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+/**
+ * Test disabled due to authentication
+ * mkdir lib && touch lib/a
+ * oras push demo.goharbor.io/oras/lib:foo lib
+ */
 @Execution(ExecutionMode.CONCURRENT)
 class HarborS3ITCase {
 
@@ -36,7 +41,16 @@ class HarborS3ITCase {
     Path tempDir;
 
     @Test
-    @Disabled("Only to test with demo Harbor S3 instance")
+    @Disabled("Only to test with demo Harbor demo instance")
+    void shouldGetManifest() {
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef1 = ContainerRef.parse("demo.goharbor.io/oras/lib:foo");
+        Manifest manifest = registry.getManifest(containerRef1);
+        assertNotNull(manifest);
+    }
+
+    @Test
+    @Disabled("Only to test with demo Harbor demo instance")
     void shouldPullOneBlob() {
         Registry registry = Registry.builder().defaults().build();
         ContainerRef containerRef1 = ContainerRef.parse("demo.goharbor.io/oras/lib:foo");

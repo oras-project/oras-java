@@ -44,6 +44,15 @@ class GitHubContainerRegistryITCase {
     }
 
     @Test
+    void shouldPUllManifest() {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef1 = ContainerRef.parse(
+                "ghcr.io/oras-project/oras@sha256:fd4c818e80ea594cbd39ca47dc05067c8c5690c4eee6c8aee48c508290a5a0c0");
+        Manifest manifest = registry.getManifest(containerRef1);
+        assertNotNull(manifest);
+    }
+
+    @Test
     void shouldPullOneBlob() throws IOException {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("ghcr.io/oras-project/oras:main");
