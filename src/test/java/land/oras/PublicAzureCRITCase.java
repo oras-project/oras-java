@@ -22,12 +22,18 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
 class PublicAzureCRITCase {
+
+    @TempDir
+    private Path tempDir;
 
     @Test
     void shouldPullAnonymousIndex() {
@@ -56,5 +62,16 @@ class PublicAzureCRITCase {
                 "mcr.microsoft.com/azurelinux/busybox@sha256:ec5adfc87f57633da1feedb2361c06374020ab9c99d4a14b19319e57284b6656");
         Manifest manifest1 = registry.getManifest(containerRef1);
         assertNotNull(manifest1);
+    }
+
+    @Test
+    void shouldPullOneBlob() throws IOException {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef1 = ContainerRef.parse(
+                "mcr.microsoft.com/azurelinux/busybox@sha256:ec5adfc87f57633da1feedb2361c06374020ab9c99d4a14b19319e57284b6656");
+        Manifest manifest = registry.getManifest(containerRef1);
+        Layer oneLayer = manifest.getLayers().get(0);
+        registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
+        assertNotNull(tempDir.resolve("my-blob"));
     }
 }

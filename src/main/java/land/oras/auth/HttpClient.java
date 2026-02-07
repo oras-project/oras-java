@@ -391,9 +391,9 @@ public final class HttpClient {
                 "Response: {}",
                 responseWrapper
                         .response()
-                        .replaceAll("\"token\"\\s*:\\s*\"([A-Za-z0-9\\-_\\.]+)\"", "\"token\":\"<redacted>\"")
+                        .replaceAll("\"token\"\\s*:\\s*\"([A-Za-z0-9\\-_\\.=]+)\"", "\"token\":\"<redacted>\"")
                         .replaceAll(
-                                "\"access_token\"\\s*:\\s*\"([A-Za-z0-9\\-_\\.]+)\"",
+                                "\"access_token\"\\s*:\\s*\"([A-Za-z0-9\\-_\\.=]+)\"",
                                 "\"access_token\":\"<redacted>\""));
         LOG.debug(
                 "Headers: {}",

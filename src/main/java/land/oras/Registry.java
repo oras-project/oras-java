@@ -734,9 +734,13 @@ public final class Registry extends OCI<ContainerRef> {
     private void logResponse(HttpClient.ResponseWrapper<?> response) {
         LOG.debug("Status Code: {}", response.statusCode());
         LOG.debug("Headers: {}", response.headers());
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        boolean isBinaryResponse = contentType != null && contentType.contains("octet-stream");
         // Only log non-binary responses
-        if (response.response() instanceof String) {
+        if (response.response() instanceof String && !isBinaryResponse) {
             LOG.debug("Response: {}", response.response());
+        } else {
+            LOG.debug("Not logging binary response of content type: {}", contentType);
         }
     }
 
