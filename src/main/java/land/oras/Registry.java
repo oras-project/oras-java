@@ -553,8 +553,19 @@ public final class Registry extends OCI<ContainerRef> {
             throw new OrasException(
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
-        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
-        return Manifest.fromJson(descriptor.getJson()).withDescriptor(manifestDescriptor);
+        String json = descriptor.getJson();
+        String digest = descriptor.getDigest();
+        if (digest == null) {
+            LOG.debug("Digest missing from header, using from reference");
+            digest = containerRef.getDigest();
+            if (digest == null) {
+                LOG.debug("Digest missing from reference, computing from content");
+                digest = containerRef.getAlgorithm().digest(json.getBytes(StandardCharsets.UTF_8));
+                LOG.debug("Computed index digest: {}", digest);
+            }
+        }
+        ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
+        return Manifest.fromJson(json).withDescriptor(manifestDescriptor);
     }
 
     @Override
@@ -649,7 +660,7 @@ public final class Registry extends OCI<ContainerRef> {
         // We need a way to propagate the headers like scoped.
         // For now just skip validation
         if (digest == null) {
-            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            LOG.debug("Docker-Content-Digest header not found in response. Skipping validation.");
             return;
         }
         String computedDigest = SupportedAlgorithm.fromDigest(digest).digest(data);
@@ -662,7 +673,7 @@ public final class Registry extends OCI<ContainerRef> {
         // We need a way to propagate the headers like scoped.
         // For now just skip validation
         if (digest == null) {
-            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            LOG.debug("Docker-Content-Digest header not found in response. Skipping validation.");
             return;
         }
         String computedDigest = SupportedAlgorithm.fromDigest(digest).digest(path);
@@ -679,7 +690,7 @@ public final class Registry extends OCI<ContainerRef> {
         // We need a way to propagate the headers like scoped.
         // For now just skip validation
         if (digest == null) {
-            LOG.warn("Docker-Content-Digest header not found in response. Skipping validation.");
+            LOG.debug("Docker-Content-Digest header not found in response. Skipping validation.");
             return null;
         }
         SupportedAlgorithm.fromDigest(digest);
