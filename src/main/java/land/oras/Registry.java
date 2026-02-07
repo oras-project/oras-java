@@ -354,6 +354,7 @@ public final class Registry extends OCI<ContainerRef> {
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
+        // This migh not works with registries performing HEAD request
         if (hasBlob(containerRef.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
             return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
@@ -491,9 +492,6 @@ public final class Registry extends OCI<ContainerRef> {
      */
     @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        if (!hasBlob(containerRef)) {
-            throw new OrasException(new HttpClient.ResponseWrapper<>("", 404, Map.of()));
-        }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
@@ -510,9 +508,6 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public void fetchBlob(ContainerRef containerRef, Path path) {
-        if (!hasBlob(containerRef)) {
-            throw new OrasException(new HttpClient.ResponseWrapper<>("", 404, Map.of()));
-        }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
         HttpClient.ResponseWrapper<Path> response = client.download(
@@ -528,9 +523,6 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public InputStream fetchBlob(ContainerRef containerRef) {
-        if (!hasBlob(containerRef)) {
-            throw new OrasException(new HttpClient.ResponseWrapper<>("", 404, Map.of()));
-        }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
         HttpClient.ResponseWrapper<InputStream> response = client.download(

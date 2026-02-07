@@ -22,11 +22,12 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-@Execution(ExecutionMode.CONCURRENT)
+@Execution(ExecutionMode.SAME_THREAD) // Avoid 429 Too Many Requests for unauthenticated requests to public ECR
 class PublicECRITCase {
 
     @Test
@@ -43,5 +44,23 @@ class PublicECRITCase {
                 "public.ecr.aws/docker/library/alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659");
         Index index2 = registry.getIndex(containerRef2);
         assertNotNull(index2);
+    }
+
+    @Test
+    @Disabled("https://github.com/oras-project/oras-java/issues/522")
+    void shouldPullManifest() {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "public.ecr.aws/docker/library/alpine@sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95");
+        Manifest manifest = registry.getManifest(containerRef);
+        assertNotNull(manifest);
+    }
+
+    @Test
+    void shouldPullLayer() {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "public.ecr.aws/docker/library/alpine@sha256:589002ba0eaed121a1dbf42f6648f29e5be55d5c8a6ee0f8eaa0285cc21ac153");
+        registry.getBlob(containerRef);
     }
 }
