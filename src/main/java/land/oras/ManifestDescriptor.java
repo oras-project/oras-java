@@ -21,6 +21,7 @@
 package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Map;
@@ -105,11 +106,20 @@ public final class ManifestDescriptor {
     }
 
     /**
-     * Get the platform
+     * Get the platform as annotations
      * @return The platform
      */
-    public Map<String, String> getPlatform() {
+    public @Nullable @JsonProperty(Const.JSON_PROPERTY_PLATFORM) Map<String, String> getPlatformAnnotations() {
         return platform;
+    }
+
+    /**
+     * Return the platform as a Platform object
+     * @return The platform
+     */
+    @JsonIgnore
+    public Platform getPlatform() {
+        return Platform.of(platform);
     }
 
     /**
@@ -169,6 +179,15 @@ public final class ManifestDescriptor {
      */
     public ManifestDescriptor withArtifactType(@Nullable String artifactType) {
         return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
+    }
+
+    /**
+     * Create a manifest descriptor with the given platform
+     * @param platform The platform
+     * @return The subject
+     */
+    public ManifestDescriptor withPlatform(Platform platform) {
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform.annotations(), annotations);
     }
 
     /**

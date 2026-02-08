@@ -20,8 +20,9 @@
 
 package land.oras;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -30,13 +31,36 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 class PublicECRITCase {
 
     @Test
-    void shouldPullAnonymousIndex() {
+    void shouldPullAnonymousIndexAndFilterPlatform() {
 
         // Via tag
         Registry registry = Registry.builder().build();
-        ContainerRef containerRef1 = ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest");
-        Index index = registry.getIndex(containerRef1);
+        ContainerRef containerRef = ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest");
+        Index index = registry.getIndex(containerRef);
         assertNotNull(index);
+
+        // Find a specific platform
+        List<ManifestDescriptor> manifests = index.filter(Platform.linuxAmd64());
+        assertNotNull(manifests);
+        assertEquals(1, manifests.size());
+        assertNotNull(manifests.get(0));
+
+        // Find unique
+        ManifestDescriptor manifest = index.findUnique(Platform.linuxAmd64());
+        assertNotNull(manifest);
+
+        // Find unknown platforms
+        List<ManifestDescriptor> unknownManifests = index.filter(Platform.unknown());
+        assertNotNull(unknownManifests);
+        assertTrue(
+                unknownManifests.size() > 1,
+                "Expected more than 1 manifest with unknown platform, but got " + unknownManifests.size());
+    }
+
+    @Test
+    void shouldPullAnonymousIndexViaDigest() {
+
+        Registry registry = Registry.builder().build();
 
         // Via digest
         ContainerRef containerRef2 = ContainerRef.parse(

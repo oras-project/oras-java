@@ -105,7 +105,7 @@ class IndexTest {
     }
 
     @Test
-    void shouldAddManifest() {
+    void shouldAddManifests() {
         Index index = Index.fromManifests(List.of());
         index = index.withNewManifests(Manifest.empty().getDescriptor());
         assertEquals(1, index.getManifests().size());
@@ -115,12 +115,36 @@ class IndexTest {
                 SupportedAlgorithm.getDefault().digest(newManifest.toJson().getBytes());
         int size = newManifest.toJson().getBytes().length;
         ManifestDescriptor descriptor = ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, digest, size)
+                .withPlatform(Platform.unknown())
                 .withAnnotations(newManifest.getAnnotations());
         newManifest.withDescriptor(descriptor);
         index = index.withNewManifests(descriptor);
-        assertEquals(2, index.getManifests().size());
+
+        // Add new manifest with linux platform
+        Manifest newManifestWithPlatform = Manifest.empty();
+        String digest2 = SupportedAlgorithm.getDefault()
+                .digest(newManifestWithPlatform.toJson().getBytes());
+        int size2 = newManifestWithPlatform.toJson().getBytes().length;
+        ManifestDescriptor descriptor2 = ManifestDescriptor.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, digest2, size2)
+                .withPlatform(Platform.linuxAmd64());
+        newManifestWithPlatform.withDescriptor(descriptor2);
+        index = index.withNewManifests(descriptor2);
+
+        assertEquals(3, index.getManifests().size());
         assertNotNull(index.getManifests().get(1).getAnnotations());
         assertEquals(1, index.getManifests().get(1).getAnnotations().size());
+
+        // Filter unspecified platforms
+        List<ManifestDescriptor> filtered = index.unspecifiedPlatforms();
+        assertEquals(2, filtered.size());
+
+        // Filter by platform
+        ManifestDescriptor linuxManifest = index.findUnique(Platform.linuxAmd64());
+        assertNotNull(linuxManifest);
+
+        // Not found
+        ManifestDescriptor notFound = index.findUnique(Platform.of("darwin", "arm64"));
+        assertNull(notFound);
     }
 
     @Test

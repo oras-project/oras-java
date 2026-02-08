@@ -50,8 +50,8 @@ class ManifestDescriptorTest {
                 "sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529",
                 descriptor.getAnnotations().get("vnd.docker.reference.digest"));
         assertEquals("attestation-manifest", descriptor.getAnnotations().get("vnd.docker.reference.type"));
-        assertEquals("unknown", descriptor.getPlatform().get("architecture"));
-        assertEquals("unknown", descriptor.getPlatform().get("os"));
+        assertEquals("unknown", descriptor.getPlatformAnnotations().get("architecture"));
+        assertEquals("unknown", descriptor.getPlatformAnnotations().get("os"));
         descriptor.toJson();
     }
 
