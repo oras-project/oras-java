@@ -220,6 +220,91 @@ public final class Const {
     public static final String ANNOTATION_REVISION = "org.opencontainers.image.revision";
 
     /**
+     * Annotation for the base image name
+     */
+    public static final String ANNOTATION_IMAGE_BASE_NAME = "org.opencontainers.image.base.name";
+
+    /**
+     * Annotation for the image URL
+     */
+    public static final String ANNOTATION_IMAGE_URL = "org.opencontainers.image.url";
+
+    /**
+     * Annotation for the image version
+     */
+    public static final String ANNOTATION_IMAGE_VERSION = "org.opencontainers.image.version";
+
+    /**
+     * The platform OS key
+     */
+    public static final String PLATFORM_OS = "os";
+
+    /**
+     * The platform architecture key
+     */
+    public static final String PLATFORM_ARCHITECTURE = "architecture";
+
+    /**
+     * The platform variant key, which can be used in the annotation "variant" to specify the variant of the architecture, such as armv7 or armv8
+     */
+    public static final String PLATFORM_VARIANT = "variant";
+
+    /**
+     * The default value for unknown platform information
+     */
+    public static final String PLATFORM_UNKNOWN = "unknown";
+
+    /**
+     * The platform value for linux os
+     */
+    public static final String PLATFORM_LINUX = "linux";
+
+    /**
+     * The platform value for windows OS
+     */
+    public static final String PLATFORM_WINDOWS = "windows";
+
+    /**
+     * The platform value for amd64 architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_AMD64 = "amd64";
+
+    /**
+     * The platform value for 386 architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_386 = "386";
+
+    /**
+     * The platform value for arm architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_ARM = "arm";
+
+    /**
+     * The platform value for arm64 architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_ARM64 = "arm64";
+
+    /**
+     * The v5 variant for arm architecture, which can be used in the annotation "variant" to specify the variant of the arm architecture
+     */
+    public static final String VARIANT_V5 = "v5";
+
+    /**
+     * The v6 variant for arm architecture, which can be used in the annotation "variant" to specify the variant of the arm architecture
+     */
+    public static final String VARIANT_V6 = "v6";
+
+    /**
+     * The v7 variant for arm architecture, which can be used in the annotation "variant" to specify the variant of the arm architecture
+     */
+    public static final String VARIANT_V7 = "v7";
+
+    /**
+     * The v8 variant for arm architecture, which can be used in the annotation "variant" to specify the variant of the arm architecture
+     */
+    public static final String VARIANT_V8 = "v8";
+
+    /**
      * Get the current timestamp for the created annotation
      * @return The current timestamp
      */

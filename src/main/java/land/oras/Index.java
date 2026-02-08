@@ -57,7 +57,7 @@ public final class Index extends Descriptor implements Describable {
     private final Subject subject;
 
     /**
-     * The manifest descriptor
+     * The index descriptor
      */
     private final ManifestDescriptor descriptor;
 
@@ -103,6 +103,39 @@ public final class Index extends Descriptor implements Describable {
      */
     public List<ManifestDescriptor> getManifests() {
         return manifests;
+    }
+
+    /**
+     * Filter the manifests by platform
+     * @param platform The platform
+     * @return The list of manifests that match the platform
+     */
+    public List<ManifestDescriptor> filter(Platform platform) {
+        return getManifests().stream()
+                .filter(descriptor -> descriptor.getPlatform().equals(platform))
+                .toList();
+    }
+
+    /**
+     * Get the list of manifests that have unspecified platform
+     * @return The list of manifests that have unspecified platform
+     */
+    public List<ManifestDescriptor> unspecifiedPlatforms() {
+        return getManifests().stream()
+                .filter(descriptor -> Platform.unspecified(descriptor.getPlatform()))
+                .toList();
+    }
+
+    /**
+     * Find a unique manifest by platform. If there are multiple manifests that match the platform, return null
+     * @param platform The platform
+     * @return The manifest that matches the platform, or null if there are multiple matches or no matches
+     */
+    public @Nullable ManifestDescriptor findUnique(Platform platform) {
+        return getManifests().stream()
+                .filter(descriptor -> descriptor.getPlatform().equals(platform))
+                .findFirst()
+                .orElse(null);
     }
 
     /**

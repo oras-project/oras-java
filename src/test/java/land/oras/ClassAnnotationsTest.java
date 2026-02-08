@@ -48,7 +48,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(18, modelClasses.size());
+            assertEquals(19, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
