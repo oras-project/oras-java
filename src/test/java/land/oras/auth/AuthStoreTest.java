@@ -35,6 +35,9 @@ import org.mockito.Mockito;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.properties.SystemProperties;
 
+/**
+ * Test class of {@link AuthStore}.
+ */
 class AuthStoreTest {
 
     @TempDir
@@ -123,15 +126,6 @@ class AuthStoreTest {
         mockConfig = Mockito.mock(AuthStore.Config.class);
         mockCredential = new AuthStore.Credential(USERNAME, PASSWORD);
         authStore = new AuthStore(mockConfig);
-    }
-
-    @Test
-    void testNewStore_success() throws Exception {
-        // Simulate loading configuration
-        AuthStore.Config mockConfig = Mockito.mock(AuthStore.Config.class);
-        AuthStore authStoreInstance = new AuthStore(mockConfig);
-
-        assertNotNull(authStoreInstance);
     }
 
     @Test

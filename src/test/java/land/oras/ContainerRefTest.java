@@ -22,14 +22,88 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
+/**
+ * Tests for {@link ContainerRef}.
+ */
 @Execution(ExecutionMode.CONCURRENT)
 class ContainerRefTest {
+
+    @TempDir
+    private static Path homeDir;
+
+    @BeforeAll
+    static void init() throws Exception {
+
+        // Write home registries.conf on the temp home directory
+        Files.createDirectory(homeDir.resolve(".config"));
+        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+    }
+
+    @Test
+    void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry() throws Exception {
+
+        // language=toml
+        String config = """
+                unqualified-search-registries = ["localhost"]
+                """;
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+                    assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+                });
+    }
+
+    @Test
+    void shouldDetermineEffectiveRegistry() throws Exception {
+
+        // Use from container ref
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("docker.io", containerRef.getEffectiveRegistry(registry));
+
+        // Took from registry
+        assertEquals("foo.io", containerRef.forRegistry("foo.io").getEffectiveRegistry(registry));
+
+        // Unqualified with registry
+        Registry registryWithRegistry =
+                Registry.builder().defaults().withRegistry("foo.io").build();
+        ContainerRef unqualifiedWithRegistryRef = ContainerRef.parse("library/foo/alpine:latest");
+        assertEquals("foo.io", unqualifiedWithRegistryRef.getEffectiveRegistry(registryWithRegistry));
+
+        // language=toml
+        // Ensure empty config does not cause error with machine contains default registry
+        String config = "";
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry r = Registry.builder().defaults().build();
+
+                    // Unqualified without config use docker.io
+                    ContainerRef unqualifiedRef = ContainerRef.parse("alpine:latest");
+                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+                    assertEquals("docker.io", unqualifiedRef.getEffectiveRegistry(r));
+                });
+    }
 
     @Test
     void shouldReturnWithDigest() {
@@ -180,13 +254,6 @@ class ContainerRefTest {
     void shouldParseImageWithNoTagAndNoRegistry() {
         ContainerRef containerRef = ContainerRef.parse("alpine");
         assertEquals("docker.io", containerRef.getRegistry());
-        assertEquals(
-                "docker.io",
-                containerRef.getEffectiveRegistry(Registry.builder().build()));
-        assertEquals(
-                "my-registry.com",
-                containerRef.getEffectiveRegistry(
-                        Registry.builder().withRegistry("my-registry.com").build()));
         assertEquals("library", containerRef.getNamespace());
         assertEquals(
                 "library/alpine",
@@ -301,7 +368,13 @@ class ContainerRefTest {
     @Test
     void testToStringDefault() {
         ContainerRef containerRef1 = ContainerRef.parse("alpine1@sha256:1234567890abcdef");
-        assertEquals("docker.io/alpine1:latest@sha256:1234567890abcdef", containerRef1.toString());
+        assertEquals("alpine1:latest@sha256:1234567890abcdef", containerRef1.toString());
+    }
+
+    @Test
+    void testToStringWithNamespaceAndNoRegistry() {
+        ContainerRef containerRef1 = ContainerRef.parse("library/alpine");
+        assertEquals("library/alpine:latest", containerRef1.toString());
     }
 
     @Test

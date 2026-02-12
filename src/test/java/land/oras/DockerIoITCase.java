@@ -22,7 +22,6 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,32 +35,44 @@ class DockerIoITCase {
     Path tempDir;
 
     @Test
-    void shouldPullAnonymousIndex() {
+    void shouldPullAnonymousIndexFQDN() {
 
         // FQDN
         Registry registry = Registry.builder().build();
-        ContainerRef containerRef1 = ContainerRef.parse("docker.io/library/alpine");
-        Index index = registry.getIndex(containerRef1);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine");
+        Index index = registry.getIndex(containerRef);
         assertNotNull(index);
+    }
 
-        // Default registry
-        ContainerRef containerRef2 = ContainerRef.parse("library/alpine");
-        Index index2 = registry.getIndex(containerRef2);
-        assertNotNull(index2);
-
+    @Test
+    void shouldPullAnonymousIndexDefaultRegistryAndNamespace() {
         // Simple name
-        ContainerRef containerRef3 = ContainerRef.parse("alpine");
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef3 = ContainerRef.parse("library/alpine");
         Index index3 = registry.getIndex(containerRef3);
         assertNotNull(index3);
     }
 
     @Test
-    void shouldPullOneBlob() throws IOException {
+    void shouldPullAnonymousIndexUnqualified() {
+
+        // Simple name
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef = ContainerRef.parse("alpine");
+        Index index3 = registry.getIndex(containerRef);
+        assertNotNull(index3);
+    }
+
+    @Test
+    void shouldPullOneBlob() {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("jbangdev/jbang-action");
         Manifest manifest = registry.getManifest(containerRef1);
+        String effectiveRegistry = containerRef1.getEffectiveRegistry(registry);
         Layer oneLayer = manifest.getLayers().get(0);
-        registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
+        registry.fetchBlob(
+                containerRef1.forRegistry(effectiveRegistry).withDigest(oneLayer.getDigest()),
+                tempDir.resolve("my-blob"));
         assertNotNull(tempDir.resolve("my-blob"));
     }
 }

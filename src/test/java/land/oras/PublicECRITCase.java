@@ -22,13 +22,72 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @Execution(ExecutionMode.SAME_THREAD) // Avoid 429 Too Many Requests for unauthenticated requests to public ECR
 class PublicECRITCase {
+
+    @TempDir
+    private static Path homeDir;
+
+    @BeforeAll
+    static void init() throws Exception {
+
+        // Write home registries.conf on the temp home directory
+        Files.createDirectory(homeDir.resolve(".config"));
+        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+    }
+
+    @Test
+    void shouldDetermineEffectiveRegistryWithUnqualifiedSettings() throws Exception {
+
+        // language=toml
+        String config = """
+                unqualified-search-registries = ["public.ecr.aws"]
+                """;
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+                    assertEquals("public.ecr.aws", unqualifiedRef.getEffectiveRegistry(registry));
+                });
+    }
+
+    @Test
+    void shouldDetermineEffectiveRegistry() {
+
+        // Use from container ref
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+        assertEquals("docker.io", containerRef.getEffectiveRegistry(registry));
+
+        // Took from registry
+        assertEquals("foo.io", containerRef.forRegistry("foo.io").getEffectiveRegistry(registry));
+
+        // Unqualified with registry
+        Registry registryWithRegistry =
+                Registry.builder().defaults().withRegistry("foo.io").build();
+        ContainerRef unqualifiedWithRegistryRef = ContainerRef.parse("library/foo/alpine:latest");
+        assertEquals("foo.io", unqualifiedWithRegistryRef.getEffectiveRegistry(registryWithRegistry));
+
+        // Unqualified without config use docker.io
+        ContainerRef unqualifiedRef = ContainerRef.parse("alpine:latest");
+        assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+        assertEquals("docker.io", unqualifiedRef.getEffectiveRegistry(registry));
+    }
 
     @Test
     void shouldPullAnonymousIndexAndFilterPlatform() {

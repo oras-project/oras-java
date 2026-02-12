@@ -35,6 +35,7 @@ import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.HttpClient;
 import land.oras.auth.NoAuthProvider;
+import land.oras.auth.RegistriesConf;
 import land.oras.auth.Scopes;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
@@ -50,6 +51,11 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 public final class Registry extends OCI<ContainerRef> {
+
+    /**
+     * The registries configuration loaded from the environment
+     */
+    private RegistriesConf registriesConf;
 
     /**
      * The HTTP client
@@ -82,6 +88,15 @@ public final class Registry extends OCI<ContainerRef> {
     private Registry() {
         this.authProvider = new NoAuthProvider();
         this.client = HttpClient.Builder.builder().build();
+        this.registriesConf = RegistriesConf.newConf();
+    }
+
+    /**
+     * Get the registries configuration
+     * @return The registries configuration
+     */
+    public RegistriesConf getRegistriesConf() {
+        return registriesConf;
     }
 
     /**
@@ -142,6 +157,16 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return a new registry with the given registry URL but with same settings
+     * @param existing The registry
+     * @param newRegistry The new target registry URL to use in the new registry
+     * @return The new registry
+     */
+    public Registry copy(Registry existing, String newRegistry) {
+        return new Builder().from(existing).withRegistry(newRegistry).build();
+    }
+
+    /**
      * Get the registry URL
      * @return The registry URL
      */
@@ -151,13 +176,10 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Tags getTags(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getTagsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Tags.class);
     }
@@ -180,13 +202,10 @@ public final class Registry extends OCI<ContainerRef> {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
         }
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getReferrersPath(this, artifactType)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType)));
         HttpClient.ResponseWrapper<String> response = client.get(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Referrers.class);
     }
@@ -196,10 +215,9 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The artifact
      */
     public void deleteManifest(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
-        HttpClient.ResponseWrapper<String> response =
-                client.delete(uri, Map.of(), Scopes.of(this, containerRef), authProvider);
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
     }
@@ -213,8 +231,8 @@ public final class Registry extends OCI<ContainerRef> {
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
             manifest = manifest.withAnnotations(manifestAnnotations);
         }
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] manifestData = manifest.getJson() != null
                 ? manifest.getJson().getBytes()
                 : manifest.toJson().getBytes();
@@ -223,7 +241,7 @@ public final class Registry extends OCI<ContainerRef> {
                 uri,
                 manifestData,
                 Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE),
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
         handleError(response);
@@ -239,19 +257,19 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Index pushIndex(ContainerRef containerRef, Index index) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] indexData = JsonUtils.toJson(index).getBytes();
         LOG.debug("Index data to push: {}", new String(indexData, StandardCharsets.UTF_8));
         HttpClient.ResponseWrapper<String> response = client.put(
                 uri,
                 indexData,
                 Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE),
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
         handleError(response);
-        return getIndex(containerRef);
+        return getIndex(ref);
     }
 
     /**
@@ -259,26 +277,25 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The container
      */
     public void deleteBlob(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
-        HttpClient.ResponseWrapper<String> response =
-                client.delete(uri, Map.of(), Scopes.of(this, containerRef), authProvider);
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
     }
 
     @Override
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
-
+        ContainerRef ref = containerRef.forRegistry(this);
         // Only collect layer that are files
-        String contentType = getContentType(containerRef);
-        List<Layer> layers = collectLayers(containerRef, contentType, false);
+        String contentType = getContentType(ref);
+        List<Layer> layers = collectLayers(ref, contentType, false);
         if (layers.isEmpty()) {
             LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
             return;
         }
         for (Layer layer : layers) {
-            try (InputStream is = fetchBlob(containerRef.withDigest(layer.getDigest()))) {
+            try (InputStream is = fetchBlob(ref.withDigest(layer.getDigest()))) {
                 // Unpack or just copy blob
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
                     LOG.debug("Extracting blob to: {}", path);
@@ -288,7 +305,7 @@ public final class Registry extends OCI<ContainerRef> {
                     String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
                     if (expectedDigest != null) {
                         LOG.trace("Expected digest: {}", expectedDigest);
-                        String actualDigest = containerRef.getAlgorithm().digest(tempArchive.getPath());
+                        String actualDigest = ref.getAlgorithm().digest(tempArchive.getPath());
                         LOG.trace("Actual digest: {}", actualDigest);
                         if (!expectedDigest.equals(actualDigest)) {
                             throw new OrasException(
@@ -354,27 +371,26 @@ public final class Registry extends OCI<ContainerRef> {
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
-        // This migh not works with registries performing HEAD request
-        if (hasBlob(containerRef.withDigest(digest))) {
+        ContainerRef ref = containerRef.forRegistry(this);
+        // This might not works with registries performing HEAD request
+        if (hasBlob(ref.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
-            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
+            return Layer.fromFile(blob, ref.getAlgorithm()).withAnnotations(annotations);
         }
-        URI uri = URI.create("%s://%s"
-                .formatted(
-                        getScheme(),
-                        containerRef.withDigest(digest).forRegistry(this).getBlobsUploadDigestPath(this)));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
         HttpClient.ResponseWrapper<String> response = client.upload(
                 "POST",
                 uri,
                 Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
                 blob,
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
 
         // Accepted single POST push
         if (response.statusCode() == 201) {
-            return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
+            return Layer.fromFile(blob, ref.getAlgorithm()).withAnnotations(annotations);
         }
 
         // We need to push via PUT
@@ -410,28 +426,27 @@ public final class Registry extends OCI<ContainerRef> {
     @Override
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
         String digest = containerRef.getAlgorithm().digest(data);
-        if (containerRef.getDigest() != null) {
-            ensureDigest(containerRef, data);
+        ContainerRef ref = containerRef.forRegistry(this);
+        if (ref.getDigest() != null) {
+            ensureDigest(ref, data);
         }
-        if (hasBlob(containerRef.withDigest(digest))) {
+        if (hasBlob(ref.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
-            return Layer.fromData(containerRef, data);
+            return Layer.fromData(ref, data);
         }
-        URI uri = URI.create("%s://%s"
-                .formatted(
-                        getScheme(),
-                        containerRef.withDigest(digest).forRegistry(this).getBlobsUploadDigestPath(this)));
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 data,
                 Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
 
         // Accepted single POST push
         if (response.statusCode() == 201) {
-            return Layer.fromData(containerRef, data);
+            return Layer.fromData(ref, data);
         }
 
         // We need to push via PUT
@@ -439,8 +454,8 @@ public final class Registry extends OCI<ContainerRef> {
             String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
-                location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getApiRegistry(this), location.replaceFirst("^/", ""));
+                location =
+                        "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
 
             URI uploadURI = createLocationWithDigest(location, digest);
@@ -450,7 +465,7 @@ public final class Registry extends OCI<ContainerRef> {
                     uploadURI,
                     data,
                     Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
-                    Scopes.of(this, containerRef),
+                    Scopes.of(this, ref),
                     authProvider);
             if (response.statusCode() == 201) {
                 LOG.debug("Successful push: {}", response.response());
@@ -474,8 +489,8 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     private HttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
@@ -492,12 +507,12 @@ public final class Registry extends OCI<ContainerRef> {
      */
     @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
         handleError(response);
@@ -508,13 +523,13 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public void fetchBlob(ContainerRef containerRef, Path path) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<Path> response = client.download(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
                 path,
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
         handleError(response);
@@ -523,12 +538,12 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public InputStream fetchBlob(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getBlobsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<InputStream> response = client.download(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
-                Scopes.of(this, containerRef),
+                Scopes.of(this, ref),
                 authProvider);
         logResponse(response);
         handleError(response);
@@ -624,13 +639,10 @@ public final class Registry extends OCI<ContainerRef> {
      * @return True if exists
      */
     boolean exists(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
         logResponse(response);
         return response.statusCode() == 200;
     }
@@ -641,17 +653,13 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The response
      */
     private HttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+        ContainerRef ref = containerRef.forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
-        return client.get(
-                uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, containerRef), authProvider);
+        return client.get(uri, Map.of("Accept", Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
     }
 
     private void validateDockerContentDigest(HttpClient.ResponseWrapper<String> response, byte[] data) {
@@ -837,6 +845,19 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder defaults(String registry) {
             return defaults().withRegistry(registry);
+        }
+
+        /**
+         * Return a new builder with the same configuration as the given registry
+         * @param registry The registry to copy the configuration from
+         * @return The builder
+         */
+        public Builder from(Registry registry) {
+            this.registry.setAuthProvider(registry.authProvider);
+            this.registry.setInsecure(registry.insecure);
+            this.registry.setRegistry(registry.registry);
+            this.registry.setSkipTlsVerify(registry.skipTlsVerify);
+            return this;
         }
 
         /**

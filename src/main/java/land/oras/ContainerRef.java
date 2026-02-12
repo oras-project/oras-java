@@ -22,6 +22,7 @@ package land.oras;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +31,8 @@ import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A referer of a container on a {@link Registry}.
@@ -37,6 +40,11 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 @OrasModel
 public final class ContainerRef extends Ref<ContainerRef> {
+
+    /**
+     * The logger for this class.
+     */
+    public static final Logger LOG = LoggerFactory.getLogger(ContainerRef.class);
 
     /**
      * The regex pattern to parse the container name including the registry, namespace, repository, tag and digest.
@@ -103,20 +111,6 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The new container reference
      */
     public String getRegistry() {
-        return registry;
-    }
-
-    /**
-     * Get the effective registry based on given target
-     * @param target The target registry
-     * @return The effective registry
-     */
-    public String getEffectiveRegistry(Registry target) {
-        if (isUnqualified()) {
-            if (target.getRegistry() != null) {
-                return target.getRegistry();
-            }
-        }
         return registry;
     }
 
@@ -388,6 +382,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Get the effective registry based on given target
+     * This methods will perform HEAD request to determine the first unqualified search registry that contains the container reference if the reference is unqualified, otherwise return the registry of the reference.
+     * This only works with Manifests and Index but now direct blob access.
+     * See {@link #forRegistry(String)} so set correct registry when getting blobs outside high level API like {@link Registry#pullArtifact(ContainerRef, Path, boolean)}.
+     * @param target The target registry
+     * @return The effective registry
+     */
+    public String getEffectiveRegistry(Registry target) {
+        if (isUnqualified()) {
+            return target.getRegistry() != null
+                    ? target.getRegistry()
+                    : determineFirstUnqualifiedSearchRegistry(target);
+        }
+        return registry;
+    }
+
+    /**
      * Return a copy of reference for a registry other registry
      * @param registry The registry
      * @return The container reference
@@ -402,6 +413,13 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The container reference
      */
     public ContainerRef forRegistry(Registry registry) {
+        if (isUnqualified() && registry.getRegistry() == null) {
+            LOG.info(
+                    "The container reference {} was created without a registry. Will try to resolve using unqualified-search-registries in order",
+                    this);
+            return new ContainerRef(
+                    determineFirstUnqualifiedSearchRegistry(registry), false, namespace, repository, tag, digest);
+        }
         return new ContainerRef(
                 registry.getRegistry() != null ? registry.getRegistry() : this.registry,
                 false, // not unqualified if registry is set
@@ -409,6 +427,27 @@ public final class ContainerRef extends Ref<ContainerRef> {
                 repository,
                 tag,
                 digest);
+    }
+
+    private String determineFirstUnqualifiedSearchRegistry(Registry registry) {
+        // No settings, keep old behavior of defaulting to docker.io for unqualified reference
+        if (registry.getRegistriesConf().getUnqualifiedRegistries().isEmpty()) {
+            return Const.DEFAULT_REGISTRY;
+        }
+        LOG.debug(
+                "Found registries in unqualified-search-registries: {}",
+                registry.getRegistriesConf().getUnqualifiedRegistries());
+        for (String searchRegistry : registry.getRegistriesConf().getUnqualifiedRegistries()) {
+            Registry targetRegistry = registry.copy(registry, searchRegistry);
+            LOG.debug("Checking if container {} exists in unqualified search registry {}", this, searchRegistry);
+            if (targetRegistry.exists(this)) {
+                LOG.debug("Found container {} in unqualified search registry {}", this, searchRegistry);
+                return searchRegistry;
+            }
+        }
+        throw new OrasException(
+                "Container reference %s is unqualified and cannot be found in any of the unqualified search registries: %s"
+                        .formatted(this, registry.getRegistriesConf().getUnqualifiedRegistries()));
     }
 
     @Override
@@ -429,6 +468,12 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     @Override
     public String toString() {
+        if (isUnqualified()) {
+            if (namespace != null && !namespace.isEmpty()) {
+                return "%s/%s:%s%s".formatted(namespace, repository, tag, digest != null ? "@" + digest : "");
+            }
+            return "%s:%s%s".formatted(repository, tag, digest != null ? "@" + digest : "");
+        }
         if (namespace != null && !namespace.isEmpty()) {
             return "%s/%s/%s:%s%s".formatted(registry, namespace, repository, tag, digest != null ? "@" + digest : "");
         }
