@@ -64,7 +64,7 @@
     <!-- Test dependencies version -->
     <logback.version>1.5.29</logback.version>
     <junit.version>6.0.2</junit.version>
-    <testcontainer.version>1.21.4</testcontainer.version>
+    <testcontainer.version>2.0.3</testcontainer.version>
     <wiremock.version>3.13.2</wiremock.version>
     <mockito.version>5.21.0</mockito.version>
     <system.stubs.version>2.1.8</system.stubs.version>
@@ -175,12 +175,12 @@
       </dependency>
       <dependency>
         <groupId>org.testcontainers</groupId>
-        <artifactId>junit-jupiter</artifactId>
+        <artifactId>testcontainers</artifactId>
         <version>${testcontainer.version}</version>
       </dependency>
       <dependency>
         <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers</artifactId>
+        <artifactId>testcontainers-junit-jupiter</artifactId>
         <version>${testcontainer.version}</version>
       </dependency>
       <dependency>
@@ -268,12 +268,12 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
