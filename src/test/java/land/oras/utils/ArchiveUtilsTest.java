@@ -20,6 +20,7 @@
 
 package land.oras.utils;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
@@ -28,17 +29,21 @@ import static org.mockito.Mockito.mock;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +66,9 @@ class ArchiveUtilsTest {
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
     private static Path targetZstdDir;
+
+    @TempDir(cleanup = CleanupMode.ON_SUCCESS)
+    private static Path existingArchiveDir;
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -188,6 +196,16 @@ class ArchiveUtilsTest {
         // To temporary
         Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
         assertTrue(Files.exists(temp), "Temp should exist");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"jenkins-chart.tgz", "jenkins-sources.tar.gz"})
+    @Disabled("https://issues.apache.org/jira/browse/COMPRESS-705")
+    void shouldExtractSeveralExistingArchive(String file) {
+        Path archive = Paths.get("src/test/resources/archives").resolve(file);
+        assertNotNull(archive, "Archive should exist");
+        assertTrue(Files.exists(archive), "Archive should exist");
+        ArchiveUtils.uncompressuntar(archive, existingArchiveDir, SupportedCompression.GZIP.getMediaType());
     }
 
     @Test
