@@ -27,7 +27,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
-public class ConstTest {
+class ConstTest {
 
     @Test
     void shouldValidateAnnotations() {

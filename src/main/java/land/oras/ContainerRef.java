@@ -412,6 +412,62 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Check if access to this container reference is insecure by the registry configuration
+     * @param registry The registry
+     * @return True if access to this container reference is insecure, false otherwise
+     */
+    public boolean isInsecure(Registry registry) {
+        String effectiveRegistry = getEffectiveRegistry(registry);
+        if (registry.getRegistriesConf().isInsecure(effectiveRegistry)) {
+            LOG.info(
+                    "Access to container reference {} is insecure by location configuration for registry {}",
+                    this,
+                    effectiveRegistry);
+            return true;
+        }
+        return registry.isInsecure();
+    }
+
+    /**
+     * Check if access to this container reference is blocked by the registry configuration
+     * @param registry The registry
+     * @return True if access to this container reference is blocked, false otherwise
+     */
+    public boolean isBlocked(Registry registry) {
+        boolean blocked = false;
+        String effectiveRegistry = getEffectiveRegistry(registry);
+        if (registry.getRegistriesConf().isBlocked(effectiveRegistry)) {
+            LOG.info(
+                    "Access to container reference {} is blocked by location configuration for registry {}",
+                    this,
+                    effectiveRegistry);
+            blocked = true;
+        }
+        String location = "%s/%s".formatted(effectiveRegistry, getFullRepository(registry));
+        if (registry.getRegistriesConf().isBlocked(location)) {
+            LOG.info(
+                    "Access to container reference {} is blocked by location configuration for registry/repository {}",
+                    this,
+                    location);
+            blocked = true;
+        }
+        return blocked;
+    }
+
+    /**
+     * Check if access to this container reference is blocked by the registry configuration and throw exception if it is
+     * @param registry The registry
+     * @throws OrasException if access to this container reference is blocked by the registry configuration
+     */
+    ContainerRef checkBlocked(Registry registry) throws OrasException {
+        if (isBlocked(registry)) {
+            throw new OrasException(
+                    "Access to container reference %s is blocked by registry configuration".formatted(this));
+        }
+        return this;
+    }
+
+    /**
      * Return a copy of reference for a registry other registry
      * @param registry The registry
      * @return The container reference
@@ -459,7 +515,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
                 registry.getRegistriesConf().getUnqualifiedRegistries());
         List<String> unqualifiedRegistries = registry.getRegistriesConf().getUnqualifiedRegistries();
         for (String searchRegistry : unqualifiedRegistries) {
-            Registry targetRegistry = registry.copy(registry, searchRegistry);
+            Registry targetRegistry = registry.copy(searchRegistry);
             LOG.debug("Checking if container {} exists in unqualified search registry {}", this, searchRegistry);
             if (targetRegistry.exists(this)) {
                 LOG.debug("Found container {} in unqualified search registry {}", this, searchRegistry);

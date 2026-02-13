@@ -55,11 +55,13 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @WireMockTest
 @Execution(ExecutionMode.SAME_THREAD)
@@ -69,6 +71,15 @@ class RegistryWireMockTest {
 
     @TempDir
     private Path configDir;
+
+    @TempDir
+    private static Path homeDir;
+
+    @BeforeAll
+    static void init() throws Exception {
+        Files.createDirectory(homeDir.resolve(".config"));
+        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+    }
 
     @Test
     void shouldRedirectWhenDownloadingBlob(WireMockRuntimeInfo wmRuntimeInfo) {
@@ -207,6 +218,42 @@ class RegistryWireMockTest {
     }
 
     @Test
+    void shouldListTagsWithConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+
+        String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(registryAsString);
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text-with-confg/tags/list"))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    // Don't see insecure flag
+                    Registry registry = Registry.Builder.builder()
+                            .withAuthProvider(authProvider)
+                            .build();
+                    List<String> tags = registry.getTags(ContainerRef.parse(
+                                    "%s/library/artifact-text-with-confg".formatted(registryAsString)))
+                            .tags();
+                    assertEquals(2, tags.size());
+                    assertEquals("latest", tags.get(0));
+                    assertEquals("0.1.1", tags.get(1));
+                });
+    }
+
+    @Test
     void shouldListRepositories(WireMockRuntimeInfo wmRuntimeInfo) {
 
         // Return data from wiremock
@@ -230,6 +277,43 @@ class RegistryWireMockTest {
         assertEquals("foo", repositories.get(0));
         assertEquals("bar", repositories.get(1));
         assertEquals("library/alpine", repositories.get(2));
+    }
+
+    @Test
+    void shouldListRepositoryWithConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+
+        String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(registryAsString);
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/_catalog"))
+                .willReturn(
+                        WireMock.okJson(JsonUtils.toJson(new Repositories(List.of("foo", "bar", "library/alpine"))))));
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    // Don't see insecure flag
+                    Registry registry = Registry.Builder.builder()
+                            .withRegistry(registryAsString)
+                            .withAuthProvider(authProvider)
+                            .build();
+                    List<String> repositories = registry.getRepositories().repositories();
+                    assertEquals(3, repositories.size());
+                    assertEquals("foo", repositories.get(0));
+                    assertEquals("bar", repositories.get(1));
+                    assertEquals("library/alpine", repositories.get(2));
+                });
     }
 
     @Test
