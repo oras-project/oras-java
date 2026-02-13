@@ -22,6 +22,7 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @Execution(ExecutionMode.CONCURRENT)
 class GitHubContainerRegistryITCase {
@@ -36,12 +38,39 @@ class GitHubContainerRegistryITCase {
     @TempDir
     Path tempDir;
 
+    @TempDir
+    private static Path homeDir;
+
     @Test
     void shouldPullIndex() {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("ghcr.io/oras-project/oras:main");
         Index index = registry.getIndex(containerRef1);
         assertNotNull(index);
+    }
+
+    @Test
+    void shouldPullIndexWithAlias() throws Exception {
+        // language=toml
+        String config =
+                """
+                [aliases]
+                "oras"="ghcr.io/oras-project/oras"
+                """;
+
+        // Setup
+        Files.createDirectory(homeDir.resolve(".config"));
+        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef containerRef1 = ContainerRef.parse("oras:main");
+                    Index index = registry.getIndex(containerRef1);
+                    assertNotNull(index);
+                });
     }
 
     @Test
