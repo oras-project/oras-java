@@ -22,8 +22,9 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.io.IOException;
 import java.nio.file.Path;
+import land.oras.utils.ArchiveUtils;
+import land.oras.utils.Const;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -53,7 +54,7 @@ class GitHubContainerRegistryITCase {
     }
 
     @Test
-    void shouldPullOneBlob() throws IOException {
+    void shouldPullOneBlob() {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("ghcr.io/oras-project/oras:main");
         Index index = registry.getIndex(containerRef1);
@@ -62,5 +63,15 @@ class GitHubContainerRegistryITCase {
         Layer oneLayer = manifest.getLayers().get(0);
         registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
         assertNotNull(tempDir.resolve("my-blob"));
+    }
+
+    @Test
+    void shouldPullArtifact() {
+        Registry registry = Registry.builder().build();
+        ContainerRef artifact = ContainerRef.parse("ghcr.io/aquasecurity/trivy-db:2");
+        registry.pullArtifact(artifact, tempDir, false);
+        assertNotNull(tempDir.resolve("db.tar.gz"));
+        ArchiveUtils.uncompressuntar(
+                tempDir.resolve("db.tar.gz"), tempDir.resolve("db"), Const.DEFAULT_BLOB_DIR_MEDIA_TYPE);
     }
 }
