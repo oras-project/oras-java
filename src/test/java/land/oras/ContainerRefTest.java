@@ -71,6 +71,30 @@ class ContainerRefTest {
     }
 
     @Test
+    void shouldDetermineFromAlias() throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [aliases]
+            "my-library/my-namespace"="localhost/test"
+            "my-library"="localhost/test2"
+            """;
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef unqualifiedRef = ContainerRef.parse("my-library/my-namespace");
+                    assertEquals("localhost/test", unqualifiedRef.getEffectiveRegistry(registry));
+                    ContainerRef unqualifiedRef2 = ContainerRef.parse("my-library");
+                    assertEquals("localhost/test2", unqualifiedRef2.getEffectiveRegistry(registry));
+                });
+    }
+
+    @Test
     void shouldDetermineEffectiveRegistry() throws Exception {
 
         // Use from container ref

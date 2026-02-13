@@ -24,8 +24,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import land.oras.exception.OrasException;
 import land.oras.utils.TomlUtils;
@@ -94,7 +96,9 @@ public class RegistriesConf {
      * The model of the config file
      *
      */
-    record ConfigFile(@JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
+    record ConfigFile(
+            @JsonProperty("aliases") @Nullable Map<String, String> aliases,
+            @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
 
     /**
      * Get the list of unqualified registries.
@@ -102,6 +106,23 @@ public class RegistriesConf {
      */
     public List<String> getUnqualifiedRegistries() {
         return Collections.unmodifiableList(config.unqualifiedRegistries);
+    }
+
+    /**
+     * Return the aliases
+     * @return an unmodifiable map of aliases, where the key is the alias and the value is the actual registry URL.
+     */
+    public Map<String, String> getAliases() {
+        return Collections.unmodifiableMap(config.aliases);
+    }
+
+    /**
+     * Check if the given alias exists in the configuration.
+     * @param alias the alias to check for existence.
+     * @return true if the alias exists, false otherwise.
+     */
+    public boolean hasAlias(String alias) {
+        return config.aliases.containsKey(alias);
     }
 
     /**
@@ -120,6 +141,11 @@ public class RegistriesConf {
         private final List<String> unqualifiedRegistries = new LinkedList<>();
 
         /**
+         * Map of registry aliases, where the key is the alias and the value is the actual registry URL.
+         */
+        private final Map<String, String> aliases = new HashMap<>();
+
+        /**
          * Loads the configuration from a TOML file at the specified path and populates registries configuration
          *
          * @param configFile The config file
@@ -129,8 +155,12 @@ public class RegistriesConf {
         public static Config load(ConfigFile configFile) throws OrasException {
             Config config = new Config();
             if (configFile.unqualifiedRegistries != null) {
-                LOG.debug("Loading unqualified registries: {}", configFile.unqualifiedRegistries);
+                LOG.trace("Loading unqualified registries: {}", configFile.unqualifiedRegistries);
                 config.unqualifiedRegistries.addAll(configFile.unqualifiedRegistries);
+            }
+            if (configFile.aliases != null) {
+                LOG.trace("Loading registry aliases: {}", configFile.aliases);
+                config.aliases.putAll(configFile.aliases);
             }
             return config;
         }

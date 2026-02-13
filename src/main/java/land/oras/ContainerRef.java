@@ -23,6 +23,7 @@ package land.oras;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -391,13 +392,16 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public String getEffectiveRegistry(Registry target) {
         if (isUnqualified()) {
+            String key = getAliasKey();
+            if (target.getRegistry() == null && target.getRegistriesConf().hasAlias(key)) {
+                return target.getRegistriesConf().getAliases().get(key);
+            }
             return target.getRegistry() != null
                     ? target.getRegistry()
                     : determineFirstUnqualifiedSearchRegistry(target);
         }
         return registry;
     }
-
     /**
      * Return a copy of reference for a registry other registry
      * @param registry The registry
@@ -414,6 +418,13 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public ContainerRef forRegistry(Registry registry) {
         if (isUnqualified() && registry.getRegistry() == null) {
+            String key = getAliasKey();
+            if (registry.getRegistry() == null && registry.getRegistriesConf().hasAlias(key)) {
+                String newLocation = registry.getRegistriesConf().getAliases().get(key);
+                String newRefString = "%s:%s".formatted(newLocation, tag);
+                LOG.info("Using {} as an alias to {}", key, newRefString);
+                return ContainerRef.parse(newRefString);
+            }
             LOG.info(
                     "The container reference {} was created without a registry. Will try to resolve using unqualified-search-registries in order",
                     this);
@@ -429,6 +440,15 @@ public final class ContainerRef extends Ref<ContainerRef> {
                 digest);
     }
 
+    /**
+     * Return the key of the alias
+     */
+    private String getAliasKey() {
+        return getRegistry().equals(Const.DEFAULT_REGISTRY) && "library".equals(getNamespace())
+                ? getRepository()
+                : getFullRepository();
+    }
+
     private String determineFirstUnqualifiedSearchRegistry(Registry registry) {
         // No settings, keep old behavior of defaulting to docker.io for unqualified reference
         if (registry.getRegistriesConf().getUnqualifiedRegistries().isEmpty()) {
@@ -437,13 +457,15 @@ public final class ContainerRef extends Ref<ContainerRef> {
         LOG.debug(
                 "Found registries in unqualified-search-registries: {}",
                 registry.getRegistriesConf().getUnqualifiedRegistries());
-        for (String searchRegistry : registry.getRegistriesConf().getUnqualifiedRegistries()) {
+        List<String> unqualifiedRegistries = registry.getRegistriesConf().getUnqualifiedRegistries();
+        for (String searchRegistry : unqualifiedRegistries) {
             Registry targetRegistry = registry.copy(registry, searchRegistry);
             LOG.debug("Checking if container {} exists in unqualified search registry {}", this, searchRegistry);
             if (targetRegistry.exists(this)) {
                 LOG.debug("Found container {} in unqualified search registry {}", this, searchRegistry);
                 return searchRegistry;
             }
+            LOG.debug("Container {} does not exist in unqualified search registry {}", this, searchRegistry);
         }
         throw new OrasException(
                 "Container reference %s is unqualified and cannot be found in any of the unqualified search registries: %s"

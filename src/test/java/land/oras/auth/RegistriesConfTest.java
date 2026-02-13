@@ -44,6 +44,9 @@ class RegistriesConfTest {
     public static final String HOME_REGISTRIES_CONF =
             """
             unqualified-search-registries = ["docker.io"]
+
+            [aliases]
+            "alpine"="docker.io/library/alpine"
             """;
 
     @BeforeAll
@@ -54,6 +57,19 @@ class RegistriesConfTest {
         Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
         Files.writeString(
                 homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), HOME_REGISTRIES_CONF);
+    }
+
+    @Test
+    void shouldReadAlias() throws Exception {
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    RegistriesConf conf = RegistriesConf.newConf();
+                    assertNotNull(conf);
+                    assertEquals(1, conf.getAliases().size());
+                    assertEquals("docker.io/library/alpine", conf.getAliases().get("alpine"));
+                    assertTrue(conf.hasAlias("alpine"));
+                });
     }
 
     @Test
