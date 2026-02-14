@@ -93,10 +93,30 @@ public class RegistriesConf {
     }
 
     /**
+     * The model of the registry configuration
+     * @param location The registry location
+     * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
+     * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
+     */
+    record RegistryConfig(
+            @JsonProperty("location") String location,
+            @Nullable @JsonProperty("blocked") Boolean blocked,
+            @Nullable @JsonProperty("insecure") Boolean insecure) {
+        public boolean isBlocked() {
+            return blocked != null && blocked;
+        }
+
+        public boolean isInsecure() {
+            return insecure != null && insecure;
+        }
+    }
+
+    /**
      * The model of the config file
      *
      */
     record ConfigFile(
+            @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
             @JsonProperty("aliases") @Nullable Map<String, String> aliases,
             @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
 
@@ -126,6 +146,28 @@ public class RegistriesConf {
     }
 
     /**
+     * Check if the given registry is marked as blocked in the configuration.
+     * @param location the registry location to check for blocking.
+     * @return true if the registry is marked as blocked, false otherwise.
+     */
+    public boolean isBlocked(String location) {
+        return config.registries.stream()
+                .filter(registry -> registry.location.equals(location))
+                .anyMatch(RegistryConfig::isBlocked);
+    }
+
+    /**
+     * Check if the given registry is marked as insecure in the configuration.
+     * @param location the registry location to check for insecurity.
+     * @return true if the registry is marked as insecure, false otherwise.
+     */
+    public boolean isInsecure(String location) {
+        return config.registries.stream()
+                .filter(registry -> registry.location.equals(location))
+                .anyMatch(RegistryConfig::isInsecure);
+    }
+
+    /**
      * Nested Config class for configuration management.
      */
     static class Config {
@@ -146,6 +188,11 @@ public class RegistriesConf {
         private final Map<String, String> aliases = new HashMap<>();
 
         /**
+         * List of registry configurations, each containing the registry location, whether it is blocked, and whether it is insecure.
+         */
+        private final List<RegistryConfig> registries = new LinkedList<>();
+
+        /**
          * Loads the configuration from a TOML file at the specified path and populates registries configuration
          *
          * @param configFile The config file
@@ -161,6 +208,10 @@ public class RegistriesConf {
             if (configFile.aliases != null) {
                 LOG.trace("Loading registry aliases: {}", configFile.aliases);
                 config.aliases.putAll(configFile.aliases);
+            }
+            if (configFile.registries != null) {
+                LOG.trace("Loading registry configurations: {}", configFile.registries);
+                config.registries.addAll(configFile.registries);
             }
             return config;
         }

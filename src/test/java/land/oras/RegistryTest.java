@@ -38,6 +38,7 @@ import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
 import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
@@ -65,6 +67,15 @@ class RegistryTest {
     @TempDir
     private Path extractDir;
 
+    @TempDir
+    private static Path homeDir;
+
+    @BeforeAll
+    static void init() throws Exception {
+        Files.createDirectory(homeDir.resolve(".config"));
+        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+    }
+
     @BeforeEach
     void before() {
         registry.withFollowOutput();
@@ -81,6 +92,30 @@ class RegistryTest {
         // Test
         List<String> repositories = registry.getRepositories().repositories();
         assertNotNull(repositories);
+    }
+
+    @Test
+    void shouldListRepositoriesInsecure() throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder()
+                            .defaults(this.unsecureRegistry.getRegistry())
+                            .build();
+                    List<String> repositories = registry.getRepositories().repositories();
+                    assertNotNull(repositories);
+                });
     }
 
     @Test
@@ -167,6 +202,56 @@ class RegistryTest {
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-text".formatted(this.unsecureRegistry.getRegistry()));
         registry.pushBlob(containerRef, "hello".getBytes());
+    }
+
+    @Test
+    void shouldPushPullManifestsAndBlobsByUsingConfig() throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.Builder.builder().build(); // Use default
+                    ContainerRef containerRef = ContainerRef.parse(
+                            "%s/library/artifact-text".formatted(this.unsecureRegistry.getRegistry()));
+
+                    registry.pushBlob(containerRef, "hello".getBytes());
+                    registry.pushBlob(containerRef, "other-hello".getBytes());
+
+                    String digest = SupportedAlgorithm.SHA256.digest("hello".getBytes());
+                    String otherDigest = SupportedAlgorithm.SHA256.digest("other-hello".getBytes());
+
+                    // Ensure we can fetch
+                    try (InputStream is = registry.fetchBlob(containerRef.withDigest(digest))) {
+                        assertEquals("hello", new String(is.readAllBytes()));
+                    }
+
+                    Files.writeString(blobDir.resolve("hello.txt"), "hello");
+                    registry.pushBlob(containerRef, blobDir.resolve("hello.txt"));
+
+                    // Push a manifest with those blobs
+                    registry.fetchBlob(containerRef.withDigest(digest), extractDir.resolve("hello.txt"));
+                    registry.getBlob(containerRef.withDigest(digest));
+
+                    registry.pushArtifact(containerRef, LocalPath.of(extractDir.resolve("hello.txt")));
+                    registry.pullArtifact(containerRef, extractDir, true);
+
+                    // Checks
+                    registry.exists(containerRef.withDigest(digest));
+
+                    // Delete
+                    registry.deleteManifest(containerRef);
+                    registry.deleteBlob(containerRef.withDigest(otherDigest));
+                });
     }
 
     @Test
@@ -317,6 +402,47 @@ class RegistryTest {
     }
 
     @Test
+    void shouldPushManifestWithRegistryConfig() throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.Builder.builder().defaults().build();
+
+                    // Empty manifest
+                    ContainerRef containerRef =
+                            ContainerRef.parse("%s/library/empty-index".formatted(this.unsecureRegistry.getRegistry()));
+                    Index emptyIndex = Index.fromManifests(List.of());
+                    Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
+
+                    // Assert
+                    assertEquals(2, pushIndex.getSchemaVersion());
+                    assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, pushIndex.getMediaType());
+                    assertEquals(0, pushIndex.getManifests().size());
+
+                    // Push again
+                    registry.pushIndex(containerRef, emptyIndex);
+
+                    // Delete index
+                    registry.deleteManifest(containerRef);
+                    // Ensure the blob is deleted
+                    assertThrows(OrasException.class, () -> {
+                        registry.getManifest(containerRef);
+                    });
+                });
+    }
+
+    @Test
     void shouldPushManifestWithRegistryUrl() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
@@ -456,7 +582,7 @@ class RegistryTest {
     }
 
     @Test
-    void shouldListReferrers() {
+    void shouldListReferrers() throws Exception {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
@@ -537,6 +663,32 @@ class RegistryTest {
 
         // Assert JSON serialization
         assertEquals(Referrers.fromJson(referrers.toJson()).getMediaType(), referrers.getMediaType());
+
+        // Use config
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.registry.getRegistry());
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry newRegistry = Registry.Builder.builder()
+                            .defaults("myuser", "mypass")
+                            .build();
+                    Manifest getManifest1 = newRegistry.getManifest(containerRef1);
+                    Referrers newReferrers = newRegistry.getReferrers(
+                            containerRef1.withDigest(
+                                    getManifest1.getDescriptor().getDigest()),
+                            null);
+                    assertNotNull(newReferrers);
+                });
     }
 
     @Test

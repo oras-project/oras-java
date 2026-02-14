@@ -116,6 +116,14 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return if this registry is insecure
+     * @return True if insecure
+     */
+    public boolean isInsecure() {
+        return insecure;
+    }
+
+    /**
      * Return this registry with the auth provider
      * @param authProvider The auth provider
      */
@@ -158,12 +166,19 @@ public final class Registry extends OCI<ContainerRef> {
 
     /**
      * Return a new registry with the given registry URL but with same settings
-     * @param existing The registry
      * @param newRegistry The new target registry URL to use in the new registry
      * @return The new registry
      */
-    public Registry copy(Registry existing, String newRegistry) {
-        return new Builder().from(existing).withRegistry(newRegistry).build();
+    public Registry copy(String newRegistry) {
+        return new Builder().from(this).withRegistry(newRegistry).build();
+    }
+
+    /**
+     * Return a new registry as insecure but with same settings
+     * @return The new registry
+     */
+    public Registry asInsecure() {
+        return new Builder().from(this).withInsecure(true).build();
     }
 
     /**
@@ -176,7 +191,10 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Tags getTags(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getTags(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
@@ -186,13 +204,13 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Repositories getRepositories() {
-        ContainerRef containerRef = ContainerRef.parse("default").forRegistry(this);
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getRepositoriesPath(this)));
+        if (registry != null && getRegistriesConf().isInsecure(registry) && !this.isInsecure()) {
+            return asInsecure().getRepositories();
+        }
+        ContainerRef ref = ContainerRef.parse("default").forRegistry(this);
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getRepositoriesPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Repositories.class);
     }
@@ -202,7 +220,10 @@ public final class Registry extends OCI<ContainerRef> {
         if (containerRef.getDigest() == null) {
             throw new OrasException("Digest is required to get referrers");
         }
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getReferrers(containerRef, artifactType);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
@@ -215,7 +236,11 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The artifact
      */
     public void deleteManifest(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            asInsecure().deleteManifest(containerRef);
+            return;
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(this, ref), authProvider);
         logResponse(response);
@@ -231,7 +256,10 @@ public final class Registry extends OCI<ContainerRef> {
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
             manifest = manifest.withAnnotations(manifestAnnotations);
         }
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().pushManifest(containerRef, manifest);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] manifestData = manifest.getJson() != null
                 ? manifest.getJson().getBytes()
@@ -257,7 +285,10 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Index pushIndex(ContainerRef containerRef, Index index) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().pushIndex(containerRef, index);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] indexData = JsonUtils.toJson(index).getBytes();
         LOG.debug("Index data to push: {}", new String(indexData, StandardCharsets.UTF_8));
@@ -277,7 +308,11 @@ public final class Registry extends OCI<ContainerRef> {
      * @param containerRef The container
      */
     public void deleteBlob(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            asInsecure().deleteBlob(containerRef);
+            return;
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(this, ref), authProvider);
         logResponse(response);
@@ -286,7 +321,11 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            asInsecure().pullArtifact(containerRef, path, overwrite);
+            return;
+        }
         // Only collect layer that are files
         String contentType = getContentType(ref);
         List<Layer> layers = collectLayers(ref, contentType, false);
@@ -371,7 +410,10 @@ public final class Registry extends OCI<ContainerRef> {
     public Layer pushBlob(ContainerRef containerRef, Path blob, Map<String, String> annotations) {
         String digest = containerRef.getAlgorithm().digest(blob);
         LOG.debug("Digest: {}", digest);
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().pushBlob(containerRef, blob, annotations);
+        }
         // This might not works with registries performing HEAD request
         if (hasBlob(ref.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
@@ -426,7 +468,10 @@ public final class Registry extends OCI<ContainerRef> {
     @Override
     public Layer pushBlob(ContainerRef containerRef, byte[] data) {
         String digest = containerRef.getAlgorithm().digest(data);
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().pushBlob(containerRef, data);
+        }
         if (ref.getDigest() != null) {
             ensureDigest(ref, data);
         }
@@ -489,7 +534,10 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     private HttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().headBlob(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri,
@@ -507,7 +555,10 @@ public final class Registry extends OCI<ContainerRef> {
      */
     @Override
     public byte[] getBlob(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getBlob(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri,
@@ -523,7 +574,11 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public void fetchBlob(ContainerRef containerRef, Path path) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            asInsecure().fetchBlob(containerRef, path);
+            return;
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<Path> response = client.download(
                 uri,
@@ -538,7 +593,10 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public InputStream fetchBlob(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().fetchBlob(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<InputStream> response = client.download(
                 uri,
@@ -639,7 +697,10 @@ public final class Registry extends OCI<ContainerRef> {
      * @return True if exists
      */
     boolean exists(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().exists(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
@@ -653,7 +714,10 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The response
      */
     private HttpClient.ResponseWrapper<String> getManifestResponse(ContainerRef containerRef) {
-        ContainerRef ref = containerRef.forRegistry(this);
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getManifestResponse(containerRef);
+        }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
@@ -799,17 +863,17 @@ public final class Registry extends OCI<ContainerRef> {
 
     /**
      * Execute a head request on the manifest URL and return the headers
-     * @param containerRef The container
+     * @param ref The container
      * @return The headers
      */
-    Map<String, String> getHeaders(ContainerRef containerRef) {
+    Map<String, String> getHeaders(ContainerRef ref) {
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getHeaders(ref);
+        }
         URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), containerRef.forRegistry(this).getManifestsPath(this)));
+                "%s://%s".formatted(getScheme(), ref.forRegistry(this).getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
-                uri,
-                Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE),
-                Scopes.of(this, containerRef),
-                authProvider);
+                uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
         return response.headers();

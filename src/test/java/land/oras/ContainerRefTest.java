@@ -71,6 +71,51 @@ class ContainerRefTest {
     }
 
     @Test
+    void shouldReadRegistriesConfig() throws Exception {
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "public.ecr.aws"
+            blocked = true
+
+            [[registry]]
+            location = "docker.io/library/alpine"
+            blocked = true
+
+            [[registry]]
+            location = "localhost:5000"
+            insecure = true
+            """;
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    assertEquals("https", registry.getScheme());
+                    assertTrue(ContainerRef.parse("public.ecr.aws/whatever").isBlocked(registry));
+                    assertFalse(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry));
+                    assertTrue(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry.asInsecure()));
+                    assertTrue(ContainerRef.parse("docker.io/library/alpine:latest")
+                            .isBlocked(registry));
+                    assertFalse(ContainerRef.parse("docker.io/library/alpine:latest")
+                            .isInsecure(registry));
+                    assertFalse(
+                            ContainerRef.parse("docker.io/library/test:latest").isBlocked(registry));
+                    assertTrue(ContainerRef.parse("localhost:5000/library/test").isInsecure(registry));
+                    assertThrows(
+                            OrasException.class,
+                            () -> registry.getIndex(ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest")));
+                    assertThrows(
+                            OrasException.class,
+                            () -> registry.getIndex(ContainerRef.parse("docker.io/library/alpine:latest")));
+                    assertDoesNotThrow(() -> registry.getIndex(ContainerRef.parse("docker.io/library/mongo:latest")));
+                });
+    }
+
+    @Test
     void shouldDetermineFromAlias() throws Exception {
 
         // language=toml
