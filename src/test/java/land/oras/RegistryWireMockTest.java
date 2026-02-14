@@ -280,7 +280,7 @@ class RegistryWireMockTest {
     }
 
     @Test
-    void shouldListRepositoryWithConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+    void shouldListRepositoryWithLocationConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
@@ -289,6 +289,43 @@ class RegistryWireMockTest {
                 """
             [[registry]]
             location = "%s"
+            insecure = true
+            """
+                        .formatted(registryAsString);
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/_catalog"))
+                .willReturn(
+                        WireMock.okJson(JsonUtils.toJson(new Repositories(List.of("foo", "bar", "library/alpine"))))));
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    // Don't see insecure flag
+                    Registry registry = Registry.Builder.builder()
+                            .withRegistry(registryAsString)
+                            .withAuthProvider(authProvider)
+                            .build();
+                    List<String> repositories = registry.getRepositories().repositories();
+                    assertEquals(3, repositories.size());
+                    assertEquals("foo", repositories.get(0));
+                    assertEquals("bar", repositories.get(1));
+                    assertEquals("library/alpine", repositories.get(2));
+                });
+    }
+
+    @Test
+    void shouldListRepositoryWithPrefixConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+
+        String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            prefix = "%s"
             insecure = true
             """
                         .formatted(registryAsString);
