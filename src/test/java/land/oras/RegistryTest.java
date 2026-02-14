@@ -68,17 +68,58 @@ class RegistryTest {
     private Path extractDir;
 
     @TempDir
-    private static Path homeDir;
+    private static Path homeDir1;
+
+    @TempDir
+    private static Path homeDir2;
+
+    @TempDir
+    private static Path homeDir3;
+
+    @TempDir
+    private static Path homeDir4;
+
+    @TempDir
+    private static Path homeDir5;
 
     @BeforeAll
     static void init() throws Exception {
-        Files.createDirectory(homeDir.resolve(".config"));
-        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir1.resolve(".config"));
+        Files.createDirectory(homeDir1.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir2.resolve(".config"));
+        Files.createDirectory(homeDir2.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir3.resolve(".config"));
+        Files.createDirectory(homeDir3.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir4.resolve(".config"));
+        Files.createDirectory(homeDir4.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir5.resolve(".config"));
+        Files.createDirectory(homeDir5.resolve(".config").resolve("containers"));
     }
 
     @BeforeEach
     void before() {
         registry.withFollowOutput();
+    }
+
+    @Test
+    void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry() throws Exception {
+
+        // language=toml
+        String config = """
+                unqualified-search-registries = ["%s"]
+                """
+                .formatted(registry.getRegistry());
+
+        Files.writeString(homeDir1.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir1.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().insecure().defaults().build();
+                    ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+                    assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+                });
     }
 
     @Test
@@ -105,10 +146,10 @@ class RegistryTest {
             insecure = true
             """
                         .formatted(this.unsecureRegistry.getRegistry());
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir2.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir2.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.builder()
                             .defaults(this.unsecureRegistry.getRegistry())
@@ -215,14 +256,14 @@ class RegistryTest {
             insecure = true
             """
                         .formatted(this.unsecureRegistry.getRegistry());
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir3.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir3.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.Builder.builder().build(); // Use default
                     ContainerRef containerRef = ContainerRef.parse(
-                            "%s/library/artifact-text".formatted(this.unsecureRegistry.getRegistry()));
+                            "%s/library/artifact-text-manifest-blobs".formatted(this.unsecureRegistry.getRegistry()));
 
                     registry.pushBlob(containerRef, "hello".getBytes());
                     registry.pushBlob(containerRef, "other-hello".getBytes());
@@ -412,10 +453,10 @@ class RegistryTest {
             insecure = true
             """
                         .formatted(this.unsecureRegistry.getRegistry());
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir4.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir4.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.Builder.builder().defaults().build();
 
@@ -674,10 +715,10 @@ class RegistryTest {
             insecure = true
             """
                         .formatted(this.registry.getRegistry());
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir5.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir5.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry newRegistry = Registry.Builder.builder()
                             .defaults("myuser", "mypass")

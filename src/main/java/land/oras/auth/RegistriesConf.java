@@ -24,11 +24,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
 import land.oras.utils.TomlUtils;
 import org.jspecify.annotations.NullMarked;
@@ -94,12 +97,14 @@ public class RegistriesConf {
 
     /**
      * The model of the registry configuration
+     * @param prefix The prefix to match against container references.
      * @param location The registry location
      * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
      * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
      */
     record RegistryConfig(
-            @JsonProperty("location") String location,
+            @Nullable @JsonProperty("prefix") String prefix,
+            @Nullable @JsonProperty("location") String location,
             @Nullable @JsonProperty("blocked") Boolean blocked,
             @Nullable @JsonProperty("insecure") Boolean insecure) {
         public boolean isBlocked() {
@@ -112,8 +117,26 @@ public class RegistriesConf {
     }
 
     /**
-     * The model of the config file
-     *
+     * The model of the parsed prefix, which contains the host and path components of the prefix.
+     * @param host The host component of the prefix, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
+     * @param path The path component of the prefix, which can be a specific path or a path prefix (e.g., namespace/repo).
+     */
+    record ParsedPrefix(String host, String path) {
+
+        static ParsedPrefix parse(String prefix) {
+            int slash = prefix.indexOf('/');
+            if (slash < 0) {
+                return new ParsedPrefix(prefix, "");
+            }
+            return new ParsedPrefix(prefix.substring(0, slash), prefix.substring(slash + 1));
+        }
+    }
+
+    /**
+     * The model of the configuration file, which contains the list of registry configurations, aliases, and unqualified registries.
+     * @param registries The list of registry configurations, each containing the registry location, whether it is blocked, and whether it is insecure.
+     * @param aliases The map of registry aliases, where the key is the alias and the value is the actual registry URL.
+     * @param unqualifiedRegistries The list of unqualified registries, which are registries that can be used without specifying a registry.
      */
     record ConfigFile(
             @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
@@ -150,10 +173,8 @@ public class RegistriesConf {
      * @param location the registry location to check for blocking.
      * @return true if the registry is marked as blocked, false otherwise.
      */
-    public boolean isBlocked(String location) {
-        return config.registries.stream()
-                .filter(registry -> registry.location.equals(location))
-                .anyMatch(RegistryConfig::isBlocked);
+    public boolean isBlocked(ContainerRef location) {
+        return selectMatchingTable(location).map(RegistryConfig::isBlocked).orElse(false);
     }
 
     /**
@@ -161,10 +182,86 @@ public class RegistriesConf {
      * @param location the registry location to check for insecurity.
      * @return true if the registry is marked as insecure, false otherwise.
      */
-    public boolean isInsecure(String location) {
+    public boolean isInsecure(ContainerRef location) {
+        return selectMatchingTable(location).map(RegistryConfig::isInsecure).orElse(false);
+    }
+
+    /**
+     * Rewrite the given container reference according to the matching registry configuration.
+     * @param ref the container reference to rewrite.
+     * @return the rewritten container reference.
+     */
+    public ContainerRef rewrite(ContainerRef ref) {
+        Optional<RegistryConfig> matchingConfig = selectMatchingTable(ref);
+        if (matchingConfig.isEmpty()) {
+            return ref;
+        }
+        // No rewrite possible if location and prefix are not set
+        String registry = matchingConfig.get().location();
+        String prefix = matchingConfig.get().prefix();
+        if (registry == null || registry.isBlank() || prefix == null || prefix.isBlank()) {
+            return ref;
+        }
+        String currentRefString = ref.toString();
+        String rewrittenRefString = currentRefString.replaceFirst(prefix, registry);
+        LOG.debug(
+                "Rewriting container reference from '{}' to '{}' using registry config with prefix '{}' and location '{}'",
+                currentRefString,
+                rewrittenRefString,
+                prefix,
+                registry);
+        return ContainerRef.parse(rewrittenRefString);
+    }
+
+    /**
+     * Select the matching registry configuration table for the container reference.
+     * @param ref the container reference to find the matching registry configuration for.
+     * @return an Optional containing the matching RegistryConfig if found, or an empty Optional if no matching configuration is found.
+     */
+    private Optional<RegistryConfig> selectMatchingTable(ContainerRef ref) {
         return config.registries.stream()
-                .filter(registry -> registry.location.equals(location))
-                .anyMatch(RegistryConfig::isInsecure);
+                .filter(cfg -> matches(ref, effectivePrefix(cfg)))
+                .max(Comparator.comparingInt(cfg -> effectivePrefix(cfg).length()));
+    }
+
+    private @Nullable String effectivePrefix(RegistryConfig cfg) {
+        return cfg.prefix() != null ? cfg.prefix() : cfg.location();
+    }
+
+    /**
+     * Check if the given container reference matches the specified prefix.
+     * @param ref the container reference to check for a match against the prefix.
+     * @param prefix the prefix to match against the container reference, which can be a specific hostname or a wildcard pattern (e.g., *.example.com) and an optional path component (e.g., namespace/repo).
+     * @return true if the container reference matches the prefix, false otherwise.
+     */
+    private boolean matches(ContainerRef ref, @Nullable String prefix) {
+        if (prefix == null || prefix.isBlank()) {
+            return false;
+        }
+
+        ParsedPrefix p = ParsedPrefix.parse(prefix);
+
+        // Host match (supports *.example.com)
+        if (!hostMatches(ref.getRegistry(), p.host())) {
+            return false;
+        }
+
+        // No path restriction → host-only match
+        if (p.path().isEmpty()) {
+            return true;
+        }
+
+        // Path prefix match (namespace/repo)
+        String refPath = String.join("/", ref.getNamespace()) + "/" + ref.getRepository();
+        return refPath.equals(p.path()) || refPath.startsWith(p.path() + "/");
+    }
+
+    private boolean hostMatches(String host, String prefixHost) {
+        if (prefixHost.startsWith("*.")) {
+            String domain = prefixHost.substring(2);
+            return host.endsWith("." + domain);
+        }
+        return host.equals(prefixHost);
     }
 
     /**
@@ -176,6 +273,14 @@ public class RegistriesConf {
          * Private constructor to prevent instantiation.
          */
         private Config() {}
+
+        /**
+         * Constructor for Config that takes a RegistryConfig and adds it to the list of registries.
+         * @param registryConfigs The registry configuration to add to the list of registries.
+         */
+        Config(List<RegistryConfig> registryConfigs) {
+            this.registries.addAll(registryConfigs);
+        }
 
         /**
          * List of unqualified registries.

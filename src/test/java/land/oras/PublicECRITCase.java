@@ -67,6 +67,38 @@ class PublicECRITCase {
     }
 
     @Test
+    void shouldRewriteDockerIOToPublicECR() throws Exception {
+
+        // language=toml
+        String config =
+                """
+                [[registry]]
+                prefix = "docker.io/library"
+                location = "public.ecr.aws/docker/library"
+                """;
+
+        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine:latest");
+                    assertEquals("public.ecr.aws", containerRef.getEffectiveRegistry(registry));
+                    assertEquals(
+                            "public.ecr.aws/docker/library/alpine:latest",
+                            containerRef.forRegistry(registry).toString());
+                    assertEquals(
+                            "my-proxy/library/alpine:latest",
+                            containerRef
+                                    .forRegistry(Registry.builder()
+                                            .withRegistry("my-proxy")
+                                            .build())
+                                    .toString());
+                });
+    }
+
+    @Test
     void shouldDetermineEffectiveRegistry() {
 
         // Use from container ref

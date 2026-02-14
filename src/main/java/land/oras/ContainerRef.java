@@ -400,7 +400,10 @@ public final class ContainerRef extends Ref<ContainerRef> {
                     ? target.getRegistry()
                     : determineFirstUnqualifiedSearchRegistry(target);
         }
-        return registry;
+        // The effective registry can we rewrotten by the registry configuration.
+        // Ensure to return it
+        ContainerRef rewrite = target.getRegistriesConf().rewrite(this);
+        return rewrite.getRegistry();
     }
     /**
      * Return a copy of reference for a registry other registry
@@ -418,7 +421,8 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public boolean isInsecure(Registry registry) {
         String effectiveRegistry = getEffectiveRegistry(registry);
-        if (registry.getRegistriesConf().isInsecure(effectiveRegistry)) {
+        ContainerRef effectiveRef = forRegistry(effectiveRegistry);
+        if (registry.getRegistriesConf().isInsecure(effectiveRef)) {
             LOG.info(
                     "Access to container reference {} is insecure by location configuration for registry {}",
                     this,
@@ -434,24 +438,16 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return True if access to this container reference is blocked, false otherwise
      */
     public boolean isBlocked(Registry registry) {
-        boolean blocked = false;
         String effectiveRegistry = getEffectiveRegistry(registry);
-        if (registry.getRegistriesConf().isBlocked(effectiveRegistry)) {
+        ContainerRef effectiveRef = forRegistry(effectiveRegistry);
+        if (registry.getRegistriesConf().isBlocked(effectiveRef)) {
             LOG.info(
-                    "Access to container reference {} is blocked by location configuration for registry {}",
+                    "Access to container reference {} is blocked by location/prefix configuration for registry {}",
                     this,
-                    effectiveRegistry);
-            blocked = true;
+                    effectiveRef);
+            return true;
         }
-        String location = "%s/%s".formatted(effectiveRegistry, getFullRepository(registry));
-        if (registry.getRegistriesConf().isBlocked(location)) {
-            LOG.info(
-                    "Access to container reference {} is blocked by location configuration for registry/repository {}",
-                    this,
-                    location);
-            blocked = true;
-        }
-        return blocked;
+        return false;
     }
 
     /**
@@ -487,8 +483,11 @@ public final class ContainerRef extends Ref<ContainerRef> {
             return new ContainerRef(
                     determineFirstUnqualifiedSearchRegistry(registry), false, namespace, repository, tag, digest);
         }
+        if (registry.getRegistry() == null) {
+            return registry.getRegistriesConf().rewrite(this);
+        }
         return new ContainerRef(
-                registry.getRegistry() != null ? registry.getRegistry() : this.registry,
+                registry.getRegistry(),
                 false, // not unqualified if registry is set
                 namespace,
                 repository,
