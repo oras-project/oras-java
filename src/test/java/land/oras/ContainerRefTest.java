@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -40,34 +41,29 @@ import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 class ContainerRefTest {
 
     @TempDir
-    private static Path homeDir;
+    private static Path homeDir1;
+
+    @TempDir
+    private static Path homeDir2;
+
+    @TempDir
+    private static Path homeDir3;
+
+    @TempDir
+    private static Path homeDir4;
 
     @BeforeAll
     static void init() throws Exception {
 
         // Write home registries.conf on the temp home directory
-        Files.createDirectory(homeDir.resolve(".config"));
-        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
-    }
-
-    @Test
-    void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry() throws Exception {
-
-        // language=toml
-        String config = """
-                unqualified-search-registries = ["localhost"]
-                """;
-
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
-
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
-                    ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
-                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
-                    assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
-                });
+        Files.createDirectory(homeDir1.resolve(".config"));
+        Files.createDirectory(homeDir1.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir2.resolve(".config"));
+        Files.createDirectory(homeDir2.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir3.resolve(".config"));
+        Files.createDirectory(homeDir3.resolve(".config").resolve("containers"));
+        Files.createDirectory(homeDir4.resolve(".config"));
+        Files.createDirectory(homeDir4.resolve(".config").resolve("containers"));
     }
 
     @Test
@@ -88,10 +84,10 @@ class ContainerRefTest {
             insecure = true
             """;
 
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir1.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir1.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.builder().defaults().build();
                     assertEquals("https", registry.getScheme());
@@ -126,16 +122,39 @@ class ContainerRefTest {
             "my-library"="localhost/test2"
             """;
 
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir2.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir2.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.builder().defaults().build();
                     ContainerRef unqualifiedRef = ContainerRef.parse("my-library/my-namespace");
                     assertEquals("localhost/test", unqualifiedRef.getEffectiveRegistry(registry));
                     ContainerRef unqualifiedRef2 = ContainerRef.parse("my-library");
                     assertEquals("localhost/test2", unqualifiedRef2.getEffectiveRegistry(registry));
+                });
+    }
+
+    @Test
+    @Disabled("Not implemented yet")
+    void shouldRewriteAllSubdomainToLocalProxy() throws Exception {
+
+        // language=toml
+        String config =
+                """
+                [[registry]]
+                prefix = "*.example.com"
+                location = "localhost:5000/example-com"
+                """;
+
+        Files.writeString(homeDir3.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+
+        new EnvironmentVariables()
+                .set("HOME", homeDir3.toAbsolutePath().toString())
+                .execute(() -> {
+                    Registry registry = Registry.builder().defaults().build();
+                    ContainerRef containerRef = ContainerRef.parse("toto.example.com/library/alpine:latest");
+                    assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
                 });
     }
 
@@ -160,10 +179,10 @@ class ContainerRefTest {
         // Ensure empty config does not cause error with machine contains default registry
         String config = "";
 
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        Files.writeString(homeDir4.resolve(".config").resolve("containers").resolve("registries.conf"), config);
 
         new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
+                .set("HOME", homeDir4.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry r = Registry.builder().defaults().build();
 

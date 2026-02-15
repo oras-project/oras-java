@@ -204,7 +204,9 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Repositories getRepositories() {
-        if (registry != null && getRegistriesConf().isInsecure(registry) && !this.isInsecure()) {
+        if (registry != null
+                && getRegistriesConf().isInsecure(ContainerRef.parse(registry).forRegistry(registry))
+                && !this.isInsecure()) {
             return asInsecure().getRepositories();
         }
         ContainerRef ref = ContainerRef.parse("default").forRegistry(this);
