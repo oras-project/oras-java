@@ -197,19 +197,41 @@ public class RegistriesConf {
             return ref;
         }
         // No rewrite possible if location and prefix are not set
-        String registry = matchingConfig.get().location();
+        String location = matchingConfig.get().location();
         String prefix = matchingConfig.get().prefix();
-        if (registry == null || registry.isBlank() || prefix == null || prefix.isBlank()) {
+        if (location == null || location.isBlank() || prefix == null || prefix.isBlank()) {
             return ref;
         }
         String currentRefString = ref.toString();
-        String rewrittenRefString = currentRefString.replaceFirst(prefix, registry);
+        String rewrittenRefString;
+
+        // Replace all subdomain if prefix starts with "*." (e.g., *.example.com → my-registry.com)
+        if (prefix.startsWith("*.")) {
+
+            // The subdomain replacement can include an optional path
+            int firtSlashIndex = prefix.indexOf('/');
+            String prefixPath = firtSlashIndex < 0 ? "" : prefix.substring(firtSlashIndex);
+
+            // Remove matched host + optional prefixPath
+            String remainder = currentRefString.substring(ref.getRegistry().length());
+            if (!prefixPath.isEmpty() && remainder.startsWith(prefixPath)) {
+                remainder = remainder.substring(prefixPath.length());
+            }
+
+            rewrittenRefString = location + remainder;
+        }
+
+        // Just replace the prefix with the location (e.g., docker.io/library → my-registry.com/library)
+        else {
+            rewrittenRefString = location + currentRefString.substring(prefix.length());
+        }
+
         LOG.debug(
                 "Rewriting container reference from '{}' to '{}' using registry config with prefix '{}' and location '{}'",
                 currentRefString,
                 rewrittenRefString,
                 prefix,
-                registry);
+                location);
         return ContainerRef.parse(rewrittenRefString);
     }
 
@@ -248,14 +270,25 @@ public class RegistriesConf {
 
         // No path restriction → host-only match
         if (p.path().isEmpty()) {
+            LOG.debug("Found registry table '{}'", p);
             return true;
         }
 
         // Path prefix match (namespace/repo)
         String refPath = String.join("/", ref.getNamespace()) + "/" + ref.getRepository();
-        return refPath.equals(p.path()) || refPath.startsWith(p.path() + "/");
+        boolean result = refPath.equals(p.path()) || refPath.startsWith(p.path() + "/");
+        if (result) {
+            LOG.debug("Found registry table '{}' matching path '{}'", p, refPath);
+        }
+        return result;
     }
 
+    /**
+     * Check if the given host matches the specified prefix host, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
+     * @param host the host to check for a match against the prefix host, which is the host component of the prefix.
+     * @param prefixHost the prefix host to match against, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
+     * @return true if the host matches the prefix host, false otherwise.
+     */
     private boolean hostMatches(String host, String prefixHost) {
         if (prefixHost.startsWith("*.")) {
             String domain = prefixHost.substring(2);
