@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -136,7 +135,6 @@ class ContainerRefTest {
     }
 
     @Test
-    @Disabled("Not implemented yet")
     void shouldRewriteAllSubdomainToLocalProxy() throws Exception {
 
         // language=toml
@@ -145,6 +143,10 @@ class ContainerRefTest {
                 [[registry]]
                 prefix = "*.example.com"
                 location = "localhost:5000/example-com"
+
+                [[registry]]
+                prefix = "*.otherexample.io/library"
+                location = "localhost:5001/docker"
                 """;
 
         Files.writeString(homeDir3.resolve(".config").resolve("containers").resolve("registries.conf"), config);
@@ -153,8 +155,30 @@ class ContainerRefTest {
                 .set("HOME", homeDir3.toAbsolutePath().toString())
                 .execute(() -> {
                     Registry registry = Registry.builder().defaults().build();
+
+                    // One subdomain
                     ContainerRef containerRef = ContainerRef.parse("toto.example.com/library/alpine:latest");
                     assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
+                    ContainerRef newRef = registry.getRegistriesConf().rewrite(containerRef);
+                    assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
+
+                    // Several subdomain
+                    containerRef = ContainerRef.parse("test.foobar.example.com/library/alpine:latest");
+                    assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
+                    newRef = registry.getRegistriesConf().rewrite(containerRef);
+                    assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
+
+                    // With path
+                    containerRef = ContainerRef.parse("test.otherexample.io/library/alpine:latest");
+                    assertEquals("localhost:5001", containerRef.getEffectiveRegistry(registry));
+                    newRef = registry.getRegistriesConf().rewrite(containerRef);
+                    assertEquals("localhost:5001/docker/alpine:latest", newRef.toString());
+
+                    // No rewrite if library does not match
+                    containerRef = ContainerRef.parse("test.otherexample.io/foobar/alpine:latest");
+                    assertEquals("test.otherexample.io", containerRef.getEffectiveRegistry(registry));
+                    newRef = registry.getRegistriesConf().rewrite(containerRef);
+                    assertEquals("test.otherexample.io/foobar/alpine:latest", newRef.toString());
                 });
     }
 
