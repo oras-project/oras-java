@@ -22,14 +22,13 @@ package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
+import land.oras.TestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Test class of {@link RegistriesConf}.
@@ -50,37 +49,28 @@ class RegistriesConfTest {
             """;
 
     @BeforeAll
-    static void init() throws Exception {
-
-        // Write home registries.conf on the temp home directory
-        Files.createDirectory(homeDir.resolve(".config"));
-        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
-        Files.writeString(
-                homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), HOME_REGISTRIES_CONF);
+    static void init() {
+        TestUtils.createRegistriesConfFile(homeDir, HOME_REGISTRIES_CONF);
     }
 
     @Test
     void shouldReadAlias() throws Exception {
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    RegistriesConf conf = RegistriesConf.newConf();
-                    assertNotNull(conf);
-                    assertEquals(1, conf.getAliases().size());
-                    assertEquals("docker.io/library/alpine", conf.getAliases().get("alpine"));
-                    assertTrue(conf.hasAlias("alpine"));
-                });
+        TestUtils.withHome(homeDir, () -> {
+            RegistriesConf conf = RegistriesConf.newConf();
+            assertNotNull(conf);
+            assertEquals(1, conf.getAliases().size());
+            assertEquals("docker.io/library/alpine", conf.getAliases().get("alpine"));
+            assertTrue(conf.hasAlias("alpine"));
+        });
     }
 
     @Test
     void shouldReadUnqualifiedSearchRegistriesFromHome() throws Exception {
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    RegistriesConf conf = RegistriesConf.newConf();
-                    assertNotNull(conf);
-                    assertEquals(1, conf.getUnqualifiedRegistries().size());
-                    assertEquals("docker.io", conf.getUnqualifiedRegistries().get(0));
-                });
+        TestUtils.withHome(homeDir, () -> {
+            RegistriesConf conf = RegistriesConf.newConf();
+            assertNotNull(conf);
+            assertEquals(1, conf.getUnqualifiedRegistries().size());
+            assertEquals("docker.io", conf.getUnqualifiedRegistries().get(0));
+        });
     }
 }

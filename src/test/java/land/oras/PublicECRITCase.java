@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -38,14 +37,6 @@ class PublicECRITCase {
     @TempDir
     private static Path homeDir;
 
-    @BeforeAll
-    static void init() throws Exception {
-
-        // Write home registries.conf on the temp home directory
-        Files.createDirectory(homeDir.resolve(".config"));
-        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
-    }
-
     @Test
     void shouldDetermineEffectiveRegistryWithUnqualifiedSettings() throws Exception {
 
@@ -54,16 +45,14 @@ class PublicECRITCase {
                 unqualified-search-registries = ["public.ecr.aws"]
                 """;
 
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
-                    ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
-                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
-                    assertEquals("public.ecr.aws", unqualifiedRef.getEffectiveRegistry(registry));
-                });
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().build();
+            ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+            assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+            assertEquals("public.ecr.aws", unqualifiedRef.getEffectiveRegistry(registry));
+        });
     }
 
     @Test
