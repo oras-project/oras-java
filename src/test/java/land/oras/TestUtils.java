@@ -51,7 +51,7 @@ public final class TestUtils {
      * @param action the action to execute with the HOME environment variable set
      * @throws Exception if any exception occurs during the execution of the action
      */
-    public static void withHome(Path homeDir, Runnable action) throws Exception, IOException {
+    public static void withHome(Path homeDir, Runnable action) throws Exception {
         new EnvironmentVariables()
                 .set("HOME", homeDir.toAbsolutePath().toString())
                 .execute(() -> {

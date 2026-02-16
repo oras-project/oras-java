@@ -36,9 +36,6 @@ class GitHubContainerRegistryITCase {
     @TempDir
     Path tempDir;
 
-    @TempDir
-    private static Path homeDir;
-
     @Test
     void shouldPullIndex() {
         Registry registry = Registry.builder().build();
@@ -48,7 +45,8 @@ class GitHubContainerRegistryITCase {
     }
 
     @Test
-    void shouldPullIndexWithAlias() throws Exception {
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldPullIndexWithAlias(@TempDir Path homeDir) throws Exception {
         // language=toml
         String config =
                 """
@@ -57,7 +55,7 @@ class GitHubContainerRegistryITCase {
                 """;
 
         // Setup
-        TestUtils.createRegistriesConfFile(tempDir, config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
             Registry registry = Registry.builder().defaults().build();

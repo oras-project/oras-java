@@ -22,6 +22,7 @@ package land.oras;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Objects;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -73,10 +74,14 @@ public final class CopyUtils {
 
             // Write all layer
             for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
-                try (InputStream is = source.fetchBlob(sourceRef.withDigest(layer.getDigest()))) {
-                    target.pushBlob(targetRef.withDigest(layer.getDigest()), is);
-                    LOG.debug("Copied layer {}", layer.getDigest());
-                }
+                Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
+                Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
+                target.pushBlob(
+                        targetRef.withDigest(layer.getDigest()),
+                        layer.getSize(),
+                        () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
+                        layer.getAnnotations());
+                LOG.debug("Copied layer {}", layer.getDigest());
             }
 
             // Single manifest

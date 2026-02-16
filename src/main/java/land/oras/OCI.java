@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
@@ -374,6 +375,16 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @return The layer
      */
     public abstract Layer pushBlob(T ref, Path blob, Map<String, String> annotations);
+
+    /**
+     * Push a blob from input stream with known digest and size
+     * @param ref The container ref with digest
+     * @param size The size of the blob
+     * @param stream The input stream of the blob
+     * @param annotations The annotations
+     * @return The layer
+     */
+    public abstract Layer pushBlob(T ref, long size, Supplier<InputStream> stream, Map<String, String> annotations);
 
     /**
      * Push the blob for the given layer

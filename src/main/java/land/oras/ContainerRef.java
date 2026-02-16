@@ -326,6 +326,15 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Return the blobs upload URL for POST upload to get the upload location
+     * @param registry The registry
+     * @return The blobs upload URL
+     */
+    public String getBlobsUploadPath(Registry registry) {
+        return "%s/blobs/uploads/".formatted(getApiPrefix(registry));
+    }
+
+    /**
      * Return the blobs URL
      * @param registry The registry
      * @return The blobs URL

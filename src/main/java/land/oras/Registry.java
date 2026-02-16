@@ -31,6 +31,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.HttpClient;
@@ -465,6 +466,58 @@ public final class Registry extends OCI<ContainerRef> {
 
         handleError(response);
         return Layer.fromFile(blob, containerRef.getAlgorithm()).withAnnotations(annotations);
+    }
+
+    @Override
+    public Layer pushBlob(ContainerRef ref, long size, Supplier<InputStream> stream, Map<String, String> annotations) {
+        String digest = ref.getDigest();
+        if (digest == null) {
+            throw new OrasException("Digest is required to push blob with stream");
+        }
+        ContainerRef containerRef = ref.forRegistry(this).checkBlocked(this);
+        if (containerRef.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().pushBlob(ref, size, stream, annotations);
+        }
+        if (hasBlob(containerRef)) {
+            LOG.info("Blob already exists: {}", digest);
+            return Layer.fromDigest(digest, size).withAnnotations(annotations);
+        }
+        // Empty post without digest
+        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath(this)));
+        HttpClient.ResponseWrapper<String> response = client.post(
+                uri,
+                new byte[0],
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
+                Scopes.of(this, containerRef),
+                authProvider);
+        logResponse(response);
+        if (response.statusCode() != 202) {
+            throw new OrasException("Failed to initiate blob upload: %s".formatted(response.response()));
+        }
+        String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
+        // Ensure location is absolute URI
+        if (!location.startsWith("http") && !location.startsWith("https")) {
+            location = "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
+        }
+        LOG.debug("Location header: {}", location);
+
+        URI uploadURI = createLocationWithDigest(location, digest);
+
+        response = client.upload(
+                uploadURI,
+                size,
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
+                stream,
+                Scopes.of(this, containerRef),
+                authProvider);
+        logResponse(response);
+        if (response.statusCode() == 201) {
+            LOG.debug("Successful push: {}", response.response());
+        } else {
+            throw new OrasException("Failed to push layer: %s".formatted(response.response()));
+        }
+        handleError(response);
+        return Layer.fromDigest(digest, size).withAnnotations(annotations);
     }
 
     @Override

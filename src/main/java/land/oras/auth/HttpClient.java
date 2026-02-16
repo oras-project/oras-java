@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -235,6 +236,35 @@ public final class HttpClient {
     }
 
     /**
+     * Upload from an input stream.
+     * @param uri The URI
+     * @param size The size of the input stream
+     * @param headers The headers
+     * @param stream The input stream
+     * @param scopes The scopes
+     * @param authProvider The authentication provider
+     * @return The response
+     */
+    public ResponseWrapper<String> upload(
+            URI uri,
+            long size,
+            Map<String, String> headers,
+            Supplier<InputStream> stream,
+            Scopes scopes,
+            AuthProvider authProvider) {
+        return executeRequest(
+                "PUT",
+                uri,
+                true,
+                headers,
+                new byte[0],
+                HttpResponse.BodyHandlers.ofString(),
+                HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), size),
+                scopes,
+                authProvider);
+    }
+
+    /**
      * Perform a HEAD request
      * @param uri The URI
      * @param headers The headers
@@ -296,7 +326,7 @@ public final class HttpClient {
                 headers,
                 body,
                 HttpResponse.BodyHandlers.ofString(),
-                HttpRequest.BodyPublishers.ofByteArray(body),
+                body.length == 0 ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
                 authProvider);
     }

@@ -31,7 +31,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
-@Execution(ExecutionMode.SAME_THREAD) // Avoid 429 Too Many Requests for unauthenticated requests to public ECR
+@Execution(ExecutionMode.SAME_THREAD)
 class PublicECRITCase {
 
     @TempDir
