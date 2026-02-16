@@ -72,6 +72,16 @@ public class OrasException extends RuntimeException {
 
     /**
      * Constructor
+     * @param statusCode The status code
+     * @param message The message
+     */
+    public OrasException(int statusCode, String message) {
+        this(message);
+        this.statusCode = statusCode;
+    }
+
+    /**
+     * Constructor
      * @param message The message
      * @param cause The cause
      */

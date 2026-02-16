@@ -22,16 +22,13 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Tests for {@link ContainerRef}.
@@ -39,34 +36,8 @@ import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 @Execution(ExecutionMode.CONCURRENT)
 class ContainerRefTest {
 
-    @TempDir
-    private static Path homeDir1;
-
-    @TempDir
-    private static Path homeDir2;
-
-    @TempDir
-    private static Path homeDir3;
-
-    @TempDir
-    private static Path homeDir4;
-
-    @BeforeAll
-    static void init() throws Exception {
-
-        // Write home registries.conf on the temp home directory
-        Files.createDirectory(homeDir1.resolve(".config"));
-        Files.createDirectory(homeDir1.resolve(".config").resolve("containers"));
-        Files.createDirectory(homeDir2.resolve(".config"));
-        Files.createDirectory(homeDir2.resolve(".config").resolve("containers"));
-        Files.createDirectory(homeDir3.resolve(".config"));
-        Files.createDirectory(homeDir3.resolve(".config").resolve("containers"));
-        Files.createDirectory(homeDir4.resolve(".config"));
-        Files.createDirectory(homeDir4.resolve(".config").resolve("containers"));
-    }
-
     @Test
-    void shouldReadRegistriesConfig() throws Exception {
+    void shouldReadRegistriesConfig(@TempDir Path homeDir) throws Exception {
         // language=toml
         String config =
                 """
@@ -83,35 +54,30 @@ class ContainerRefTest {
             insecure = true
             """;
 
-        Files.writeString(homeDir1.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir1.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
-                    assertEquals("https", registry.getScheme());
-                    assertTrue(ContainerRef.parse("public.ecr.aws/whatever").isBlocked(registry));
-                    assertFalse(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry));
-                    assertTrue(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry.asInsecure()));
-                    assertTrue(ContainerRef.parse("docker.io/library/alpine:latest")
-                            .isBlocked(registry));
-                    assertFalse(ContainerRef.parse("docker.io/library/alpine:latest")
-                            .isInsecure(registry));
-                    assertFalse(
-                            ContainerRef.parse("docker.io/library/test:latest").isBlocked(registry));
-                    assertTrue(ContainerRef.parse("localhost:5000/library/test").isInsecure(registry));
-                    assertThrows(
-                            OrasException.class,
-                            () -> registry.getIndex(ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest")));
-                    assertThrows(
-                            OrasException.class,
-                            () -> registry.getIndex(ContainerRef.parse("docker.io/library/alpine:latest")));
-                    assertDoesNotThrow(() -> registry.getIndex(ContainerRef.parse("docker.io/library/mongo:latest")));
-                });
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().build();
+            assertEquals("https", registry.getScheme());
+            assertTrue(ContainerRef.parse("public.ecr.aws/whatever").isBlocked(registry));
+            assertFalse(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry));
+            assertTrue(ContainerRef.parse("docker.io/library/whatever").isInsecure(registry.asInsecure()));
+            assertTrue(ContainerRef.parse("docker.io/library/alpine:latest").isBlocked(registry));
+            assertFalse(ContainerRef.parse("docker.io/library/alpine:latest").isInsecure(registry));
+            assertFalse(ContainerRef.parse("docker.io/library/test:latest").isBlocked(registry));
+            assertTrue(ContainerRef.parse("localhost:5000/library/test").isInsecure(registry));
+            assertThrows(
+                    OrasException.class,
+                    () -> registry.getIndex(ContainerRef.parse("public.ecr.aws/docker/library/alpine:latest")));
+            assertThrows(
+                    OrasException.class,
+                    () -> registry.getIndex(ContainerRef.parse("docker.io/library/alpine:latest")));
+            assertDoesNotThrow(() -> registry.getIndex(ContainerRef.parse("docker.io/library/mongo:latest")));
+        });
     }
 
     @Test
-    void shouldDetermineFromAlias() throws Exception {
+    void shouldDetermineFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
         String config =
@@ -121,21 +87,19 @@ class ContainerRefTest {
             "my-library"="localhost/test2"
             """;
 
-        Files.writeString(homeDir2.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir2.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
-                    ContainerRef unqualifiedRef = ContainerRef.parse("my-library/my-namespace");
-                    assertEquals("localhost/test", unqualifiedRef.getEffectiveRegistry(registry));
-                    ContainerRef unqualifiedRef2 = ContainerRef.parse("my-library");
-                    assertEquals("localhost/test2", unqualifiedRef2.getEffectiveRegistry(registry));
-                });
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().build();
+            ContainerRef unqualifiedRef = ContainerRef.parse("my-library/my-namespace");
+            assertEquals("localhost/test", unqualifiedRef.getEffectiveRegistry(registry));
+            ContainerRef unqualifiedRef2 = ContainerRef.parse("my-library");
+            assertEquals("localhost/test2", unqualifiedRef2.getEffectiveRegistry(registry));
+        });
     }
 
     @Test
-    void shouldRewriteAllSubdomainToLocalProxy() throws Exception {
+    void shouldRewriteAllSubdomainToLocalProxy(@TempDir Path homeDir) throws Exception {
 
         // language=toml
         String config =
@@ -149,41 +113,39 @@ class ContainerRefTest {
                 location = "localhost:5001/docker"
                 """;
 
-        Files.writeString(homeDir3.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir3.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().build();
 
-                    // One subdomain
-                    ContainerRef containerRef = ContainerRef.parse("toto.example.com/library/alpine:latest");
-                    assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
-                    ContainerRef newRef = registry.getRegistriesConf().rewrite(containerRef);
-                    assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
+            // One subdomain
+            ContainerRef containerRef = ContainerRef.parse("toto.example.com/library/alpine:latest");
+            assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
+            ContainerRef newRef = registry.getRegistriesConf().rewrite(containerRef);
+            assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
 
-                    // Several subdomain
-                    containerRef = ContainerRef.parse("test.foobar.example.com/library/alpine:latest");
-                    assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
-                    newRef = registry.getRegistriesConf().rewrite(containerRef);
-                    assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
+            // Several subdomain
+            containerRef = ContainerRef.parse("test.foobar.example.com/library/alpine:latest");
+            assertEquals("localhost:5000", containerRef.getEffectiveRegistry(registry));
+            newRef = registry.getRegistriesConf().rewrite(containerRef);
+            assertEquals("localhost:5000/example-com/library/alpine:latest", newRef.toString());
 
-                    // With path
-                    containerRef = ContainerRef.parse("test.otherexample.io/library/alpine:latest");
-                    assertEquals("localhost:5001", containerRef.getEffectiveRegistry(registry));
-                    newRef = registry.getRegistriesConf().rewrite(containerRef);
-                    assertEquals("localhost:5001/docker/alpine:latest", newRef.toString());
+            // With path
+            containerRef = ContainerRef.parse("test.otherexample.io/library/alpine:latest");
+            assertEquals("localhost:5001", containerRef.getEffectiveRegistry(registry));
+            newRef = registry.getRegistriesConf().rewrite(containerRef);
+            assertEquals("localhost:5001/docker/alpine:latest", newRef.toString());
 
-                    // No rewrite if library does not match
-                    containerRef = ContainerRef.parse("test.otherexample.io/foobar/alpine:latest");
-                    assertEquals("test.otherexample.io", containerRef.getEffectiveRegistry(registry));
-                    newRef = registry.getRegistriesConf().rewrite(containerRef);
-                    assertEquals("test.otherexample.io/foobar/alpine:latest", newRef.toString());
-                });
+            // No rewrite if library does not match
+            containerRef = ContainerRef.parse("test.otherexample.io/foobar/alpine:latest");
+            assertEquals("test.otherexample.io", containerRef.getEffectiveRegistry(registry));
+            newRef = registry.getRegistriesConf().rewrite(containerRef);
+            assertEquals("test.otherexample.io/foobar/alpine:latest", newRef.toString());
+        });
     }
 
     @Test
-    void shouldDetermineEffectiveRegistry() throws Exception {
+    void shouldDetermineEffectiveRegistry(@TempDir Path homeDir) throws Exception {
 
         // Use from container ref
         Registry registry = Registry.builder().defaults().build();
@@ -203,18 +165,16 @@ class ContainerRefTest {
         // Ensure empty config does not cause error with machine contains default registry
         String config = "";
 
-        Files.writeString(homeDir4.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir4.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry r = Registry.builder().defaults().build();
+        TestUtils.withHome(homeDir, () -> {
+            Registry r = Registry.builder().defaults().build();
 
-                    // Unqualified without config use docker.io
-                    ContainerRef unqualifiedRef = ContainerRef.parse("alpine:latest");
-                    assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
-                    assertEquals("docker.io", unqualifiedRef.getEffectiveRegistry(r));
-                });
+            // Unqualified without config use docker.io
+            ContainerRef unqualifiedRef = ContainerRef.parse("alpine:latest");
+            assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+            assertEquals("docker.io", unqualifiedRef.getEffectiveRegistry(r));
+        });
     }
 
     @Test

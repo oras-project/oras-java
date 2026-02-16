@@ -423,7 +423,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         String effectiveRegistry = getEffectiveRegistry(registry);
         ContainerRef effectiveRef = forRegistry(effectiveRegistry);
         if (registry.getRegistriesConf().isInsecure(effectiveRef)) {
-            LOG.info(
+            LOG.debug(
                     "Access to container reference {} is insecure by location configuration for registry {}",
                     this,
                     effectiveRegistry);
@@ -474,10 +474,10 @@ public final class ContainerRef extends Ref<ContainerRef> {
             if (registry.getRegistry() == null && registry.getRegistriesConf().hasAlias(key)) {
                 String newLocation = registry.getRegistriesConf().getAliases().get(key);
                 String newRefString = "%s:%s".formatted(newLocation, tag);
-                LOG.info("Using {} as an alias to {}", key, newRefString);
+                LOG.debug("Using {} as an alias to {}", key, newRefString);
                 return ContainerRef.parse(newRefString);
             }
-            LOG.info(
+            LOG.debug(
                     "The container reference {} was created without a registry. Will try to resolve using unqualified-search-registries in order",
                     this);
             return new ContainerRef(

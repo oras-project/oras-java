@@ -55,13 +55,11 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @WireMockTest
 @Execution(ExecutionMode.SAME_THREAD)
@@ -73,12 +71,34 @@ class RegistryWireMockTest {
     private Path configDir;
 
     @TempDir
-    private static Path homeDir;
+    private static Path homeDir1;
 
-    @BeforeAll
-    static void init() throws Exception {
-        Files.createDirectory(homeDir.resolve(".config"));
-        Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
+    @TempDir
+    private static Path homeDir2;
+
+    @TempDir
+    private static Path homeDir3;
+
+    @Test
+    void shouldFailToGetManifestOn403(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+
+        // Return 403 on getting manifest
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/library/some-artifact/manifests/latest"))
+                .willReturn(WireMock.forbidden().withBody("Forbidden")));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/some-artifact:latest".formatted(wmRuntimeInfo.getHttpPort()));
+        OrasException exception = assertThrows(OrasException.class, () -> registry.getManifest(containerRef));
+        assertEquals(403, exception.getStatusCode());
     }
 
     @Test
@@ -230,27 +250,24 @@ class RegistryWireMockTest {
             insecure = true
             """
                         .formatted(registryAsString);
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir1, config);
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text-with-confg/tags/list"))
                 .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    // Don't see insecure flag
-                    Registry registry = Registry.Builder.builder()
-                            .withAuthProvider(authProvider)
-                            .build();
-                    List<String> tags = registry.getTags(ContainerRef.parse(
-                                    "%s/library/artifact-text-with-confg".formatted(registryAsString)))
-                            .tags();
-                    assertEquals(2, tags.size());
-                    assertEquals("latest", tags.get(0));
-                    assertEquals("0.1.1", tags.get(1));
-                });
+        TestUtils.withHome(homeDir1, () -> {
+            // Don't see insecure flag
+            Registry registry =
+                    Registry.Builder.builder().withAuthProvider(authProvider).build();
+            List<String> tags = registry.getTags(
+                            ContainerRef.parse("%s/library/artifact-text-with-confg".formatted(registryAsString)))
+                    .tags();
+            assertEquals(2, tags.size());
+            assertEquals("latest", tags.get(0));
+            assertEquals("0.1.1", tags.get(1));
+        });
     }
 
     @Test
@@ -292,7 +309,7 @@ class RegistryWireMockTest {
             insecure = true
             """
                         .formatted(registryAsString);
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir2, config);
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
@@ -300,20 +317,18 @@ class RegistryWireMockTest {
                 .willReturn(
                         WireMock.okJson(JsonUtils.toJson(new Repositories(List.of("foo", "bar", "library/alpine"))))));
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    // Don't see insecure flag
-                    Registry registry = Registry.Builder.builder()
-                            .withRegistry(registryAsString)
-                            .withAuthProvider(authProvider)
-                            .build();
-                    List<String> repositories = registry.getRepositories().repositories();
-                    assertEquals(3, repositories.size());
-                    assertEquals("foo", repositories.get(0));
-                    assertEquals("bar", repositories.get(1));
-                    assertEquals("library/alpine", repositories.get(2));
-                });
+        TestUtils.withHome(homeDir2, () -> {
+            // Don't see insecure flag
+            Registry registry = Registry.Builder.builder()
+                    .withRegistry(registryAsString)
+                    .withAuthProvider(authProvider)
+                    .build();
+            List<String> repositories = registry.getRepositories().repositories();
+            assertEquals(3, repositories.size());
+            assertEquals("foo", repositories.get(0));
+            assertEquals("bar", repositories.get(1));
+            assertEquals("library/alpine", repositories.get(2));
+        });
     }
 
     @Test
@@ -329,7 +344,7 @@ class RegistryWireMockTest {
             insecure = true
             """
                         .formatted(registryAsString);
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir3, config);
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
@@ -337,20 +352,18 @@ class RegistryWireMockTest {
                 .willReturn(
                         WireMock.okJson(JsonUtils.toJson(new Repositories(List.of("foo", "bar", "library/alpine"))))));
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    // Don't see insecure flag
-                    Registry registry = Registry.Builder.builder()
-                            .withRegistry(registryAsString)
-                            .withAuthProvider(authProvider)
-                            .build();
-                    List<String> repositories = registry.getRepositories().repositories();
-                    assertEquals(3, repositories.size());
-                    assertEquals("foo", repositories.get(0));
-                    assertEquals("bar", repositories.get(1));
-                    assertEquals("library/alpine", repositories.get(2));
-                });
+        TestUtils.withHome(homeDir3, () -> {
+            // Don't see insecure flag
+            Registry registry = Registry.Builder.builder()
+                    .withRegistry(registryAsString)
+                    .withAuthProvider(authProvider)
+                    .build();
+            List<String> repositories = registry.getRepositories().repositories();
+            assertEquals(3, repositories.size());
+            assertEquals("foo", repositories.get(0));
+            assertEquals("bar", repositories.get(1));
+            assertEquals("library/alpine", repositories.get(2));
+        });
     }
 
     @Test

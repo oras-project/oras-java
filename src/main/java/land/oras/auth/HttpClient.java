@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.*;
 import java.net.http.HttpRequest;
@@ -228,8 +229,8 @@ public final class HttpClient {
                     HttpRequest.BodyPublishers.ofFile(file),
                     scopes,
                     authProvider);
-        } catch (Exception e) {
-            throw new OrasException("Unable to upload file", e);
+        } catch (FileNotFoundException e) {
+            throw new OrasException("Unable to upload file. File not found.", e);
         }
     }
 
@@ -360,12 +361,12 @@ public final class HttpClient {
         String wwwAuthHeader = response.headers().getOrDefault(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "");
         LOG.debug("WWW-Authenticate header: {}", wwwAuthHeader);
         if (wwwAuthHeader.isEmpty()) {
-            throw new OrasException("No WWW-Authenticate header found in response");
+            throw new OrasException(response.statusCode(), "No WWW-Authenticate header found in response");
         }
 
         Matcher matcher = WWW_AUTH_VALUE_PATTERN.matcher(wwwAuthHeader);
         if (!matcher.matches()) {
-            throw new OrasException("Invalid WWW-Authenticate header value: " + wwwAuthHeader);
+            throw new OrasException(response.statusCode(), "Invalid WWW-Authenticate header");
         }
 
         // Extract parts
@@ -496,6 +497,9 @@ public final class HttpClient {
             }
             return redoRequest(response, builder, handler, newScopes, authProvider);
         } catch (Exception e) {
+            if (e instanceof OrasException) {
+                throw (OrasException) e;
+            }
             LOG.error("Failed to execute request", e);
             throw new OrasException("Unable to create HTTP request", e);
         }
