@@ -33,7 +33,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 /**
  * Test class of {@link RegistriesConf}.
  */
-@Execution(ExecutionMode.CONCURRENT)
+@Execution(ExecutionMode.SAME_THREAD)
 class RegistriesConfTest {
 
     @TempDir

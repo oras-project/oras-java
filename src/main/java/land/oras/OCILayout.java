@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -274,6 +275,33 @@ public final class OCILayout extends OCI<LayoutRef> {
                 return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             }
             Files.copy(blob, blobPath);
+            return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
+        }
+    }
+
+    @Override
+    public Layer pushBlob(LayoutRef ref, long size, Supplier<InputStream> stream, Map<String, String> annotations) {
+        String digest = ref.getTag();
+        if (digest == null) {
+            throw new OrasException("Digest is required to push blob to layout");
+        }
+        boolean isDigest = SupportedAlgorithm.isSupported(digest);
+        if (!isDigest) {
+            throw new OrasException("Unsupported digest: %s".formatted(digest));
+        }
+        ensureAlgorithmPath(digest);
+        try {
+            Path blobPath = getBlobPath(ref);
+            if (Files.exists(blobPath)) {
+                LOG.info("Blob already exists: {}", digest);
+                return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+            }
+            try (InputStream is = stream.get()) {
+                Files.copy(is, blobPath);
+            }
+            ensureDigest(ref, blobPath);
             return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);

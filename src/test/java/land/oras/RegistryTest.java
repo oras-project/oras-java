@@ -22,6 +22,7 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -71,6 +72,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -103,6 +105,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldListRepositoriesInsecure(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -131,10 +134,40 @@ class RegistryTest {
                 .build();
         ContainerRef containerRef1 = ContainerRef.parse(
                 "library/artifact-text@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
-        // Ensure the blob is deleted
         assertThrows(OrasException.class, () -> {
             registry.pushBlob(containerRef1, "invalid".getBytes());
         });
+    }
+
+    @Test
+    void shouldFailToPushBlobWithMissingDigestViaStream() {
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("library/artifact-text:latest");
+        OrasException e = assertThrows(OrasException.class, () -> {
+            registry.pushBlob(
+                    containerRef,
+                    10L,
+                    () -> new ByteArrayInputStream("foo".getBytes(StandardCharsets.UTF_8)),
+                    Map.of());
+        });
+        assertEquals("Digest is required to push blob with stream", e.getMessage());
+    }
+
+    @Test
+    void shouldPushBlobWithDigestViaStream() {
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
+                .build();
+        byte[] content = "foo".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA512.digest(content);
+        long size = content.length;
+        InputStream stream = new ByteArrayInputStream(content);
+        ContainerRef containerRef =
+                ContainerRef.parse("library/artifact-blob-stream").withDigest(digest);
+        registry.pushBlob(containerRef, size, () -> stream, Map.of());
+        registry.pushBlob(containerRef, size, () -> stream, Map.of());
     }
 
     @Test
@@ -211,6 +244,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldPushPullManifestsAndBlobsByUsingConfig(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -408,6 +442,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldPushManifestWithRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -447,6 +482,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldDetermineRegistryFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -604,6 +640,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldListReferrers(@TempDir Path homeDir) throws Exception {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")

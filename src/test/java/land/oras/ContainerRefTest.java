@@ -37,6 +37,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 class ContainerRefTest {
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldReadRegistriesConfig(@TempDir Path homeDir) throws Exception {
         // language=toml
         String config =
@@ -77,6 +78,7 @@ class ContainerRefTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldDetermineFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -99,6 +101,7 @@ class ContainerRefTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldRewriteAllSubdomainToLocalProxy(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -145,6 +148,7 @@ class ContainerRefTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldDetermineEffectiveRegistry(@TempDir Path homeDir) throws Exception {
 
         // Use from container ref

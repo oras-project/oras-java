@@ -619,6 +619,30 @@ class OCILayoutTest {
     }
 
     @Test
+    void shouldFailToPushBlobViaStreamWithoutDigest() {
+        Path path = layoutPath.resolve("shouldFailToPushBlobViaStreamWithoutDigest");
+        byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        LayoutRef layoutRef = LayoutRef.parse("test");
+        OrasException e = assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(layoutRef, content.length, () -> InputStream.nullInputStream(), Map.of());
+        });
+        assertEquals("Digest is required to push blob to layout", e.getMessage());
+    }
+
+    @Test
+    void shouldFailToPushBlobViaStreamWithInvalidDigest() {
+        Path path = layoutPath.resolve("shouldFailToPushBlobViaStreamWithInvalidDigest");
+        byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
+        LayoutRef layoutRef = LayoutRef.parse("test:1234");
+        OrasException e = assertThrows(OrasException.class, () -> {
+            ociLayout.pushBlob(layoutRef, content.length, () -> InputStream.nullInputStream(), Map.of());
+        });
+        assertEquals("Unsupported digest: 1234", e.getMessage());
+    }
+
+    @Test
     void cannotPushBlobWithoutTagOrDigest() throws IOException {
 
         Path invalidBlobPushDir = layoutPath.resolve("shouldPushArtifact");
