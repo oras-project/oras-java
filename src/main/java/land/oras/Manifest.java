@@ -84,6 +84,7 @@ public final class Manifest extends Descriptor implements Describable {
                 mediaType,
                 annotations != null && !annotations.isEmpty() ? Map.copyOf(annotations) : null,
                 artifactType,
+                null,
                 null);
         this.schemaVersion = schemaVersion;
         this.descriptor = null;
@@ -101,6 +102,7 @@ public final class Manifest extends Descriptor implements Describable {
             Subject subject,
             List<Layer> layers,
             Annotations annotations,
+            String registry,
             String json) {
         super(
                 null,
@@ -108,6 +110,7 @@ public final class Manifest extends Descriptor implements Describable {
                 mediaType,
                 Map.copyOf(annotations.manifestAnnotations()),
                 artifactType != null ? artifactType.getMediaType() : null,
+                registry,
                 json);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
@@ -208,6 +211,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -226,6 +230,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -244,6 +249,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -262,6 +268,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -280,6 +287,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -298,6 +306,7 @@ public final class Manifest extends Descriptor implements Describable {
                 subject,
                 layers,
                 Annotations.ofManifest(annotations),
+                registry,
                 json);
     }
 
@@ -354,6 +363,7 @@ public final class Manifest extends Descriptor implements Describable {
                 null,
                 List.of(),
                 Annotations.empty(),
+                null,
                 null);
     }
 

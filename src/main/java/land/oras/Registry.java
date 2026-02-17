@@ -737,13 +737,15 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Descriptor probeDescriptor(ContainerRef ref) {
-        Map<String, String> headers = getHeaders(ref);
+        ResolvedRegistry resolvedRegistry = getResolvedHeaders(ref);
+        Map<String, String> headers = resolvedRegistry.headers();
+        String registry = resolvedRegistry.registry();
         String digest = validateDockerContentDigest(headers);
         if (digest != null) {
             SupportedAlgorithm.fromDigest(digest);
         }
         String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        return Descriptor.of(digest, 0L, contentType);
+        return Descriptor.of(digest, 0L, contentType).withRegistry(registry);
     }
 
     /**
@@ -890,7 +892,7 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The content type
      */
     String getContentType(ContainerRef containerRef) {
-        return getHeaders(containerRef).get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        return getResolvedHeaders(containerRef).headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
     }
 
     /**
@@ -918,21 +920,29 @@ public final class Registry extends OCI<ContainerRef> {
 
     /**
      * Execute a head request on the manifest URL and return the headers
-     * @param ref The container
-     * @return The headers
+     * @param containerRef The container ref
+     * @return The resolved registry and headers
      */
-    Map<String, String> getHeaders(ContainerRef ref) {
-        if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getHeaders(ref);
+    ResolvedRegistry getResolvedHeaders(ContainerRef containerRef) {
+        if (containerRef.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getResolvedHeaders(containerRef);
         }
+        ContainerRef ref = containerRef.forRegistry(this);
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), ref.forRegistry(this).getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
-        return response.headers();
+        return new ResolvedRegistry(ref.getRegistry(), response.headers());
     }
+
+    /**
+     * Holds a resolved registry to avoid resolution on every request (specially like blob)
+     * @param registry The registry URL
+     * @param headers The headers to use for the registry
+     */
+    private record ResolvedRegistry(String registry, Map<String, String> headers) {}
 
     /**
      * Builder for the registry

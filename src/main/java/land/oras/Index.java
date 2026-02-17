@@ -70,7 +70,7 @@ public final class Index extends Descriptor implements Describable {
             @JsonProperty(Const.JSON_PROPERTY_MANIFESTS) List<ManifestDescriptor> manifests,
             @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) Map<String, String> annotations,
             @JsonProperty(Const.JSON_PROPERTY_SUBJECT) Subject subject) {
-        this(schemaVersion, mediaType, artifactType, manifests, annotations, subject, null, null);
+        this(schemaVersion, mediaType, artifactType, manifests, annotations, subject, null, null, null);
     }
 
     private Index(
@@ -81,8 +81,9 @@ public final class Index extends Descriptor implements Describable {
             Map<String, String> annotations,
             Subject subject,
             ManifestDescriptor descriptor,
+            String registry,
             String json) {
-        super(null, null, mediaType, annotations, artifactType, json);
+        super(null, null, mediaType, annotations, artifactType, registry, json);
         this.schemaVersion = schemaVersion;
         this.descriptor = descriptor;
         this.subject = subject;
@@ -183,7 +184,8 @@ public final class Index extends Descriptor implements Describable {
             newManifests.add(ManifestDescriptor.fromJson(descriptor.toJson()));
         }
         newManifests.add(manifest);
-        return new Index(schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, json);
+        return new Index(
+                schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, registry, json);
     }
 
     @Override
@@ -209,7 +211,8 @@ public final class Index extends Descriptor implements Describable {
      * @return The manifest
      */
     public Index withDescriptor(ManifestDescriptor descriptor) {
-        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, json);
+        return new Index(
+                schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);
     }
 
     /**
@@ -233,7 +236,8 @@ public final class Index extends Descriptor implements Describable {
      * @return The index
      */
     public Index withSubject(Subject subject) {
-        return new Index(schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, json);
+        return new Index(
+                schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);
     }
 
     /**
@@ -260,7 +264,7 @@ public final class Index extends Descriptor implements Describable {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null, null);
+        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null, null, null);
     }
 
     @Override

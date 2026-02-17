@@ -68,6 +68,11 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     protected String json;
 
     /**
+     * The registry
+     */
+    protected @Nullable String registry;
+
+    /**
      * Constructor
      * @param digest The digest
      * @param size The size
@@ -82,12 +87,14 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
             String mediaType,
             Map<String, String> annotations,
             String artifactType,
+            String registry,
             String json) {
         this.digest = digest;
         this.size = size;
         this.mediaType = mediaType;
         this.annotations = annotations;
         this.artifactType = artifactType;
+        this.registry = registry;
         this.json = json;
     }
 
@@ -98,6 +105,15 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     @JsonIgnore
     public String getJson() {
         return json;
+    }
+
+    /**
+     * Return the resolved registry. Useful to avoid querying registry blobs when the registry is already resolved in the descriptor.
+     * @return The resolved registry or null if not resolved
+     */
+    @JsonIgnore
+    public @Nullable String getRegistry() {
+        return registry;
     }
 
     /**
@@ -179,6 +195,16 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     }
 
     /**
+     * Return same instance but with resolved registry
+     * @param registry The resolved registry
+     * @return The descriptor with resolved registry
+     */
+    protected Descriptor withRegistry(String registry) {
+        this.registry = registry;
+        return this;
+    }
+
+    /**
      * Return this manifest descriptor as a subject
      * @return The subject
      */
@@ -199,7 +225,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     public static Descriptor of(
             String digest, Long size, String mediaType, Map<String, String> annotations, String artifactType) {
-        return new Descriptor(digest, size, mediaType, annotations, artifactType, null);
+        return new Descriptor(digest, size, mediaType, annotations, artifactType, null, null);
     }
 
     /**
@@ -210,7 +236,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * @return The descriptor
      */
     public static Descriptor of(String digest, Long size, String mediaType) {
-        return new Descriptor(digest, size, mediaType, null, null, null);
+        return new Descriptor(digest, size, mediaType, null, null, null, null);
     }
 
     /**
@@ -220,7 +246,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * @return The descriptor
      */
     public static Descriptor of(String digest, Long size) {
-        return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null, null);
+        return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null, null, null);
     }
 
     @Override

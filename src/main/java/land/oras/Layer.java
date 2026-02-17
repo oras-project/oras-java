@@ -68,7 +68,7 @@ public final class Layer extends Descriptor {
             @JsonProperty(Const.JSON_PROPERTY_SIZE) @Nullable Long size,
             @JsonProperty(Const.JSON_PROPERTY_DATA) @Nullable String data,
             @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) @Nullable Map<String, String> annotations) {
-        super(digest, size, mediaType, annotations, null, null);
+        super(digest, size, mediaType, annotations, null, null, null);
         this.data = data;
         this.blobPath = null;
     }
@@ -81,7 +81,7 @@ public final class Layer extends Descriptor {
      * @param blobPath The path to the blob
      */
     private Layer(String mediaType, String digest, long size, Path blobPath, Map<String, String> annotations) {
-        super(digest, size, mediaType, annotations, null, null);
+        super(digest, size, mediaType, annotations, null, null, null);
         this.data = null;
         this.blobPath = blobPath;
     }
