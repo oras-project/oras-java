@@ -87,7 +87,81 @@ class RegistryTest {
             Registry registry = Registry.builder().insecure().defaults().build();
             ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
             assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
-            assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+            OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+            assertEquals("Invalid WWW-Authenticate header", e.getMessage());
+        });
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldEnforceMultipleRegistriesWithDefaultEnforcingMode(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config = """
+                unqualified-search-registries = ["%s", "localhost:5000"]
+                """
+                .formatted(registry.getRegistry());
+
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+            assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+            OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+            assertEquals(
+                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured: [%s, localhost:5000]"
+                            .formatted(this.registry.getRegistry()),
+                    e.getMessage());
+        });
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldAllowMultipleRegistriesWithDisabledEnforcingMode(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+                short-name-mode = "disabled"
+                unqualified-search-registries = ["%s", "localhost:5000"]
+                """
+                        .formatted(registry.getRegistry());
+
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+            assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+            OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+            assertEquals("Invalid WWW-Authenticate header", e.getMessage());
+        });
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldEnforceMultipleRegistriesWithPermissiveEnforcingMode(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+                short-name-mode = "permissive"
+                unqualified-search-registries = ["%s", "localhost:5000"]
+                """
+                        .formatted(registry.getRegistry());
+
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
+            assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
+            OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
+            assertEquals(
+                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured: [%s, localhost:5000]"
+                            .formatted(this.registry.getRegistry()),
+                    e.getMessage());
         });
     }
 
