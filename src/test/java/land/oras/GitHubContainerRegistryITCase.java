@@ -21,17 +21,25 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
+import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
 class GitHubContainerRegistryITCase {
+
+    @Container
+    private final ZotUnsecureContainer unsecureRegistry = new ZotUnsecureContainer().withStartupAttempts(3);
 
     @TempDir
     Path tempDir;
@@ -94,5 +102,25 @@ class GitHubContainerRegistryITCase {
         assertNotNull(tempDir.resolve("db.tar.gz"));
         ArchiveUtils.uncompressuntar(
                 tempDir.resolve("db.tar.gz"), tempDir.resolve("db"), Const.DEFAULT_BLOB_DIR_MEDIA_TYPE);
+    }
+
+    @Test
+    void shouldCopyTagToInternalRegistry() {
+
+        // Source registry
+        Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+
+        // Copy to this internal registry
+        Registry targetRegistry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource = ContainerRef.parse("ghcr.io/oras-project/oras:main");
+        ContainerRef containerTarget =
+                ContainerRef.parse("%s/docker/library/oras:main".formatted(unsecureRegistry.getRegistry()));
+
+        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+        assertTrue(targetRegistry.exists(containerTarget));
     }
 }

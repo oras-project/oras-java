@@ -76,6 +76,7 @@ public final class CopyUtils {
             for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
                 Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
                 Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
+                LOG.debug("Copying layer {}", layer.getDigest());
                 target.pushBlob(
                         targetRef.withDigest(layer.getDigest()),
                         layer.getSize(),
@@ -92,12 +93,17 @@ public final class CopyUtils {
                 String tag = sourceRef.getTag();
 
                 // Write config as any blob
+                Objects.requireNonNull(manifest.getDigest(), "Manifest digest is required for streaming copy");
                 try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
+                    LOG.debug("Copying config blob {}", manifest.getConfig().getDigest());
                     target.pushBlob(targetRef.withDigest(manifest.getConfig().getDigest()), is);
+                    LOG.debug("Copied config blob {}", manifest.getConfig().getDigest());
                 }
 
                 // Push the manifest
+                LOG.debug("Copying manifest {}", manifestDigest);
                 target.pushManifest(targetRef.withDigest(tag), manifest);
+                LOG.debug("Copied manifest {}", manifestDigest);
 
                 if (recursive) {
                     LOG.debug("Recursively copy referrers");
@@ -114,7 +120,6 @@ public final class CopyUtils {
 
                 Index index = source.getIndex(sourceRef);
                 String tag = sourceRef.getTag();
-                target.pushIndex(targetRef.withDigest(tag), index);
 
                 // Write all manifests and their config
                 for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
@@ -122,14 +127,20 @@ public final class CopyUtils {
 
                     // Write config as any blob
                     try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
+                        LOG.debug("Copying config blob {}", manifest.getConfig().getDigest());
                         target.pushBlob(
                                 targetRef.withDigest(manifest.getConfig().getDigest()), is);
+                        LOG.debug("Copied config blob {}", manifest.getConfig().getDigest());
                     }
 
                     // Push the manifest
                     target.pushManifest(
                             targetRef.withDigest(manifest.getDigest()), manifest.withDescriptor(manifestDescriptor));
                 }
+
+                LOG.debug("Copying index {}", manifestDigest);
+                target.pushIndex(targetRef.withDigest(tag), index);
+                LOG.debug("Copied index {}", manifestDigest);
 
             } else {
                 throw new OrasException("Unsupported content type: %s".formatted(contentType));
