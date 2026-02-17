@@ -948,7 +948,7 @@ class OCILayoutTest {
 
         // Check index and manifest are stored in index
         assertIndex(layoutPathIndex, index, 2);
-        assertIndex(layoutPathIndex, pushedManifest, 2, 1);
+        assertIndex(layoutPathIndex, pushedManifest, 2, 0);
 
         // Check manifest exists
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
@@ -983,7 +983,7 @@ class OCILayoutTest {
         // Check latest tag
         Index ociIndex = Index.fromPath(layoutPathIndex.resolve(Const.OCI_LAYOUT_INDEX));
         assertEquals(2, ociIndex.getManifests().size());
-        assertEquals("latest", ociIndex.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
+        assertEquals("latest", ociIndex.getManifests().get(1).getAnnotations().get(Const.ANNOTATION_REF));
     }
 
     @Test
@@ -1048,7 +1048,8 @@ class OCILayoutTest {
         assertEquals(size, ociIndex.getManifests().size());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, ociIndex.getMediaType());
         assertEquals(
-                index.getDescriptor().getSize(), ociIndex.getManifests().get(0).getSize());
+                index.getDescriptor().getSize(),
+                ociIndex.getManifests().get(ociIndex.getManifests().size() - 1).getSize());
     }
 
     private void assertLayerExists(Path ociLayoutPath, Layer layer) {
