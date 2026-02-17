@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Map;
 import land.oras.auth.HttpClient;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -47,7 +48,9 @@ class OrasExceptionTest {
     @Test
     void shouldWrapResponse() {
         HttpClient.ResponseWrapper<String> response = new HttpClient.ResponseWrapper<>(
-                JsonUtils.toJson(new Error("5001", "foo", "the details")), 500, Map.of());
+                JsonUtils.toJson(new Error("5001", "foo", "the details")),
+                500,
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
         OrasException orasException = new OrasException(response);
 
         // Getters
