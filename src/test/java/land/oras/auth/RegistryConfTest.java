@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -62,6 +63,7 @@ class RegistryConfTest {
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked true
         registry = new RegistriesConf.RegistryConfig(null, "localhost:5000", true, null);
@@ -69,6 +71,7 @@ class RegistryConfTest {
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertTrue(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With insecure true
         registry = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, true);
@@ -76,6 +79,7 @@ class RegistryConfTest {
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertTrue(conf.isInsecure(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isInsecure(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked false
         registry = new RegistriesConf.RegistryConfig(null, "localhost:5000", false, null);
@@ -83,6 +87,7 @@ class RegistryConfTest {
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With insecure false
         registry = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, false);
@@ -90,6 +95,7 @@ class RegistryConfTest {
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertFalse(conf.isInsecure(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isInsecure(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
     }
 
     @Test
@@ -107,6 +113,7 @@ class RegistryConfTest {
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
+        assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked true
         registry = new RegistriesConf.RegistryConfig("localhost:5000", null, true, null);

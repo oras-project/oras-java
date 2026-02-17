@@ -20,7 +20,9 @@
 
 package land.oras.auth;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -133,12 +135,51 @@ public class RegistriesConf {
     }
 
     /**
+     * The for handling short name
+     */
+    enum ShortNameMode {
+
+        /**
+         * Use all unqualified-search registries without any restriction
+         */
+        DISABLED("disabled"),
+
+        /**
+         * If only one unqualified-search registry is set, use it as there is no ambiguity.
+         * If there is more than one registry this throw an error (default)
+         */
+        ENFORCING("enforcing"),
+
+        /**
+         * Same as enforcing for ORAS Java SDK
+         */
+        PERMISSIVE("permissive");
+
+        ShortNameMode(String value) {
+            this.value = value;
+        }
+
+        @JsonCreator
+        public static ShortNameMode fromString(String key) {
+            return ShortNameMode.valueOf(key.toUpperCase());
+        }
+
+        @JsonValue
+        public String getKey() {
+            return value;
+        }
+
+        private String value;
+    }
+
+    /**
      * The model of the configuration file, which contains the list of registry configurations, aliases, and unqualified registries.
      * @param registries The list of registry configurations, each containing the registry location, whether it is blocked, and whether it is insecure.
      * @param aliases The map of registry aliases, where the key is the alias and the value is the actual registry URL.
      * @param unqualifiedRegistries The list of unqualified registries, which are registries that can be used without specifying a registry.
      */
     record ConfigFile(
+            @JsonProperty("short-name-mode") @Nullable ShortNameMode shortNameMode,
             @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
             @JsonProperty("aliases") @Nullable Map<String, String> aliases,
             @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
@@ -149,6 +190,23 @@ public class RegistriesConf {
      */
     public List<String> getUnqualifiedRegistries() {
         return Collections.unmodifiableList(config.unqualifiedRegistries);
+    }
+
+    /**
+     * Enforce the short name mode by checking the configuration. If the short name mode is set to ENFORCING or PERMISSIVE and there are multiple unqualified registries configured, this method throws an OrasException indicating that the configuration is invalid. If the configuration is valid, this method does nothing.
+     * @throws OrasException if the short name mode is set to ENFORCING or PERMISSIVE and there are multiple unqualified registries configured, indicating that the configuration is invalid.
+     */
+    public void enforceShortNameMode() throws OrasException {
+        if ((config.shortNameMode == ShortNameMode.ENFORCING || config.shortNameMode == ShortNameMode.PERMISSIVE)
+                && config.unqualifiedRegistries.size() > 1) {
+            throw new OrasException(
+                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured: "
+                            + config.unqualifiedRegistries);
+        }
+        LOG.debug(
+                "Short name mode '{}' is valid with unqualified registries: {}",
+                config.shortNameMode,
+                config.unqualifiedRegistries);
     }
 
     /**
@@ -316,6 +374,11 @@ public class RegistriesConf {
         }
 
         /**
+         * Default to enforcing
+         */
+        private ShortNameMode shortNameMode = ShortNameMode.ENFORCING;
+
+        /**
          * List of unqualified registries.
          */
         private final List<String> unqualifiedRegistries = new LinkedList<>();
@@ -350,6 +413,10 @@ public class RegistriesConf {
             if (configFile.registries != null) {
                 LOG.trace("Loading registry configurations: {}", configFile.registries);
                 config.registries.addAll(configFile.registries);
+            }
+            if (configFile.shortNameMode != null) {
+                LOG.trace("Loading short name mode: {}", configFile.shortNameMode);
+                config.shortNameMode = configFile.shortNameMode;
             }
             return config;
         }

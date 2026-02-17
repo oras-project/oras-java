@@ -531,6 +531,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         LOG.debug(
                 "Found registries in unqualified-search-registries: {}",
                 registry.getRegistriesConf().getUnqualifiedRegistries());
+        registry.getRegistriesConf().enforceShortNameMode();
         List<String> unqualifiedRegistries = registry.getRegistriesConf().getUnqualifiedRegistries();
         for (String searchRegistry : unqualifiedRegistries) {
             Registry targetRegistry = registry.copy(searchRegistry);
