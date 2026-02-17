@@ -101,13 +101,19 @@ public final class CopyUtils {
                 Manifest manifest = source.getManifest(sourceRef);
                 String tag = sourceRef.getTag();
 
-                // Write config as any blob
                 Objects.requireNonNull(manifest.getDigest(), "Manifest digest is required for streaming copy");
-                try (InputStream is = source.pullConfig(sourceRef, manifest.getConfig())) {
-                    LOG.debug("Copying config blob {}", manifest.getConfig().getDigest());
-                    target.pushBlob(targetRef.withDigest(manifest.getConfig().getDigest()), is);
-                    LOG.debug("Copied config blob {}", manifest.getConfig().getDigest());
-                }
+
+                // Write config as any blob
+                Config config = manifest.getConfig();
+                Objects.requireNonNull(config.getDigest(), "Config digest is required for streaming copy");
+                Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
+                target.pushBlob(
+                        targetRef
+                                .forTarget(effectiveTargetRegistry)
+                                .withDigest(manifest.getConfig().getDigest()),
+                        config.getSize(),
+                        () -> source.pullConfig(sourceRef.forTarget(resolveSourceRegistry), manifest.getConfig()),
+                        config.getAnnotations());
 
                 // Push the manifest
                 LOG.debug("Copying manifest {}", manifestDigest);
