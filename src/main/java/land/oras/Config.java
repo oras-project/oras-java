@@ -66,6 +66,7 @@ public final class Config extends Descriptor {
                 mediaType,
                 annotations != null && !annotations.isEmpty() ? Map.copyOf(annotations) : null,
                 null,
+                null,
                 null);
         this.data = data;
     }
@@ -76,6 +77,7 @@ public final class Config extends Descriptor {
                 size,
                 mediaType,
                 !annotations.configAnnotations().isEmpty() ? Map.copyOf(annotations.configAnnotations()) : null,
+                null,
                 null,
                 null);
         this.data = data;

@@ -472,6 +472,16 @@ public final class ContainerRef extends Ref<ContainerRef> {
         return this;
     }
 
+    @Override
+    public ContainerRef forTarget(String target) {
+        return forRegistry(target);
+    }
+
+    @Override
+    public String getTarget(OCI<ContainerRef> target) {
+        return getEffectiveRegistry((Registry) target);
+    }
+
     /**
      * Return a copy of reference for a registry other registry
      * @param registry The registry

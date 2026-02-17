@@ -67,6 +67,14 @@ public final class CopyUtils {
 
             Descriptor descriptor = source.probeDescriptor(sourceRef);
 
+            // Get the resolved source registry
+            String resolveSourceRegistry = descriptor.getRegistry();
+            Objects.requireNonNull(resolveSourceRegistry, "Registry is required for streaming copy");
+
+            // Get the resolve target registry
+            String effectiveTargetRegistry = targetRef.getTarget(target);
+            Objects.requireNonNull(effectiveTargetRegistry, "Target registry is required for streaming copy");
+
             String contentType = descriptor.getMediaType();
             String manifestDigest = descriptor.getDigest();
             LOG.debug("Content type: {}", contentType);
@@ -78,9 +86,10 @@ public final class CopyUtils {
                 Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
                 LOG.debug("Copying layer {}", layer.getDigest());
                 target.pushBlob(
-                        targetRef.withDigest(layer.getDigest()),
+                        targetRef.forTarget(effectiveTargetRegistry).withDigest(layer.getDigest()),
                         layer.getSize(),
-                        () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
+                        () -> source.fetchBlob(
+                                sourceRef.forTarget(resolveSourceRegistry).withDigest(layer.getDigest())),
                         layer.getAnnotations());
                 LOG.debug("Copied layer {}", layer.getDigest());
             }

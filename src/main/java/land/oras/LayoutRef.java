@@ -155,6 +155,16 @@ public final class LayoutRef extends Ref<LayoutRef> {
     }
 
     @Override
+    public LayoutRef forTarget(String target) {
+        return new LayoutRef(Path.of(target), tag);
+    }
+
+    @Override
+    public String getTarget(OCI<LayoutRef> target) {
+        return folder.toString();
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         LayoutRef layoutRef = (LayoutRef) o;
