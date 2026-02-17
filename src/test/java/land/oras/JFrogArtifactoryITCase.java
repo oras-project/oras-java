@@ -21,19 +21,26 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Path;
+import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+@Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
 class JFrogArtifactoryITCase {
 
     @TempDir
     Path tempDir;
+
+    @Container
+    private final ZotUnsecureContainer unsecureRegistry = new ZotUnsecureContainer().withStartupAttempts(3);
 
     @Test
     void shouldPull() {
@@ -44,12 +51,32 @@ class JFrogArtifactoryITCase {
     }
 
     @Test
-    void shouldPullOneBlob() throws IOException {
+    void shouldPullOneBlob() {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef1 = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
         Manifest manifest = registry.getManifest(containerRef1);
         Layer oneLayer = manifest.getLayers().get(0);
         registry.fetchBlob(containerRef1.withDigest(oneLayer.getDigest()), tempDir.resolve("my-blob"));
         assertNotNull(tempDir.resolve("my-blob"));
+    }
+
+    @Test
+    void shouldCopyTagToInternalRegistry() {
+
+        // Source registry
+        Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+
+        // Copy to this internal registry
+        Registry targetRegistry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
+        ContainerRef containerTarget =
+                ContainerRef.parse("%s/jfrog/jfrog-cli-v2-jf".formatted(unsecureRegistry.getRegistry()));
+
+        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+        assertTrue(targetRegistry.exists(containerTarget));
     }
 }
