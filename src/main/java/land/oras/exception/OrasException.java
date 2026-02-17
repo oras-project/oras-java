@@ -21,6 +21,7 @@
 package land.oras.exception;
 
 import land.oras.auth.HttpClient;
+import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -62,9 +63,15 @@ public class OrasException extends RuntimeException {
      */
     public OrasException(HttpClient.ResponseWrapper<String> response) {
         this("Response code: " + response.statusCode());
+        String contentType = response.headers().getOrDefault(Const.CONTENT_TYPE_HEADER, "");
         try {
             this.statusCode = response.statusCode();
-            error = JsonUtils.fromJson(response.response(), Error.class);
+            if (contentType.contains(Const.DEFAULT_JSON_MEDIA_TYPE)) {
+                this.error = JsonUtils.fromJson(response.response(), Error.class);
+                LOG.debug("Parsed error response: {}", error);
+            } else {
+                LOG.debug("Response content type is not JSON, cannot parse error response");
+            }
         } catch (Exception e) {
             LOG.debug("Failed to parse error response", e);
         }
