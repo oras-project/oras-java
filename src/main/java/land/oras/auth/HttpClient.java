@@ -525,7 +525,7 @@ public final class HttpClient {
                         newScopes,
                         authProvider);
             }
-            return redoRequest(response, builder, handler, newScopes, authProvider);
+            return redoRequest(uri, response, builder, handler, newScopes, authProvider);
         } catch (Exception e) {
             if (e instanceof OrasException) {
                 throw (OrasException) e;
@@ -542,6 +542,7 @@ public final class HttpClient {
     }
 
     private <T> ResponseWrapper<T> redoRequest(
+            URI originUri,
             HttpResponse<T> response,
             HttpRequest.Builder builder,
             HttpResponse.BodyHandler<T> handler,
@@ -572,7 +573,15 @@ public final class HttpClient {
                 // Follow redirect
                 if (shouldRedirect(newResponse)) {
                     String location = getLocationHeader(newResponse);
-                    LOG.debug("Redirecting after auth to {}", location);
+                    URI redirectUri = URI.create(location);
+                    LOG.debug("Redirecting to {} from domain {} to domain {}", location, originUri, redirectUri);
+                    boolean includeAuthHeaderForRedirect = isSameOrigin(originUri, redirectUri);
+                    if (!includeAuthHeaderForRedirect) {
+                        LOG.debug("Skipping auth header for redirect from {} to {}", originUri, redirectUri);
+                        builder = HttpRequest.newBuilder(
+                                builder.build(), (name, value) -> !name.equalsIgnoreCase(Const.AUTHORIZATION_HEADER));
+                    }
+
                     return toResponseWrapper(
                             client.send(builder.uri(URI.create(location)).build(), handler));
                 }
