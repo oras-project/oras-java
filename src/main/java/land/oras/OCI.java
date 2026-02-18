@@ -102,7 +102,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     }
 
     /**
-     * Push a blob from file
+     * Push a blob stream. Creates a temporary file to store the blob and push the file. The temporary file will be deleted after pushing
      * @param ref The ref
      * @param input The input stream
      * @return The layer
@@ -234,7 +234,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public final Config pushConfig(T ref, Config config) {
         Layer layer = pushBlob(ref, config.getDataBytes());
         LOG.debug("Config pushed: {}", layer.getDigest());
-        return config;
+        return config.withRegistry(layer.getRegistry());
     }
 
     /**

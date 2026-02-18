@@ -31,6 +31,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
@@ -392,20 +393,25 @@ public final class Registry extends OCI<ContainerRef> {
             manifest = manifest.withConfig(config);
         }
 
-        // Push layers
-        List<Layer> layers = pushLayers(containerRef, false, paths);
-
         // Push the config like any other blob
         Config pushedConfig = pushConfig(containerRef, config != null ? config : Config.empty());
+        String resolvedRegistry = pushedConfig.getRegistry();
+        Objects.requireNonNull(resolvedRegistry, "Pushed config must have a registry resolved");
+
+        // Build the resolved ref
+        ContainerRef resolvedRef = containerRef.forRegistry(resolvedRegistry);
+
+        // Push layers
+        List<Layer> layers = pushLayers(resolvedRef, false, paths);
 
         // Add layer and config
         manifest = manifest.withLayers(layers).withConfig(pushedConfig);
 
         // Push the manifest
-        manifest = pushManifest(containerRef, manifest);
+        manifest = pushManifest(resolvedRef, manifest);
         LOG.debug(
                 "Manifest pushed to: {}",
-                containerRef.withDigest(manifest.getDescriptor().getDigest()));
+                resolvedRef.withDigest(manifest.getDescriptor().getDigest()));
         return manifest;
     }
 
@@ -575,7 +581,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
 
         handleError(response);
-        return Layer.fromData(containerRef, data);
+        return Layer.fromData(ref, data);
     }
 
     /**

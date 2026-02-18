@@ -77,7 +77,7 @@ public final class CopyUtils {
         LOG.debug("Manifest digest: {}", manifestDigest);
 
         // Write all layer
-        for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
+        for (Layer layer : source.collectLayers(sourceRef.forTarget(resolveSourceRegistry), contentType, true)) {
             Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
             Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
             LOG.debug("Copying layer {}", layer.getDigest());

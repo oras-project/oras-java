@@ -140,6 +140,11 @@ public final class Manifest extends Descriptor implements Describable {
         return ArtifactType.unknown();
     }
 
+    @Override
+    protected Manifest withRegistry(String registry) {
+        return (Manifest) super.withRegistry(registry);
+    }
+
     /**
      * Get the artifact type as string for JSON serialization
      * @return The artifact type as string

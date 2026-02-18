@@ -115,6 +115,11 @@ public final class Config extends Descriptor {
                 annotations == null ? Annotations.empty() : Annotations.ofConfig(annotations));
     }
 
+    @Override
+    protected Config withRegistry(String registry) {
+        return (Config) super.withRegistry(registry);
+    }
+
     /**
      * Get the data as bytes
      * @return The data as bytes

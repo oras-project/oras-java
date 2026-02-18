@@ -74,6 +74,26 @@ public final class Layer extends Descriptor {
     }
 
     /**
+     * Constructor that set the resolved registry
+     * @param mediaType The media type
+     * @param digest The digest
+     * @param size The size
+     * @param data The base 64 encoded data
+     * @param registry The registry
+     * @param annotations The annotations
+     */
+    private Layer(
+            String mediaType,
+            String digest,
+            @Nullable Long size,
+            @Nullable String data,
+            String registry,
+            @Nullable Map<String, String> annotations) {
+        this(mediaType, digest, size, data, annotations);
+        this.registry = registry;
+    }
+
+    /**
      * Constructor that set the data from a file
      * @param mediaType The media type
      * @param digest The digest
@@ -186,6 +206,7 @@ public final class Layer extends Descriptor {
                 containerRef.getAlgorithm().digest(data),
                 (long) data.length,
                 Base64.getEncoder().encodeToString(data),
+                containerRef.getRegistry(),
                 Map.of());
     }
 
