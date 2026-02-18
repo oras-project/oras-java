@@ -68,7 +68,7 @@ Then on your `pom.xml`
 
 ## Authentication
 
-Using default existing login existing credentials (e.g. `~/.docker/config.json`)
+Using default existing login existing credentials (e.g. `~/.docker/config.json`) or `$XDG_RUNTIME_DIR/containers/auth.json` (no support for repository prefix yet)
 
 ```java
 Registry registry = Registry.builder().defaults().build();
@@ -78,6 +78,33 @@ Using username and password
 
 ```java
 Registry registry = Registry.builder().defaults("username", "password").build();
+```
+
+## Registries configuration
+
+Since version `0.4.0` ORAS Java SDK partially support the `registries.conf` (https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md)
+
+For example
+
+```toml
+# Use registry for unqualified images
+short-name-mode = "enforcing" # Default if not set. Unsafe if `disabled` and multiple unqualified-search-registries are set
+unqualified-search-registries = ["docker.io"]
+
+# Rewrite a location with prefix
+[[registry]]
+prefix = "docker.io/bitnami"
+location = "docker.io/bitnamilegacy"
+
+# Block a registry/repository via prefix
+[[registry]]
+prefix = "gcr.io"
+blocked = true
+
+# Set registry unsecure
+[[registry]]
+location = "localhost:5000"
+insecure = true
 ```
 
 ### Push an Artifact
