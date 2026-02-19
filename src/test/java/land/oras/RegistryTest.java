@@ -40,7 +40,6 @@ import land.oras.utils.ZotContainer;
 import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -947,7 +946,6 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
-    @Disabled("#")
     void testShouldCopyFromAliasToAlias(@TempDir Path homeDir) throws Exception {
 
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
