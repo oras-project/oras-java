@@ -102,4 +102,35 @@ class DockerIoITCase {
         CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
         assertTrue(targetRegistry.exists(containerTarget));
     }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldCopyTagToInternalRegistryViaAlias(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [aliases]
+            "dockerhub-alpine" = "docker.io/library/alpine"
+            """;
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            // Source registry
+            Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+
+            // Copy to this internal registry
+            Registry targetRegistry = Registry.Builder.builder()
+                    .defaults("myuser", "mypass")
+                    .withInsecure(true)
+                    .build();
+
+            ContainerRef containerSource = ContainerRef.parse("dockerhub-alpine");
+            ContainerRef containerTarget =
+                    ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
+
+            CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+            assertTrue(targetRegistry.exists(containerTarget));
+        });
+    }
 }

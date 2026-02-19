@@ -127,12 +127,12 @@ public final class CopyUtils {
         // Index
         else if (source.isIndexMediaType(contentType)) {
 
-            Index index = source.getIndex(sourceRef);
-            String tag = sourceRef.getTag();
+            Index index = source.getIndex(effectiveSourceRef);
+            String tag = effectiveSourceRef.getTag();
 
             // Write all manifests and their config
             for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
-                Manifest manifest = source.getManifest(sourceRef.withDigest(manifestDescriptor.getDigest()));
+                Manifest manifest = source.getManifest(effectiveSourceRef.withDigest(manifestDescriptor.getDigest()));
 
                 // Push config
                 copyConfig(manifest, source, effectiveSourceRef, target, effectiveTargetRef);
