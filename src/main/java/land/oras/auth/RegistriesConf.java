@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import land.oras.ContainerRef;
+import land.oras.OrasModel;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.TomlUtils;
@@ -105,6 +106,7 @@ public class RegistriesConf {
      * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
      * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
      */
+    @OrasModel
     record RegistryConfig(
             @Nullable @JsonProperty("prefix") String prefix,
             @Nullable @JsonProperty("location") String location,
@@ -124,6 +126,7 @@ public class RegistriesConf {
      * @param host The host component of the prefix, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
      * @param path The path component of the prefix, which can be a specific path or a path prefix (e.g., namespace/repo).
      */
+    @OrasModel
     record ParsedPrefix(String host, String path) {
 
         static ParsedPrefix parse(String prefix) {
@@ -138,6 +141,7 @@ public class RegistriesConf {
     /**
      * The for handling short name
      */
+    @OrasModel
     enum ShortNameMode {
 
         /**
@@ -179,6 +183,7 @@ public class RegistriesConf {
      * @param aliases The map of registry aliases, where the key is the alias and the value is the actual registry URL.
      * @param unqualifiedRegistries The list of unqualified registries, which are registries that can be used without specifying a registry.
      */
+    @OrasModel
     record ConfigFile(
             @JsonProperty("short-name-mode") @Nullable ShortNameMode shortNameMode,
             @JsonProperty("registry") @Nullable List<RegistryConfig> registries,

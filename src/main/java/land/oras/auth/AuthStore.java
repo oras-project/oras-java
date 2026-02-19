@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import land.oras.ContainerRef;
+import land.oras.OrasModel;
 import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
@@ -295,6 +296,7 @@ public class AuthStore {
      * @param username The username for the credential.
      * @param password The password for the credential.
      */
+    @OrasModel
     public record Credential(String username, String password) {
         /**
          * Constructs a new {@code Credential} object with the specified username and password.
