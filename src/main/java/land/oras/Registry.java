@@ -398,8 +398,8 @@ public final class Registry extends OCI<ContainerRef> {
         String resolvedRegistry = pushedConfig.getRegistry();
         Objects.requireNonNull(resolvedRegistry, "Pushed config must have a registry resolved");
 
-        // Build the resolved ref
-        ContainerRef resolvedRef = containerRef.forRegistry(resolvedRegistry);
+        // Build the resolved ref including rewrite
+        ContainerRef resolvedRef = containerRef.forRegistry(this).forRegistry(resolvedRegistry);
 
         // Push layers
         List<Layer> layers = pushLayers(resolvedRef, false, paths);

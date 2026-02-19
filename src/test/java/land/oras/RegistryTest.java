@@ -558,6 +558,48 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    void shouldPushManifestWithAlias(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+
+            [aliases]
+            "my-library/my-namespace"="%s/test/bar"
+            """
+                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.Builder.builder().defaults().build();
+
+            // Empty manifest
+            ContainerRef containerRef = ContainerRef.parse("my-library/my-namespace");
+            Index emptyIndex = Index.fromManifests(List.of());
+            Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
+
+            // Assert
+            assertEquals(2, pushIndex.getSchemaVersion());
+            assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, pushIndex.getMediaType());
+            assertEquals(0, pushIndex.getManifests().size());
+
+            // Push again
+            registry.pushIndex(containerRef, emptyIndex);
+
+            // Delete index
+            registry.deleteManifest(containerRef);
+            // Ensure the blob is deleted
+            assertThrows(OrasException.class, () -> {
+                registry.getManifest(containerRef);
+            });
+        });
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldDetermineRegistryFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -861,6 +903,46 @@ class RegistryTest {
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
         }
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void testShouldArtifactWithAlias(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [aliases]
+            "the-target" = "%s/test/artifact-target"
+
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.registry.getRegistry(), this.registry.getRegistry());
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        // Copy to same registry
+        TestUtils.withHome(homeDir, () -> {
+            try {
+                Registry registry =
+                        Registry.Builder.builder().defaults("myuser", "mypass").build();
+
+                ContainerRef originalRef = ContainerRef.parse("the-target");
+                Path file1 = blobDir.resolve("source.txt");
+                Files.writeString(file1, "foobar");
+
+                // Push
+                Manifest manifest = registry.pushArtifact(originalRef, LocalPath.of(file1));
+                assertNotNull(manifest);
+
+                // Pull
+                registry.pullArtifact(originalRef, artifactDir, true);
+                assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     @Test
