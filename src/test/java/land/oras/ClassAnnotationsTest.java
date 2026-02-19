@@ -48,7 +48,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(19, modelClasses.size());
+            assertEquals(20, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
@@ -66,6 +66,22 @@ class ClassAnnotationsTest {
             assertTrue(modelClasses.contains(Repositories.class));
             assertTrue(modelClasses.contains(Subject.class));
             assertTrue(modelClasses.contains(Tags.class));
+        }
+    }
+
+    @Test
+    void shouldHaveAnnotationOnAuthPackage() {
+        try (ScanResult scanResult = new ClassGraph()
+                .enableClassInfo()
+                .enableAnnotationInfo()
+                .acceptPackages("land.oras.auth")
+                .scan()) {
+            Set<Class<?>> modelClasses = new HashSet<>(scanResult
+                    .getClassesWithAnnotation(OrasModel.class.getName())
+                    .loadClasses());
+
+            // Check number of classes
+            assertEquals(2, modelClasses.size());
         }
     }
 }
