@@ -160,6 +160,11 @@ public final class LayoutRef extends Ref<LayoutRef> {
     }
 
     @Override
+    public LayoutRef forTarget(OCI<LayoutRef> target) {
+        return forTarget(((OCILayout) target).getPath().toString());
+    }
+
+    @Override
     public String getTarget(OCI<LayoutRef> target) {
         return folder.toString();
     }

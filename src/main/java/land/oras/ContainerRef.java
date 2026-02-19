@@ -483,6 +483,11 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     @Override
+    public ContainerRef forTarget(OCI<ContainerRef> target) {
+        return forRegistry((Registry) target);
+    }
+
+    @Override
     public String getTarget(OCI<ContainerRef> target) {
         return getEffectiveRegistry((Registry) target);
     }

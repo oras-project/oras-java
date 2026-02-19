@@ -79,6 +79,13 @@ public abstract sealed class Ref<T extends Ref<T>> permits ContainerRef, LayoutR
     public abstract T forTarget(String target);
 
     /**
+     * Return a container ref for the target repository
+     * @param target The target repository
+     * @return The container ref
+     */
+    public abstract T forTarget(OCI<T> target);
+
+    /**
      * Get the target repository for the ref
      * @param target The target repository
      * @return The target repository
