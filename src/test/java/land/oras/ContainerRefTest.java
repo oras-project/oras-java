@@ -85,8 +85,8 @@ class ContainerRefTest {
         String config =
                 """
             [aliases]
-            "my-library/my-namespace"="localhost/test"
-            "my-library"="localhost/test2"
+            "my-library/my-namespace"="localhost:5000/test"
+            "my-library"="localhost:5000/test2"
             """;
 
         TestUtils.createRegistriesConfFile(homeDir, config);
@@ -94,9 +94,9 @@ class ContainerRefTest {
         TestUtils.withHome(homeDir, () -> {
             Registry registry = Registry.builder().defaults().build();
             ContainerRef unqualifiedRef = ContainerRef.parse("my-library/my-namespace");
-            assertEquals("localhost/test", unqualifiedRef.getEffectiveRegistry(registry));
+            assertEquals("localhost:5000", unqualifiedRef.getEffectiveRegistry(registry));
             ContainerRef unqualifiedRef2 = ContainerRef.parse("my-library");
-            assertEquals("localhost/test2", unqualifiedRef2.getEffectiveRegistry(registry));
+            assertEquals("localhost:5000", unqualifiedRef2.getEffectiveRegistry(registry));
         });
     }
 
