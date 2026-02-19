@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
+import land.oras.utils.Const;
 import land.oras.utils.TomlUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -193,6 +194,17 @@ public class RegistriesConf {
     }
 
     /**
+     * Return the key of the alias
+     * @param ref the container reference to get the alias key for.
+     * @return the alias key for the given container reference, which is either the repository name
+     */
+    public String getAliasKey(ContainerRef ref) {
+        return ref.getRegistry().equals(Const.DEFAULT_REGISTRY) && "library".equals(ref.getNamespace())
+                ? ref.getRepository()
+                : ref.getFullRepository();
+    }
+
+    /**
      * Enforce the short name mode by checking the configuration. If the short name mode is set to ENFORCING or PERMISSIVE and there are multiple unqualified registries configured, this method throws an OrasException indicating that the configuration is invalid. If the configuration is valid, this method does nothing.
      * @throws OrasException if the short name mode is set to ENFORCING or PERMISSIVE and there are multiple unqualified registries configured, indicating that the configuration is invalid.
      */
@@ -250,6 +262,7 @@ public class RegistriesConf {
      * @return the rewritten container reference.
      */
     public ContainerRef rewrite(ContainerRef ref) {
+
         Optional<RegistryConfig> matchingConfig = selectMatchingTable(ref);
         if (matchingConfig.isEmpty()) {
             return ref;

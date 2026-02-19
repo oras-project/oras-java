@@ -401,9 +401,14 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public String getEffectiveRegistry(Registry target) {
         if (isUnqualified()) {
-            String key = getAliasKey();
+            String key = target.getRegistriesConf().getAliasKey(this);
             if (target.getRegistry() == null && target.getRegistriesConf().hasAlias(key)) {
-                return target.getRegistriesConf().getAliases().get(key);
+                // Extract everything before the first slash (if any) as the registry for alias lookup, otherwise use
+                // the repository as the key
+                String value = target.getRegistriesConf().getAliases().get(key);
+                String domain = value.split("/")[0];
+                LOG.debug("Effective registry for alias {} is {}", key, domain);
+                return domain;
             }
             return target.getRegistry() != null
                     ? target.getRegistry()
@@ -489,7 +494,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public ContainerRef forRegistry(Registry registry) {
         if (isUnqualified() && registry.getRegistry() == null) {
-            String key = getAliasKey();
+            String key = registry.getRegistriesConf().getAliasKey(this);
             if (registry.getRegistry() == null && registry.getRegistriesConf().hasAlias(key)) {
                 String newLocation = registry.getRegistriesConf().getAliases().get(key);
                 String newRefString = "%s:%s".formatted(newLocation, tag);
@@ -512,15 +517,6 @@ public final class ContainerRef extends Ref<ContainerRef> {
                 repository,
                 tag,
                 digest);
-    }
-
-    /**
-     * Return the key of the alias
-     */
-    private String getAliasKey() {
-        return getRegistry().equals(Const.DEFAULT_REGISTRY) && "library".equals(getNamespace())
-                ? getRepository()
-                : getFullRepository();
     }
 
     private String determineFirstUnqualifiedSearchRegistry(Registry registry) {

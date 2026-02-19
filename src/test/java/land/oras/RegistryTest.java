@@ -40,6 +40,7 @@ import land.oras.utils.ZotContainer;
 import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -859,6 +860,64 @@ class RegistryTest {
             CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+        }
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    @Disabled("#")
+    void testShouldCopyFromAliasToAlias(@TempDir Path homeDir) throws Exception {
+
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+
+            otherRegistryContainer.start();
+
+            // language=toml
+            String config =
+                    """
+                [aliases]
+                "the-source" = "%s/test/artifact-source"
+                "the-target" = "%s/test/artifact-target"
+
+                [[registry]]
+                location = "%s"
+                insecure = true
+
+                [[registry]]
+                location = "%s"
+                insecure = true
+                """
+                            .formatted(
+                                    this.registry.getRegistry(),
+                                    otherRegistryContainer.getRegistry(),
+                                    this.registry.getRegistry(),
+                                    otherRegistryContainer.getRegistry());
+            TestUtils.createRegistriesConfFile(homeDir, config);
+
+            // Copy to same registry
+            TestUtils.withHome(homeDir, () -> {
+                try {
+                    Registry registry = Registry.Builder.builder()
+                            .defaults("myuser", "mypass")
+                            .build();
+
+                    ContainerRef containerSource = ContainerRef.parse("the-source");
+                    Path file1 = blobDir.resolve("source.txt");
+                    Files.writeString(file1, "foobar");
+
+                    // Push
+                    Manifest manifest = registry.pushArtifact(containerSource, LocalPath.of(file1));
+                    assertNotNull(manifest);
+
+                    // Copy to other registry
+                    ContainerRef containerTarget = ContainerRef.parse("the-target");
+                    CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
+                    registry.pullArtifact(containerTarget, artifactDir, true);
+                    assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
         }
     }
 
