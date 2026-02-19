@@ -45,7 +45,7 @@ public class RegistryContainer extends GenericContainer<RegistryContainer> {
      * Create a new registry container
      */
     public RegistryContainer() {
-        super("registry:latest");
+        super("docker.io/library/registry:3");
         addExposedPort(5000);
         addEnv("REGISTRY_STORAGE_DELETE_ENABLED", "true");
         addEnv("REGISTRY_AUTH", "{htpasswd: {realm: localhost, path: /etc/docker/registry/auth.htpasswd}}");

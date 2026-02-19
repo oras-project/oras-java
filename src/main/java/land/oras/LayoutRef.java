@@ -155,13 +155,23 @@ public final class LayoutRef extends Ref<LayoutRef> {
     }
 
     @Override
-    public LayoutRef forTarget(String target) {
+    public LayoutRef forTargetRegistry(String target) {
         return new LayoutRef(Path.of(target), tag);
     }
 
     @Override
-    public String getTarget(OCI<LayoutRef> target) {
+    public LayoutRef forTargetRepository(String targetRegistry) {
+        return new LayoutRef(folder, tag);
+    }
+
+    @Override
+    public String getTargetRegistry(OCI<LayoutRef> target) {
         return folder.toString();
+    }
+
+    @Override
+    public String getTargetRepository(OCI<LayoutRef> target) {
+        return getRepository();
     }
 
     @Override

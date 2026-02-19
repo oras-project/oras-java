@@ -73,6 +73,11 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     protected @Nullable String registry;
 
     /**
+     * The repository (namespace/repository)
+     */
+    protected @Nullable String repository;
+
+    /**
      * Constructor
      * @param digest The digest
      * @param size The size
@@ -114,6 +119,15 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
     @JsonIgnore
     public @Nullable String getRegistry() {
         return registry;
+    }
+
+    /**
+     * Return the resolved repository (namespace/repository). Useful to avoid querying registry blobs when the repository is already resolved in the descriptor.
+     * @return The resolved repository or null if not resolved
+     */
+    @JsonProperty
+    public @Nullable String getRepository() {
+        return repository;
     }
 
     /**
@@ -201,6 +215,16 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     protected Descriptor withRegistry(String registry) {
         this.registry = registry;
+        return this;
+    }
+
+    /**
+     * Return same instance but with resolved repository (namespace/repository)
+     * @param repository The resolved repository
+     * @return The descriptor with resolved repository
+     */
+    protected Descriptor withRepository(String repository) {
+        this.repository = repository;
         return this;
     }
 

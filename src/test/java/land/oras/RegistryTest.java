@@ -560,17 +560,21 @@ class RegistryTest {
     void shouldDetermineRegistryFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config = """
+        String config =
+                """
             [aliases]
-            "my-library/my-namespace"="localhost/test"
+            "my-library/my-namespace"="localhost:5000/test"
             """
-                .formatted(this.unsecureRegistry.getRegistry());
+                        .formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
             Registry registry = Registry.Builder.builder().defaults().build();
             ContainerRef ref = ContainerRef.parse("my-library/my-namespace:tag");
-            assertEquals("localhost/test:tag", ref.forRegistry(registry).toString());
+            assertEquals("localhost:5000", ref.getEffectiveRegistry(registry));
+            ContainerRef newRef = ref.forRegistry(registry);
+            assertEquals("localhost:5000/test:tag", newRef.toString());
+            assertEquals("localhost:5000/v2/test/blobs/uploads/", newRef.getBlobsUploadPath(registry));
         });
     }
 
@@ -859,6 +863,63 @@ class RegistryTest {
             CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+        }
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void testShouldCopyFromAliasToAlias(@TempDir Path homeDir) throws Exception {
+
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+
+            otherRegistryContainer.start();
+
+            // language=toml
+            String config =
+                    """
+                [aliases]
+                "the-source" = "%s/test/artifact-source"
+                "the-target" = "%s/test/artifact-target"
+
+                [[registry]]
+                location = "%s"
+                insecure = true
+
+                [[registry]]
+                location = "%s"
+                insecure = true
+                """
+                            .formatted(
+                                    this.registry.getRegistry(),
+                                    otherRegistryContainer.getRegistry(),
+                                    this.registry.getRegistry(),
+                                    otherRegistryContainer.getRegistry());
+            TestUtils.createRegistriesConfFile(homeDir, config);
+
+            // Copy to same registry
+            TestUtils.withHome(homeDir, () -> {
+                try {
+                    Registry registry = Registry.Builder.builder()
+                            .defaults("myuser", "mypass")
+                            .build();
+
+                    ContainerRef containerSource = ContainerRef.parse("the-source");
+                    Path file1 = blobDir.resolve("source.txt");
+                    Files.writeString(file1, "foobar");
+
+                    // Push
+                    Manifest manifest = registry.pushArtifact(containerSource, LocalPath.of(file1));
+                    assertNotNull(manifest);
+
+                    // Copy to other registry
+                    ContainerRef containerTarget = ContainerRef.parse("the-target");
+                    CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
+                    registry.pullArtifact(containerTarget, artifactDir, true);
+                    assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
         }
     }
 

@@ -430,7 +430,10 @@ public final class OCILayout extends OCI<LayoutRef> {
     @Override
     public Descriptor probeDescriptor(LayoutRef ref) {
         // We should probably optimize to avoid reading the descriptor and only get its attributes (JSON path?)
-        return getDescriptor(ref).withRegistry(ref.getFolder().toString()).withJson(null);
+        return getDescriptor(ref)
+                .withRegistry(ref.getFolder().toString())
+                .withRepository(ref.getTargetRepository(this))
+                .withJson(null);
     }
 
     private byte[] getDescriptorData(Descriptor descriptor) {

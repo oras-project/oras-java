@@ -403,13 +403,18 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (isUnqualified()) {
             String key = getAliasKey();
             if (target.getRegistry() == null && target.getRegistriesConf().hasAlias(key)) {
-                return target.getRegistriesConf().getAliases().get(key);
+                // Extract everything before the first slash (if any) as the registry for alias lookup, otherwise use
+                // the repository as the key
+                String value = target.getRegistriesConf().getAliases().get(key);
+                String domain = value.split("/")[0];
+                LOG.debug("Effective registry for alias {} is {}", key, domain);
+                return domain;
             }
             return target.getRegistry() != null
                     ? target.getRegistry()
                     : determineFirstUnqualifiedSearchRegistry(target);
         }
-        // The effective registry can we rewrotten by the registry configuration.
+        // The effective registry can we rewritten by the registry configuration.
         // Ensure to return it
         ContainerRef rewrite = target.getRegistriesConf().rewrite(this);
         return rewrite.getRegistry();
@@ -421,6 +426,21 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public ContainerRef forRegistry(String registry) {
         return new ContainerRef(registry, false, namespace, repository, tag, digest);
+    }
+
+    /**
+     * Return a copy of reference for a full repository name.
+     * @param repository The full repository name with optional namespace (e.g. "library/ubuntu" or "ubuntu")
+     * @return The container reference
+     */
+    public ContainerRef forFullRepository(String repository) {
+        // Extract namespace (everything before the last slash) if any from the repository
+        String namespace = null;
+        if (repository.contains("/")) {
+            namespace = repository.substring(0, repository.lastIndexOf("/"));
+            repository = repository.substring(repository.lastIndexOf("/") + 1);
+        }
+        return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
     }
 
     /**
@@ -473,13 +493,23 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     @Override
-    public ContainerRef forTarget(String target) {
+    public ContainerRef forTargetRegistry(String target) {
         return forRegistry(target);
     }
 
     @Override
-    public String getTarget(OCI<ContainerRef> target) {
+    public ContainerRef forTargetRepository(String targetRegistry) {
+        return forFullRepository(targetRegistry);
+    }
+
+    @Override
+    public String getTargetRegistry(OCI<ContainerRef> target) {
         return getEffectiveRegistry((Registry) target);
+    }
+
+    @Override
+    public String getTargetRepository(OCI<ContainerRef> target) {
+        return getFullRepository((Registry) target);
     }
 
     /**

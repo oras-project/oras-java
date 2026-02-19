@@ -234,7 +234,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public final Config pushConfig(T ref, Config config) {
         Layer layer = pushBlob(ref, config.getDataBytes());
         LOG.debug("Config pushed: {}", layer.getDigest());
-        return config.withRegistry(layer.getRegistry());
+        return config.withRegistry(layer.getRegistry()).withRepository(layer.getRepository());
     }
 
     /**

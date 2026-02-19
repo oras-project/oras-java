@@ -120,6 +120,11 @@ public final class Config extends Descriptor {
         return (Config) super.withRegistry(registry);
     }
 
+    @Override
+    protected Config withRepository(String repository) {
+        return (Config) super.withRepository(repository);
+    }
+
     /**
      * Get the data as bytes
      * @return The data as bytes

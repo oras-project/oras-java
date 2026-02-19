@@ -80,6 +80,7 @@ public final class Layer extends Descriptor {
      * @param size The size
      * @param data The base 64 encoded data
      * @param registry The registry
+     * @param repository The repository
      * @param annotations The annotations
      */
     private Layer(
@@ -88,9 +89,11 @@ public final class Layer extends Descriptor {
             @Nullable Long size,
             @Nullable String data,
             String registry,
+            String repository,
             @Nullable Map<String, String> annotations) {
         this(mediaType, digest, size, data, annotations);
         this.registry = registry;
+        this.repository = repository;
     }
 
     /**
@@ -207,6 +210,7 @@ public final class Layer extends Descriptor {
                 (long) data.length,
                 Base64.getEncoder().encodeToString(data),
                 containerRef.getRegistry(),
+                containerRef.getFullRepository(),
                 Map.of());
     }
 

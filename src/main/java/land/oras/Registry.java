@@ -284,7 +284,7 @@ public final class Registry extends OCI<ContainerRef> {
                         "Subject was set on manifest but not OCI subject header was returned. Legacy flow not implemented");
             }
         }
-        return getManifest(containerRef);
+        return getManifest(ref);
     }
 
     @Override
@@ -396,10 +396,12 @@ public final class Registry extends OCI<ContainerRef> {
         // Push the config like any other blob
         Config pushedConfig = pushConfig(containerRef, config != null ? config : Config.empty());
         String resolvedRegistry = pushedConfig.getRegistry();
+        String resolvedRepository = pushedConfig.getRepository();
         Objects.requireNonNull(resolvedRegistry, "Pushed config must have a registry resolved");
+        Objects.requireNonNull(resolvedRepository, "Pushed config must have a repository resolved");
 
         // Build the resolved ref
-        ContainerRef resolvedRef = containerRef.forRegistry(resolvedRegistry);
+        ContainerRef resolvedRef = containerRef.forRegistry(resolvedRegistry).forFullRepository(resolvedRepository);
 
         // Push layers
         List<Layer> layers = pushLayers(resolvedRef, false, paths);
@@ -746,12 +748,13 @@ public final class Registry extends OCI<ContainerRef> {
         ResolvedRegistry resolvedRegistry = getResolvedHeaders(ref);
         Map<String, String> headers = resolvedRegistry.headers();
         String registry = resolvedRegistry.registry();
+        String repository = resolvedRegistry.repository();
         String digest = validateDockerContentDigest(headers);
         if (digest != null) {
             SupportedAlgorithm.fromDigest(digest);
         }
         String contentType = headers.get(Const.CONTENT_TYPE_HEADER.toLowerCase());
-        return Descriptor.of(digest, 0L, contentType).withRegistry(registry);
+        return Descriptor.of(digest, 0L, contentType).withRegistry(registry).withRepository(repository);
     }
 
     /**
@@ -940,7 +943,7 @@ public final class Registry extends OCI<ContainerRef> {
                 uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(this, ref), authProvider);
         logResponse(response);
         handleError(response);
-        return new ResolvedRegistry(ref.getRegistry(), response.headers());
+        return new ResolvedRegistry(ref.getRegistry(), ref.getFullRepository(this), response.headers());
     }
 
     /**
@@ -948,7 +951,7 @@ public final class Registry extends OCI<ContainerRef> {
      * @param registry The registry URL
      * @param headers The headers to use for the registry
      */
-    private record ResolvedRegistry(String registry, Map<String, String> headers) {}
+    private record ResolvedRegistry(String registry, String repository, Map<String, String> headers) {}
 
     /**
      * Builder for the registry

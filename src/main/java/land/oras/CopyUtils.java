@@ -61,31 +61,40 @@ public final class CopyUtils {
                     TargetRefType targetRef,
                     boolean recursive) {
 
-        Descriptor descriptor = source.probeDescriptor(sourceRef);
+        Descriptor sourceDescriptor = source.probeDescriptor(sourceRef);
+        Descriptor targetDescriptor = target.probeDescriptor(targetRef);
 
-        // Get the resolved source registry
-        String resolveSourceRegistry = descriptor.getRegistry();
+        // Get the resolved source registry and repository
+        String resolveSourceRegistry = sourceDescriptor.getRegistry();
         Objects.requireNonNull(resolveSourceRegistry, "Registry is required for streaming copy");
+        String resolvedSourceRepository = sourceDescriptor.getRepository();
+        Objects.requireNonNull(resolvedSourceRepository, "Resolved repository source id required for streaming copy");
+        Objects.requireNonNull(resolvedSourceRepository, "Resolved repository source id required for streaming copy");
 
-        // Get the resolve target registry
-        String effectiveTargetRegistry = targetRef.getTarget(target);
+        // Get the resolve target registry and repository
+        String effectiveTargetRegistry = targetRef.getTargetRegistry(target);
         Objects.requireNonNull(effectiveTargetRegistry, "Target registry is required for streaming copy");
+        String effectiveTargetRepository = targetRef.getTargetRepository(target);
+        Objects.requireNonNull(effectiveTargetRepository, "Target repository is required for streaming copy");
 
-        String contentType = descriptor.getMediaType();
-        String manifestDigest = descriptor.getDigest();
+        String contentType = sourceDescriptor.getMediaType();
+        String manifestDigest = sourceDescriptor.getDigest();
         LOG.debug("Content type: {}", contentType);
         LOG.debug("Manifest digest: {}", manifestDigest);
 
         // Write all layer
-        for (Layer layer : source.collectLayers(sourceRef.forTarget(resolveSourceRegistry), contentType, true)) {
+        SourceRefType effectiveSourceRef =
+                sourceRef.forTargetRegistry(resolveSourceRegistry).forTargetRepository(resolvedSourceRepository);
+        TargetRefType effectiveTargetRef =
+                targetRef.forTargetRegistry(effectiveTargetRegistry).forTargetRepository(effectiveTargetRepository);
+        for (Layer layer : source.collectLayers(effectiveSourceRef, contentType, true)) {
             Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
             Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
             LOG.debug("Copying layer {}", layer.getDigest());
             target.pushBlob(
-                    targetRef.forTarget(effectiveTargetRegistry).withDigest(layer.getDigest()),
+                    effectiveTargetRef.withDigest(layer.getDigest()),
                     layer.getSize(),
-                    () -> source.fetchBlob(
-                            sourceRef.forTarget(resolveSourceRegistry).withDigest(layer.getDigest())),
+                    () -> source.fetchBlob(effectiveSourceRef.withDigest(layer.getDigest())),
                     layer.getAnnotations());
             LOG.debug("Copied layer {}", layer.getDigest());
         }
@@ -100,11 +109,11 @@ public final class CopyUtils {
             Objects.requireNonNull(manifest.getDigest(), "Manifest digest is required for streaming copy");
 
             // Push config
-            copyConfig(manifest, resolveSourceRegistry, effectiveTargetRegistry, source, sourceRef, target, targetRef);
+            copyConfig(manifest, source, effectiveSourceRef, target, effectiveTargetRef);
 
             // Push the manifest
             LOG.debug("Copying manifest {}", manifestDigest);
-            target.pushManifest(targetRef.withDigest(tag), manifest);
+            target.pushManifest(effectiveTargetRef.withDigest(tag), manifest);
             LOG.debug("Copied manifest {}", manifestDigest);
 
             if (recursive) {
@@ -112,7 +121,7 @@ public final class CopyUtils {
                 Referrers referrers = source.getReferrers(sourceRef.withDigest(manifestDigest), null);
                 for (ManifestDescriptor referer : referrers.getManifests()) {
                     LOG.info("Copy reference {}", referer.getDigest());
-                    copy(source, sourceRef.withDigest(referer.getDigest()), target, targetRef, recursive);
+                    copy(source, sourceRef.withDigest(referer.getDigest()), target, effectiveTargetRef, recursive);
                 }
             }
 
@@ -128,8 +137,7 @@ public final class CopyUtils {
                 Manifest manifest = source.getManifest(sourceRef.withDigest(manifestDescriptor.getDigest()));
 
                 // Push config
-                copyConfig(
-                        manifest, resolveSourceRegistry, effectiveTargetRegistry, source, sourceRef, target, targetRef);
+                copyConfig(manifest, source, effectiveSourceRef, target, effectiveTargetRef);
 
                 // Push the manifest
                 LOG.debug("Copying manifest {}", manifestDigest);
@@ -152,8 +160,6 @@ public final class CopyUtils {
                     TargetRefType extends Ref<@NonNull TargetRefType>>
             void copyConfig(
                     Manifest manifest,
-                    String resolvedSourceRegistry,
-                    String effectiveTargetRegistry,
                     OCI<SourceRefType> source,
                     SourceRefType sourceRef,
                     OCI<TargetRefType> target,
@@ -164,11 +170,9 @@ public final class CopyUtils {
         Objects.requireNonNull(config.getDigest(), "Config digest is required for streaming copy");
         Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
         target.pushBlob(
-                targetRef
-                        .forTarget(effectiveTargetRegistry)
-                        .withDigest(manifest.getConfig().getDigest()),
+                targetRef.withDigest(manifest.getConfig().getDigest()),
                 config.getSize(),
-                () -> source.pullConfig(sourceRef.forTarget(resolvedSourceRegistry), manifest.getConfig()),
+                () -> source.pullConfig(sourceRef, manifest.getConfig()),
                 config.getAnnotations());
         LOG.debug("Copied config {}", manifest.getConfig().getDigest());
     }
