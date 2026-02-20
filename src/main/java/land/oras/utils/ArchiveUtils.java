@@ -40,6 +40,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.compress.compressors.xz.XZCompressorOutputStream;
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;
 import org.jspecify.annotations.NullMarked;
@@ -322,6 +323,22 @@ public final class ArchiveUtils {
         return LocalPath.of(tarGzFile, Const.BLOB_DIR_ZSTD_MEDIA_TYPE);
     }
 
+    static LocalPath compressXz(LocalPath tarFile) {
+        LOG.trace("Compressing tar file to xz archive");
+        Path tarXzFile = Paths.get(tarFile.toString() + ".xz");
+        try (InputStream fis = Files.newInputStream(tarFile.getPath());
+                BufferedInputStream bis = new BufferedInputStream(fis);
+                OutputStream fos = Files.newOutputStream(tarXzFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos);
+                XZCompressorOutputStream xzos = new XZCompressorOutputStream(bos)) {
+
+            bis.transferTo(xzos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to compress tar file to xz archive", e);
+        }
+        return LocalPath.of(tarXzFile, Const.BLOB_DIR_XZ_MEDIA_TYPE);
+    }
+
     static LocalPath compressGzip(LocalPath tarFile) {
         LOG.trace("Compressing tar file to gz archive");
         Path tarGzFile = Paths.get(tarFile.toString() + ".gz");
@@ -349,6 +366,20 @@ public final class ArchiveUtils {
             gzis.transferTo(bos);
         } catch (IOException e) {
             throw new OrasException("Failed to uncompress tar.gz file", e);
+        }
+        return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
+    }
+
+    static LocalPath uncompressXz(InputStream inputStream) {
+        LOG.trace("Uncompressing tar.xz file");
+        Path tarFile = createTempTar();
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream);
+                XZCompressorOutputStream xzos =
+                        new XZCompressorOutputStream(new BufferedOutputStream(Files.newOutputStream(tarFile)))) {
+
+            bis.transferTo(xzos);
+        } catch (IOException e) {
+            throw new OrasException("Failed to uncompress tar.xz file", e);
         }
         return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
     }
