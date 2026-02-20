@@ -199,7 +199,7 @@ class ArchiveUtilsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"jenkins-chart.tgz", "jenkins-sources.tar.gz"})
+    @ValueSource(strings = {"jenkins-chart.tgz", "jenkins-sources.tar.gz", "flux-manifests.tgz"})
     @Disabled("https://issues.apache.org/jira/browse/COMPRESS-705")
     void shouldExtractSeveralExistingArchive(String file) {
         Path archive = Paths.get("src/test/resources/archives").resolve(file);
