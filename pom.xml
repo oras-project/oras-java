@@ -126,11 +126,6 @@
         <version>${zstd-jni.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>${gson.version}</version>
-      </dependency>
-      <dependency>
         <groupId>io.github.classgraph</groupId>
         <artifactId>classgraph</artifactId>
         <version>${classgraph.version}</version>
