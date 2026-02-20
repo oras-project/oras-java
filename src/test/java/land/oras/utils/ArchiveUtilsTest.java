@@ -65,6 +65,9 @@ class ArchiveUtilsTest {
     private static Path targetGzDir;
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
+    private static Path targetXzDir;
+
+    @TempDir(cleanup = CleanupMode.ON_SUCCESS)
     private static Path targetZstdDir;
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
@@ -206,6 +209,26 @@ class ArchiveUtilsTest {
         assertNotNull(archive, "Archive should exist");
         assertTrue(Files.exists(archive), "Archive should exist");
         ArchiveUtils.uncompressuntar(archive, existingArchiveDir, SupportedCompression.GZIP.getMediaType());
+    }
+
+    @Test
+    void shouldCreateTarXzAndExtractIt() throws Exception {
+        LocalPath directory = LocalPath.of(archiveDir, Const.BLOB_DIR_XZ_MEDIA_TYPE);
+        LocalPath archive = ArchiveUtils.tar(directory);
+        LOG.info("Archive created: {}", archive);
+        Path compressedArchive =
+                ArchiveUtils.compress(archive, directory.getMediaType()).getPath();
+
+        assertTrue(Files.exists(compressedArchive), "Archive should exist");
+
+        Path uncompressedArchive = ArchiveUtils.uncompress(
+                        Files.newInputStream(compressedArchive), Const.BLOB_DIR_XZ_MEDIA_TYPE)
+                .getPath();
+        ArchiveUtils.untar(Files.newInputStream(uncompressedArchive), targetXzDir);
+
+        // To temporary
+        Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
+        assertTrue(Files.exists(temp), "Temp should exist");
     }
 
     @Test

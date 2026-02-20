@@ -134,6 +134,11 @@ public final class Const {
     public static final String BLOB_DIR_ZSTD_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+zstd";
 
     /**
+     * The blob directory media type for xz compression
+     */
+    public static final String BLOB_DIR_XZ_MEDIA_TYPE = "application/vnd.oci.image.layer.v1.tar+xz";
+
+    /**
      * The default artifact media type if not specified
      */
     public static final String DEFAULT_ARTIFACT_MEDIA_TYPE = "application/vnd.unknown.artifact.v1";

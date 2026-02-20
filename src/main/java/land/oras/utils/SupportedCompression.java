@@ -59,7 +59,12 @@ public enum SupportedCompression {
     /**
      * ZSTD
      */
-    ZSTD(Const.BLOB_DIR_ZSTD_MEDIA_TYPE, ArchiveUtils::compressZstd, ArchiveUtils::uncompressZstd);
+    ZSTD(Const.BLOB_DIR_ZSTD_MEDIA_TYPE, ArchiveUtils::compressZstd, ArchiveUtils::uncompressZstd),
+
+    /**
+     * XZ
+     */
+    XZ(Const.BLOB_DIR_XZ_MEDIA_TYPE, ArchiveUtils::compressXz, ArchiveUtils::uncompressXz);
 
     /**
      * The media type
