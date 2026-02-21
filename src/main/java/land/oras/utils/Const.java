@@ -200,6 +200,11 @@ public final class Const {
     public static final String ANNOTATION_TITLE = "org.opencontainers.image.title";
 
     /**
+     * Annotation for the description
+     */
+    public static final String ANNOTATION_DESCRIPTION = "org.opencontainers.image.description";
+
+    /**
      * Annotation for the crated date
      */
     public static final String ANNOTATION_CREATED = "org.opencontainers.image.created";

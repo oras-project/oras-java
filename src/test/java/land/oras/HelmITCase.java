@@ -36,7 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @Execution(ExecutionMode.CONCURRENT)
-class FluxCDITCase {
+class HelmITCase {
 
     @Container
     private final ZotUnsecureContainer unsecureRegistry = new ZotUnsecureContainer().withStartupAttempts(3);
@@ -48,12 +48,12 @@ class FluxCDITCase {
     void shouldAssembleArtifact() {
 
         // The compressed manifests
-        Path archive = Paths.get("src/test/resources/archives").resolve("flux-manifests.tgz");
-        String configMediaType = "application/vnd.cncf.flux.config.v1+json";
-        String contentMediaType = "application/vnd.cncf.flux.content.v1.tar+gzip";
+        Path archive = Paths.get("src/test/resources/archives").resolve("jenkins-chart.tgz");
+        String configMediaType = "application/vnd.cncf.helm.config.v1+json";
+        String contentMediaType = "application/vnd.cncf.helm.chart.content.v1.tar+gzip";
 
         Map<String, String> annotations = Map.of(
-                Const.ANNOTATION_REVISION, "@sha1:6d63912ed9a9443dd01fbfd2991173a246050079",
+                Const.ANNOTATION_DESCRIPTION, "Test helm chart",
                 Const.ANNOTATION_SOURCE, "git@github.com:jonesbusy/oras-java.git",
                 Const.ANNOTATION_CREATED, Const.currentTimestamp());
 
@@ -68,7 +68,7 @@ class FluxCDITCase {
                 .insecure()
                 .withRegistry(unsecureRegistry.getRegistry())
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("manifests:latest");
+        ContainerRef containerRef = ContainerRef.parse("chart:0.1.0");
 
         registry.pushConfig(containerRef, config);
         registry.pushBlob(containerRef, archive);
@@ -78,7 +78,7 @@ class FluxCDITCase {
         Manifest createdManifest = registry.getManifest(containerRef);
         assertNotNull(createdManifest);
 
-        // We can test pull with flux pull artifact oci://localhost:<port>/manifests:latest --output .
+        // We can test pull with helm pull oci://localhost:<port>/chart --plain-http --version 0.1.0
 
     }
 }
