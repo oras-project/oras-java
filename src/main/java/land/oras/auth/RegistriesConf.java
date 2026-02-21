@@ -346,7 +346,7 @@ public class RegistriesConf {
 
         // No path restriction → host-only match
         if (p.path().isEmpty()) {
-            LOG.debug("Found registry table '{}'", p);
+            LOG.trace("Found registry table '{}'", p);
             return true;
         }
 
@@ -354,7 +354,7 @@ public class RegistriesConf {
         String refPath = String.join("/", ref.getNamespace()) + "/" + ref.getRepository();
         boolean result = refPath.equals(p.path()) || refPath.startsWith(p.path() + "/");
         if (result) {
-            LOG.debug("Found registry table '{}' matching path '{}'", p, refPath);
+            LOG.trace("Found registry table '{}' matching path '{}'", p, refPath);
         }
         return result;
     }
