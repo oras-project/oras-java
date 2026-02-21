@@ -23,6 +23,10 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import land.oras.utils.Const;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,6 +43,80 @@ class HarborS3ITCase {
 
     @TempDir
     Path tempDir;
+
+    /**
+     * This test demonstrate how to assemble a Flux CD OCI Artifact
+     */
+    @Test
+    void shouldPushHelmArtifact() {
+
+        // The compressed manifests
+        Path archive = Paths.get("src/test/resources/archives").resolve("jenkins-chart.tgz");
+        String configMediaType = "application/vnd.cncf.helm.config.v1+json";
+        String contentMediaType = "application/vnd.cncf.helm.chart.content.v1.tar+gzip";
+
+        Map<String, String> annotations = Map.of(
+                Const.ANNOTATION_DESCRIPTION, "Test helm chart",
+                Const.ANNOTATION_SOURCE, "git@github.com:jonesbusy/oras-java.git",
+                Const.ANNOTATION_CREATED, Const.currentTimestamp());
+
+        // Create objects
+        Config config = Config.empty().withMediaType(configMediaType);
+        Layer layer = Layer.fromFile(archive).withMediaType(contentMediaType);
+        Manifest manifest =
+                Manifest.empty().withConfig(config).withLayers(List.of(layer)).withAnnotations(annotations);
+
+        // Push config, layers and manifest to registry
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/oras/chart:0.1.0");
+
+        registry.pushConfig(containerRef, config);
+        registry.pushBlob(containerRef, archive);
+        registry.pushManifest(containerRef, manifest);
+
+        // Ensure we can pull
+        Manifest createdManifest = registry.getManifest(containerRef);
+        assertNotNull(createdManifest);
+
+        // We can test pull with helm pull oci://demo.goharbor.io/oras/chart --version 0.1.0
+
+    }
+
+    @Test
+    @Disabled
+    void shouldPushFluxArtifact() {
+
+        // The compressed manifests
+        Path archive = Paths.get("src/test/resources/archives").resolve("flux-manifests.tgz");
+        String configMediaType = "application/vnd.cncf.flux.config.v1+json";
+        String contentMediaType = "application/vnd.cncf.flux.content.v1.tar+gzip";
+
+        Map<String, String> annotations = Map.of(
+                Const.ANNOTATION_REVISION, "@sha1:6d63912ed9a9443dd01fbfd2991173a246050079",
+                Const.ANNOTATION_SOURCE, "git@github.com:jonesbusy/oras-java.git",
+                Const.ANNOTATION_CREATED, Const.currentTimestamp());
+
+        // Create objects
+        Config config = Config.empty().withMediaType(configMediaType);
+        Layer layer = Layer.fromFile(archive).withMediaType(contentMediaType);
+        Manifest manifest =
+                Manifest.empty().withConfig(config).withLayers(List.of(layer)).withAnnotations(annotations);
+
+        // Push config, layers and manifest to registry
+        Registry registry = Registry.builder().defaults().build();
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/oras/flux:latest");
+
+        registry.pushConfig(containerRef, config);
+        registry.pushBlob(containerRef, archive);
+        registry.pushManifest(containerRef, manifest);
+
+        // Ensure we can pull
+        Manifest createdManifest = registry.getManifest(containerRef);
+        assertNotNull(createdManifest);
+
+        // We can test pull with flux pull artifact oci://demo.goharbor.io/oras/flux:latest --output .
+
+    }
 
     @Test
     @Disabled("Only to test with demo Harbor demo instance")
