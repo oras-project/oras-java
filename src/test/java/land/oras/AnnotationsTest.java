@@ -21,6 +21,8 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -49,6 +51,14 @@ class AnnotationsTest {
         assertEquals(0, annotations.configAnnotations().size());
         assertEquals(0, annotations.manifestAnnotations().size());
         assertEquals(0, annotations.filesAnnotations().size());
+    }
+
+    @Test
+    public void shouldAddFileAnnotation() {
+        Annotations annotations = Annotations.empty().withFileAnnotations("cake.txt", Map.of("fun", "more cream"));
+        assertEquals("more cream", annotations.getFileAnnotations("cake.txt").get("fun"));
+        assertTrue(annotations.hasFileAnnotations("cake.txt"));
+        assertFalse(annotations.hasFileAnnotations("nonexistent.txt"));
     }
 
     @Test

@@ -406,7 +406,7 @@ public final class Registry extends OCI<ContainerRef> {
         ContainerRef resolvedRef = containerRef.forRegistry(this).forRegistry(resolvedRegistry);
 
         // Push layers
-        List<Layer> layers = pushLayers(resolvedRef, false, paths);
+        List<Layer> layers = pushLayers(resolvedRef, annotations, false, paths);
 
         // Add layer and config
         manifest = manifest.withLayers(layers).withConfig(pushedConfig);
