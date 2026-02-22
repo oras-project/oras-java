@@ -22,6 +22,7 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -88,6 +89,7 @@ class HarborS3ITCase {
 
         // The compressed manifests
         Path archive = Paths.get("src/test/resources/archives").resolve("flux-manifests.tgz");
+        Path image = Paths.get("src/test/resources/img").resolve("flux-cd.png");
         String configMediaType = "application/vnd.cncf.flux.config.v1+json";
         String contentMediaType = "application/vnd.cncf.flux.content.v1.tar+gzip";
 
@@ -99,8 +101,13 @@ class HarborS3ITCase {
         // Create objects
         Config config = Config.empty().withMediaType(configMediaType);
         Layer layer = Layer.fromFile(archive).withMediaType(contentMediaType);
-        Manifest manifest =
-                Manifest.empty().withConfig(config).withLayers(List.of(layer)).withAnnotations(annotations);
+        Layer imageLayer = Layer.fromFile(image)
+                .withMediaType("image/png")
+                .withAnnotations(Map.of("io.goharbor.artifact.v1alpha1.icon", ""));
+        Manifest manifest = Manifest.empty()
+                .withConfig(config)
+                .withLayers(List.of(layer, imageLayer))
+                .withAnnotations(annotations);
 
         // Push config, layers and manifest to registry
         Registry registry = Registry.builder().defaults().build();
@@ -108,6 +115,7 @@ class HarborS3ITCase {
 
         registry.pushConfig(containerRef, config);
         registry.pushBlob(containerRef, archive);
+        registry.pushBlob(containerRef, image);
         registry.pushManifest(containerRef, manifest);
 
         // Ensure we can pull
@@ -116,6 +124,61 @@ class HarborS3ITCase {
 
         // We can test pull with flux pull artifact oci://demo.goharbor.io/oras/flux:latest --output .
 
+    }
+
+    @Test
+    @Disabled
+    void shouldPushJenkinsScriptArtifact() {
+
+        // language=groovy
+        String jenkinsfile =
+                """
+                node {
+                    stage('Build') {
+                        echo 'Building...'
+                    }
+                    stage('Test') {
+                        echo 'Testing...'
+                    }
+                    stage('Deploy') {
+                        echo 'Deploying...'
+                }
+                """;
+
+        // The compressed manifests
+        Path image = Paths.get("src/test/resources/img").resolve("jenkins.png");
+        String contentMediaType = "text/x-groovy";
+
+        Map<String, String> annotations = Map.of(
+                Const.ANNOTATION_REVISION, "@sha1:6d63912ed9a9443dd01fbfd2991173a246050079",
+                Const.ANNOTATION_SOURCE, "git@github.com:jonesbusy/oras-java.git",
+                Const.ANNOTATION_CREATED, Const.currentTimestamp());
+
+        // Create objects
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/oras/jenkins-cps:latest");
+        Config config = Config.empty();
+        Layer layer = Layer.fromData(containerRef, jenkinsfile.getBytes(StandardCharsets.UTF_8))
+                .withMediaType(contentMediaType);
+        Layer imageLayer = Layer.fromFile(image)
+                .withMediaType("image/png")
+                .withAnnotations(Map.of("io.goharbor.artifact.v1alpha1.icon", ""));
+        Manifest manifest = Manifest.empty()
+                .withConfig(config)
+                .withArtifactType(ArtifactType.from("application/vnd.jenkins.pipeline.manifest.v1+json"))
+                .withLayers(List.of(layer, imageLayer))
+                .withAnnotations(annotations);
+
+        // Push config, layers and manifest to registry
+        Registry registry = Registry.builder().defaults().build();
+
+        registry.pushConfig(containerRef, config);
+        registry.pushBlob(containerRef, jenkinsfile.getBytes(StandardCharsets.UTF_8));
+        registry.pushBlob(containerRef, image);
+        registry.pushManifest(containerRef, manifest);
+
+        // Ensure we can pull
+        Manifest createdManifest = registry.getManifest(containerRef);
+        assertNotNull(createdManifest);
     }
 
     @Test
