@@ -86,6 +86,27 @@ public record Annotations(
     }
 
     /**
+     * Check if there are annotations for a file
+     * @param key The key
+     * @return True if there are annotations, false otherwise
+     */
+    public boolean hasFileAnnotations(String key) {
+        return this.filesAnnotations().containsKey(key);
+    }
+
+    /**
+     * Create a new annotations record with the given file annotations
+     * @param key The key of the file annotations
+     * @param annotations The file annotations
+     * @return The new annotations record
+     */
+    public Annotations withFileAnnotations(String key, Map<String, String> annotations) {
+        Map<String, Map<String, String>> newFilesAnnotations = new HashMap<>(this.filesAnnotations());
+        newFilesAnnotations.put(key, annotations);
+        return new Annotations(this.configAnnotations(), this.manifestAnnotations(), newFilesAnnotations);
+    }
+
+    /**
      * Annotations file format
      */
     private static class AnnotationFile extends HashMap<String, Map<String, String>> {

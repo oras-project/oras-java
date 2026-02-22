@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -156,7 +157,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @param paths The paths to the files
      * @return The layers
      */
-    protected final List<Layer> pushLayers(T ref, boolean withDigest, LocalPath... paths) {
+    protected final List<Layer> pushLayers(T ref, Annotations annotations, boolean withDigest, LocalPath... paths) {
         List<Layer> layers = new ArrayList<>();
         for (LocalPath path : paths) {
             try {
@@ -172,15 +173,20 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                                 ? path.getPath().getFileName().toString()
                                 : path.getPath().toString();
                         LOG.debug("Uploading directory as archive with title: {}", title);
+
+                        Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                                ? annotations.getFileAnnotations(title)
+                                : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
+
+                        // Add oras digest/unpack
+                        layerAnnotations.put(
+                                Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                ref.getAlgorithm().digest(tempTar.getPath()));
+                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+
                         Layer layer = pushBlob(ref, is)
                                 .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        title,
-                                        Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                        ref.getAlgorithm().digest(tempTar.getPath()),
-                                        Const.ANNOTATION_ORAS_UNPACK,
-                                        "true"));
+                                .withAnnotations(layerAnnotations);
                         layers.add(layer);
                         LOG.info("Uploaded directory: {}", layer.getDigest());
                     }
@@ -190,11 +196,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                         if (withDigest) {
                             ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
                         }
+                        String title = path.getPath().getFileName().toString();
+                        Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                                ? annotations.getFileAnnotations(title)
+                                : Map.of(Const.ANNOTATION_TITLE, title);
+
                         Layer layer = pushBlob(ref, is)
                                 .withMediaType(path.getMediaType())
-                                .withAnnotations(Map.of(
-                                        Const.ANNOTATION_TITLE,
-                                        path.getPath().getFileName().toString()));
+                                .withAnnotations(layerAnnotations);
                         layers.add(layer);
                         LOG.info("Uploaded: {}", layer.getDigest());
                     }
@@ -413,7 +422,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public Manifest attachArtifact(T ref, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
 
         // Push layers
-        List<Layer> layers = pushLayers(ref, true, paths);
+        List<Layer> layers = pushLayers(ref, annotations, true, paths);
 
         // Get the subject from the descriptor
         Descriptor descriptor = getDescriptor(ref);

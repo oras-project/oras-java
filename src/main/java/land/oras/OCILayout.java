@@ -83,7 +83,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
 
         // Push layers
-        List<Layer> layers = pushLayers(ref, true, paths);
+        List<Layer> layers = pushLayers(ref, annotations, true, paths);
 
         // Push the config like any other blob
         Config configToPush = config != null ? config : Config.empty();

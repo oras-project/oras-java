@@ -1336,14 +1336,33 @@ class RegistryTest {
         Files.writeString(pomFile, "my pom file");
 
         // Push the main OCI artifact
-        Annotations annotations = Annotations.ofManifest(Map.of("foo", "bar"));
-        Manifest manifest = registry.pushArtifact(
-                containerRef, ArtifactType.from(artifactType), annotations, LocalPath.of(pomFile, "application/xml"));
+        Annotations annotations =
+                Annotations.ofManifest(Map.of("foo", "bar")).withFileAnnotations("jenkins.png", Map.of("foo", "bar"));
 
-        // Check annotations
+        // Add image (without title (so it's not unpack) and specific annotation)
+        Manifest manifest = registry.pushArtifact(
+                containerRef,
+                ArtifactType.from(artifactType),
+                annotations,
+                LocalPath.of(pomFile, "application/xml"),
+                LocalPath.of(Path.of("src/test/resources/img/jenkins.png"), "image/png"));
+
+        // Check annotations (manifest)
         assertEquals(2, manifest.getAnnotations().size());
         assertEquals("bar", manifest.getAnnotations().get("foo"));
         assertNotNull(manifest.getAnnotations().get(Const.ANNOTATION_CREATED));
+
+        // Check annotations (layer 0)
+        Layer layer = manifest.getLayers().get(0);
+        assertEquals(1, layer.getAnnotations().size());
+        assertEquals(
+                "pom.xml", layer.getAnnotations().get(Const.ANNOTATION_TITLE), "Title annotation should be pom.xml");
+
+        // Check annotation (layer 1)
+        Layer layer2 = manifest.getLayers().get(1);
+        assertEquals(1, layer2.getAnnotations().size());
+        assertNull(layer2.getAnnotations().get(Const.ANNOTATION_TITLE), "Title should not be added");
+        assertEquals("bar", layer2.getAnnotations().get("foo"), "Custom annotation should be preserved");
     }
 
     @Test
