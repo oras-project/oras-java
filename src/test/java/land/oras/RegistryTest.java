@@ -646,6 +646,62 @@ class RegistryTest {
     }
 
     @Test
+    void pullArtifactWithoutLayer() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef1 = ContainerRef.parse("%s/empty-layers".formatted(this.registry.getRegistry()));
+        Config emptyConfig = Config.empty();
+        Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
+        registry.pushConfig(containerRef1, emptyConfig);
+        registry.pushManifest(containerRef1, manifest1);
+        assertDoesNotThrow(() -> {
+            registry.pullArtifact(containerRef1, artifactDir, true);
+        });
+    }
+
+    @Test
+    void pullArtifactShouldPullLayerWithTitleOnly() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef1 = ContainerRef.parse("%s/empty-layers-title".formatted(this.registry.getRegistry()));
+        Config emptyConfig = Config.empty();
+        Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
+        Layer layer = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "file.txt"));
+        Layer layerWithoutTitle = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8));
+        manifest1 = manifest1.withLayers(List.of(layer, layerWithoutTitle));
+        registry.pushConfig(containerRef1, emptyConfig);
+        registry.pushManifest(containerRef1, manifest1);
+        assertDoesNotThrow(() -> {
+            registry.pullArtifact(containerRef1, artifactDir, true);
+        });
+    }
+
+    @Test
+    void pullArtifactShouldPullLayerWithNoTitle() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef1 = ContainerRef.parse("%s/no-layers-title".formatted(this.registry.getRegistry()));
+        Config emptyConfig = Config.empty();
+        Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
+        Layer layer = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8))
+                .withAnnotations(Map.of());
+        Layer layerWithoutTitle = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8));
+        manifest1 = manifest1.withLayers(List.of(layer, layerWithoutTitle));
+        registry.pushConfig(containerRef1, emptyConfig);
+        registry.pushManifest(containerRef1, manifest1);
+        assertDoesNotThrow(() -> {
+            registry.pullArtifact(containerRef1, artifactDir, true);
+        });
+    }
+
+    @Test
     void shouldPushComplexArtifactWithConfigMediaType() throws IOException {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")

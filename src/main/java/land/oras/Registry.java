@@ -333,11 +333,16 @@ public final class Registry extends OCI<ContainerRef> {
         // Only collect layer that are files
         String contentType = getContentType(ref);
         List<Layer> layers = collectLayers(ref, contentType, false);
-        if (layers.isEmpty()) {
+        if (layers.isEmpty()
+                || layers.stream().noneMatch(layer -> layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE))) {
             LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
             return;
         }
         for (Layer layer : layers) {
+            if (!layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
+                LOG.info("Skipped pulling layer without file name in '{}'", Const.ANNOTATION_TITLE);
+                continue;
+            }
             try (InputStream is = fetchBlob(ref.withDigest(layer.getDigest()))) {
                 // Unpack or just copy blob
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
@@ -360,8 +365,7 @@ public final class Registry extends OCI<ContainerRef> {
                     ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
 
                 } else {
-                    Path targetPath = path.resolve(
-                            layer.getAnnotations().getOrDefault(Const.ANNOTATION_TITLE, layer.getDigest()));
+                    Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE));
                     if (Files.exists(targetPath) && !overwrite) {
                         LOG.info("File already exists: {}", targetPath);
                         continue;
