@@ -27,7 +27,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
+import land.oras.utils.SupportedCompression;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -128,22 +130,67 @@ class HarborS3ITCase {
 
     @Test
     @Disabled
+    void shouldPushJenkinsLibArtifact() {
+
+        Path image = Paths.get("src/test/resources/img").resolve("jenkins.png");
+        Path library = Paths.get("src/test/resources/content/lib").toAbsolutePath();
+        LocalPath compressedLibrary =
+                ArchiveUtils.tarcompress(LocalPath.of(library), SupportedCompression.GZIP.getMediaType());
+
+        Map<String, String> annotations = Map.of(
+                Const.ANNOTATION_REVISION, "@sha1:6d63912ed9a9443dd01fbfd2991173a246050079",
+                Const.ANNOTATION_SOURCE, "git@github.com:jonesbusy/oras-java.git",
+                Const.ANNOTATION_CREATED, Const.currentTimestamp());
+
+        // Create objects
+        ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/oras/jenkins-lib:latest");
+        Registry registry = Registry.builder().defaults().build();
+
+        Config config = Config.empty();
+        Layer layer = Layer.fromFile(compressedLibrary.getPath())
+                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                .withAnnotations(Map.of(Const.ANNOTATION_ORAS_UNPACK, "true", Const.ANNOTATION_TITLE, "lib"));
+        Layer imageLayer = Layer.fromFile(image)
+                .withMediaType("image/png")
+                .withAnnotations(Map.of("io.goharbor.artifact.v1alpha1.icon", ""));
+
+        Manifest manifest = Manifest.empty()
+                .withConfig(config)
+                .withArtifactType(ArtifactType.from("application/vnd.jenkins.lib.manifest.v1+json"))
+                .withLayers(List.of(layer, imageLayer))
+                .withAnnotations(annotations);
+
+        registry.pushConfig(containerRef, config);
+        registry.pushBlob(containerRef, compressedLibrary.getPath());
+        registry.pushBlob(containerRef, image);
+        registry.pushManifest(containerRef, manifest);
+
+        // Ensure we can pull
+        Manifest createdManifest = registry.getManifest(containerRef);
+        assertNotNull(createdManifest);
+
+        assertNotNull(createdManifest);
+    }
+
+    @Test
+    @Disabled
     void shouldPushJenkinsScriptArtifact() {
 
         // language=groovy
         String jenkinsfile =
                 """
-                node {
-                    stage('Build') {
-                        echo 'Building...'
+                    node {
+                        stage('Build') {
+                            echo 'Building...'
+                        }
+                        stage('Test') {
+                            echo 'Testing...'
+                        }
+                        stage('Deploy') {
+                            echo 'Deploying...'
+                        }
                     }
-                    stage('Test') {
-                        echo 'Testing...'
-                    }
-                    stage('Deploy') {
-                        echo 'Deploying...'
-                }
-                """;
+                    """;
 
         // The compressed manifests
         Path image = Paths.get("src/test/resources/img").resolve("jenkins.png");
