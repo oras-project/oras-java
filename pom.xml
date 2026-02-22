@@ -304,7 +304,7 @@
             <inceptionYear>2024</inceptionYear>
             <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
             <emptyLineAfterHeader>true</emptyLineAfterHeader>
-            <excludes>**/logback*.xml,**/junit-platform.properties,**/*.json</excludes>
+            <excludes>**/logback*.xml,**/junit-platform.properties,**/*.json,**/*.groovy</excludes>
             <processStartTag>= LICENSE =</processStartTag>
             <sectionDelimiter>===</sectionDelimiter>
             <processEndTag>= LICENSE END =</processEndTag>
