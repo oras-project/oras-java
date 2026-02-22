@@ -205,7 +205,8 @@ class HarborS3ITCase {
         ContainerRef containerRef = ContainerRef.parse("demo.goharbor.io/oras/jenkins-cps:latest");
         Config config = Config.empty();
         Layer layer = Layer.fromData(containerRef, jenkinsfile.getBytes(StandardCharsets.UTF_8))
-                .withMediaType(contentMediaType);
+                .withMediaType(contentMediaType)
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "Jenkinsfile"));
         Layer imageLayer = Layer.fromFile(image)
                 .withMediaType("image/png")
                 .withAnnotations(Map.of("io.goharbor.artifact.v1alpha1.icon", ""));
