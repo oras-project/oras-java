@@ -229,37 +229,37 @@ public class AuthStore {
 
             LOG.debug("Looking for credentials for containerRef starting at key '{}'", key);
 
-            // Iterate from most-specific to least-specific, ending at the registry level
-            while (true) {
-                // Check direct credential
+            // Iterate from most-specific to least-specific, stopping when only the registry remains
+            while (!key.equals(registry)) {
                 Credential cred = credentialStore.get(key);
                 if (cred != null) {
                     LOG.debug("Found credential for key '{}'", key);
                     return cred;
                 }
-
-                // Check credential helper for this key
-                String helperSuffix = credentialHelperStore.get(key);
-                if (helperSuffix != null) {
-                    try {
-                        LOG.debug("Using credential helper '{}' for key '{}'", helperSuffix, key);
-                        return getFromCredentialHelper(helperSuffix, key);
-                    } catch (OrasException e) {
-                        LOG.warn("Failed to get credential from helper for key {}: {}", key, e.getMessage());
-                    }
-                }
-
-                // Stop once the registry level has been checked
-                if (key.equals(registry)) {
-                    break;
-                }
-
                 // Remove the last path segment and continue with the less specific key
                 key = key.substring(0, key.lastIndexOf('/'));
             }
 
+            // Check the registry-only key
+            Credential registryCred = credentialStore.get(key);
+            if (registryCred != null) {
+                LOG.debug("Found credential for registry '{}'", key);
+                return registryCred;
+            }
+
+            // Try credential helper scoped to the registry
+            String helperSuffix = credentialHelperStore.get(registry);
+            if (helperSuffix != null) {
+                try {
+                    LOG.debug("Using credential helper '{}' for registry '{}'", helperSuffix, registry);
+                    return getFromCredentialHelper(helperSuffix, registry);
+                } catch (OrasException e) {
+                    LOG.warn("Failed to get credential from helper for registry {}: {}", registry, e.getMessage());
+                }
+            }
+
             // Finally, try all-registries helper
-            String helperSuffix = credentialHelperStore.get(ALL_REGISTRIES_HELPER);
+            helperSuffix = credentialHelperStore.get(ALL_REGISTRIES_HELPER);
             if (helperSuffix != null) {
                 try {
                     LOG.debug("Using all-registries credential helper for registry '{}'", registry);
