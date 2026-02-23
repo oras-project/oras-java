@@ -148,6 +148,17 @@ class IndexTest {
     }
 
     @Test
+    void shouldAddArtifactType() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withArtifactType("application/vnd.opentofu.provider");
+        assertNotNull(index.getArtifactType());
+        assertEquals("application/vnd.opentofu.provider", index.getArtifactType().getMediaType());
+        assertEquals(
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"artifactType\":\"application/vnd.opentofu.provider\",\"manifests\":[]}",
+                index.toJson());
+    }
+
+    @Test
     void shouldAddSubject() {
         Index index = Index.fromManifests(List.of());
         index = index.withSubject(Subject.of(Const.DEFAULT_MANIFEST_MEDIA_TYPE, "sha256:123", 123));

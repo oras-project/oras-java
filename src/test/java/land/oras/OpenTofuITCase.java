@@ -49,13 +49,17 @@ class OpenTofuITCase {
         // The provider zip archive for linux/amd64
         Path providerZip = Paths.get("src/test/resources/archives")
                 .resolve("terraform-provider-aws_5.0.0_linux_amd64.zip");
-        String configMediaType = "application/vnd.opentofu.provider";
+        String artifactType = "application/vnd.opentofu.provider";
         String contentMediaType = "application/zip";
 
         // Create objects for the linux/amd64 platform manifest
-        Config config = Config.empty().withMediaType(configMediaType);
+        // The artifact type identifies the manifest as an OpenTofu provider; config is left empty
+        Config config = Config.empty();
         Layer layer = Layer.fromFile(providerZip).withMediaType(contentMediaType);
-        Manifest manifest = Manifest.empty().withConfig(config).withLayers(List.of(layer));
+        Manifest manifest = Manifest.empty()
+                .withArtifactType(ArtifactType.from(artifactType))
+                .withConfig(config)
+                .withLayers(List.of(layer));
 
         // Push config, layer and manifest to registry
         Registry registry = Registry.builder()
@@ -73,9 +77,10 @@ class OpenTofuITCase {
         assertNotNull(pushedManifest);
 
         // Build the index with the manifest descriptor, annotated with the linux/amd64 platform
+        // The index artifact type also identifies the whole provider release as an OpenTofu provider
         ManifestDescriptor manifestDescriptor =
                 pushedManifest.getDescriptor().withPlatform(Platform.linuxAmd64());
-        Index index = Index.fromManifests(List.of(manifestDescriptor));
+        Index index = Index.fromManifests(List.of(manifestDescriptor)).withArtifactType(artifactType);
 
         // Push the index with the provider version tag
         ContainerRef indexRef = ContainerRef.parse("terraform-provider-aws:5.0.0");
