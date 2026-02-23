@@ -209,6 +209,14 @@ public class AuthStore {
 
         /**
          * Retrieves the {@code Credential} associated with the specified containerRef.
+         * Implements hierarchical credential lookup from most-specific to least-specific.
+         * For example, "my-registry.local/namespace/user/image:latest" is looked up as:
+         * <ol>
+         *   <li>my-registry.local/namespace/user/image</li>
+         *   <li>my-registry.local/namespace/user</li>
+         *   <li>my-registry.local/namespace</li>
+         *   <li>my-registry.local</li>
+         * </ol>
          *
          * @param containerRef The containerRef whose credential is to be retrieved.
          * @return The {@code Credential} associated with the containerRef, or {@code null} if no credential is found.
@@ -216,15 +224,30 @@ public class AuthStore {
         public @Nullable Credential getCredential(ContainerRef containerRef) throws OrasException {
             String registry = containerRef.getRegistry();
 
-            LOG.debug("Looking for credentials for registry '{}'", registry);
+            // Start at the most specific key: registry/namespace/repository (or registry/repository)
+            String key = registry + "/" + containerRef.getFullRepository();
 
-            // Check direct credential first
-            Credential cred = credentialStore.get(registry);
-            if (cred != null) {
-                return cred;
+            LOG.debug("Looking for credentials for containerRef starting at key '{}'", key);
+
+            // Iterate from most-specific to least-specific, stopping when only the registry remains
+            while (!key.equals(registry)) {
+                Credential cred = credentialStore.get(key);
+                if (cred != null) {
+                    LOG.debug("Found credential for key '{}'", key);
+                    return cred;
+                }
+                // Remove the last path segment and continue with the less specific key
+                key = key.substring(0, key.lastIndexOf('/'));
             }
 
-            // Then, try credential helper
+            // Check the registry-only key
+            Credential registryCred = credentialStore.get(key);
+            if (registryCred != null) {
+                LOG.debug("Found credential for registry '{}'", key);
+                return registryCred;
+            }
+
+            // Try credential helper scoped to the registry
             String helperSuffix = credentialHelperStore.get(registry);
             if (helperSuffix != null) {
                 try {
@@ -234,6 +257,7 @@ public class AuthStore {
                     LOG.warn("Failed to get credential from helper for registry {}: {}", registry, e.getMessage());
                 }
             }
+
             // Finally, try all-registries helper
             helperSuffix = credentialHelperStore.get(ALL_REGISTRIES_HELPER);
             if (helperSuffix != null) {
