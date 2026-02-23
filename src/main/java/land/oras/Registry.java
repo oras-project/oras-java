@@ -348,21 +348,27 @@ public final class Registry extends OCI<ContainerRef> {
                 if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
                     LOG.debug("Extracting blob to: {}", path);
 
-                    // Uncompress the tar.gz archive and verify digest if present
-                    LocalPath tempArchive = ArchiveUtils.uncompress(is, layer.getMediaType());
-                    String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
-                    if (expectedDigest != null) {
-                        LOG.trace("Expected digest: {}", expectedDigest);
-                        String actualDigest = ref.getAlgorithm().digest(tempArchive.getPath());
-                        LOG.trace("Actual digest: {}", actualDigest);
-                        if (!expectedDigest.equals(actualDigest)) {
-                            throw new OrasException(
-                                    "Digest mismatch: expected %s but got %s".formatted(expectedDigest, actualDigest));
+                    if (Const.BLOB_DIR_ZIP_MEDIA_TYPE.equals(layer.getMediaType())) {
+                        // Extract zip archive directly
+                        ArchiveUtils.unzip(is, path);
+                    } else {
+                        // Uncompress the tar.gz archive and verify digest if present
+                        LocalPath tempArchive = ArchiveUtils.uncompress(is, layer.getMediaType());
+                        String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
+                        if (expectedDigest != null) {
+                            LOG.trace("Expected digest: {}", expectedDigest);
+                            String actualDigest = ref.getAlgorithm().digest(tempArchive.getPath());
+                            LOG.trace("Actual digest: {}", actualDigest);
+                            if (!expectedDigest.equals(actualDigest)) {
+                                throw new OrasException(
+                                        "Digest mismatch: expected %s but got %s"
+                                                .formatted(expectedDigest, actualDigest));
+                            }
                         }
-                    }
 
-                    // Extract the tar
-                    ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
+                        // Extract the tar
+                        ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
+                    }
 
                 } else {
                     Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE));

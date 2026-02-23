@@ -163,8 +163,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
             try {
                 // Create tar.gz archive for directory
                 if (Files.isDirectory(path.getPath())) {
-                    LocalPath tempTar = ArchiveUtils.tar(path);
-                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
+                    LocalPath tempArchive;
+                    LocalPath tempTar = null;
+                    if (Const.BLOB_DIR_ZIP_MEDIA_TYPE.equals(path.getMediaType())) {
+                        tempArchive = ArchiveUtils.zip(path);
+                    } else {
+                        tempTar = ArchiveUtils.tar(path);
+                        tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
+                    }
                     if (withDigest) {
                         ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
                     }
@@ -179,9 +185,11 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                                 : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
 
                         // Add oras digest/unpack
-                        layerAnnotations.put(
-                                Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                ref.getAlgorithm().digest(tempTar.getPath()));
+                        if (tempTar != null) {
+                            layerAnnotations.put(
+                                    Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                    ref.getAlgorithm().digest(tempTar.getPath()));
+                        }
                         layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
 
                         Layer layer = pushBlob(ref, is)

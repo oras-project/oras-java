@@ -35,6 +35,7 @@ import java.util.Set;
 import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ class ArchiveUtilsTest {
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
     private static Path existingArchiveDir;
+
+    @TempDir(cleanup = CleanupMode.ON_SUCCESS)
+    private static Path targetZipDir;
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -259,5 +263,67 @@ class ArchiveUtilsTest {
         // To temporary
         Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
         assertTrue(Files.exists(temp), "Temp should exist");
+    }
+
+    @Test
+    void testEnsureSafeZipEntry() throws Exception {
+        ZipArchiveEntry entry = mock(ZipArchiveEntry.class);
+        doReturn("test").when(entry).getName();
+        ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+    }
+
+    @Test
+    void throwOnUnsafeZipEntries() throws Exception {
+        ZipArchiveEntry entry = mock(ZipArchiveEntry.class);
+
+        // Simulate a path traversal attack
+        assertThrows(IOException.class, () -> {
+            doReturn("/").when(entry).getName();
+            ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+        });
+        assertThrows(IOException.class, () -> {
+            doReturn("foo/bar/../../../test").when(entry).getName();
+            ArchiveUtils.ensureSafeEntry(entry, archiveDir);
+        });
+    }
+
+    @Test
+    void shouldCreateZipAndExtractIt() throws Exception {
+        LocalPath directory = LocalPath.of(archiveDir, Const.BLOB_DIR_ZIP_MEDIA_TYPE);
+        LocalPath zipArchive = ArchiveUtils.zip(directory);
+        LOG.info("Zip archive created: {}", zipArchive);
+
+        assertTrue(Files.exists(zipArchive.getPath()), "Zip archive should exist");
+
+        ArchiveUtils.unzip(zipArchive.getPath(), targetZipDir);
+
+        // Ensure all files are extracted
+        Path extractedDir = targetZipDir.resolve(directory.getPath().getFileName());
+        assertTrue(Files.exists(extractedDir.resolve("dir1")), "dir1 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2")), "dir2 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file1")), "file1 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("file2")), "file2 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
+        assertTrue(
+                Files.exists(extractedDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
+
+        // Empty directory
+        assertTrue(Files.exists(extractedDir.resolve("empty")), "empty should exist");
+
+        // Assert file content
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir1").resolve("file1")).equals("file1"),
+                "file1 content should match");
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir2").resolve("file2")).equals("file2"),
+                "file2 content should match");
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir2").resolve("dir3").resolve("file4"))
+                        .equals("file4"),
+                "file4 content should match");
+
+        // Ensure symlink is extracted
+        assertTrue(
+                Files.isSymbolicLink(extractedDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
     }
 }

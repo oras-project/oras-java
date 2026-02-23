@@ -25,6 +25,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -38,6 +39,10 @@ import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.AsiExtraField;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;
@@ -366,6 +371,147 @@ public final class ArchiveUtils {
             throw new OrasException("Failed to uncompress tar.zstd file", e);
         }
         return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
+    }
+
+    /**
+     * Ensure that the zip entry is safe to extract
+     * @param entry The zip entry
+     * @param target The target directory
+     * @throws IOException
+     */
+    static void ensureSafeEntry(ZipArchiveEntry entry, Path target) throws IOException {
+        Path outputPath = target.resolve(entry.getName()).normalize();
+        Path normalizedTarget = target.toAbsolutePath().normalize();
+        if (!outputPath.startsWith(normalizedTarget)) {
+            throw new IOException("Entry is outside of the target dir: " + target);
+        }
+    }
+
+    /**
+     * Create a zip file from a directory
+     * @param sourceDir The source directory
+     * @return The path to the zip file
+     */
+    public static LocalPath zip(LocalPath sourceDir) {
+        Path zipFile;
+        try {
+            zipFile = Files.createTempFile("oras", ".zip");
+        } catch (IOException e) {
+            throw new OrasException("Failed to create temporary zip file", e);
+        }
+        boolean isAbsolute = sourceDir.getPath().isAbsolute();
+        try (OutputStream fos = Files.newOutputStream(zipFile);
+                BufferedOutputStream bos = new BufferedOutputStream(fos);
+                ZipArchiveOutputStream zaos = new ZipArchiveOutputStream(bos)) {
+
+            try (Stream<Path> paths = Files.walk(sourceDir.getPath())) {
+                paths.forEach(path -> {
+                    LOG.trace("Visiting path: {}", path);
+                    try {
+                        Path baseName = isAbsolute ? sourceDir.getPath().getFileName() : sourceDir.getPath();
+                        Path relativePath = baseName.resolve(sourceDir.getPath().relativize(path));
+                        if (relativePath.toString().isEmpty()) {
+                            LOG.trace("Skipping root directory: {}", path);
+                            return;
+                        }
+                        String entryName = relativePath.toString();
+
+                        if (Files.isSymbolicLink(path)) {
+                            LOG.trace("Adding symlink entry to zip: {}", entryName);
+                            Path linkTarget = Files.readSymbolicLink(path);
+                            ZipArchiveEntry entry = new ZipArchiveEntry(entryName);
+                            AsiExtraField asiField = new AsiExtraField();
+                            asiField.setLinkedFile(linkTarget.toString());
+                            // 0120000 = S_IFLNK (symlink file type), 0755 = permissions
+                            asiField.setMode(0120755);
+                            entry.addExtraField(asiField);
+                            entry.setSize(0);
+                            zaos.putArchiveEntry(entry);
+                        } else if (Files.isDirectory(path)) {
+                            LOG.trace("Adding directory entry to zip: {}", entryName + "/");
+                            ZipArchiveEntry entry = new ZipArchiveEntry(entryName + "/");
+                            zaos.putArchiveEntry(entry);
+                        } else {
+                            LOG.trace("Adding file entry to zip: {}", entryName);
+                            ZipArchiveEntry entry = new ZipArchiveEntry(entryName);
+                            entry.setSize(Files.size(path));
+                            zaos.putArchiveEntry(entry);
+                            try (InputStream fis = Files.newInputStream(path)) {
+                                fis.transferTo(zaos);
+                            }
+                        }
+                        zaos.closeArchiveEntry();
+                    } catch (IOException e) {
+                        throw new OrasException("Failed to create zip file", e);
+                    }
+                });
+            } catch (IOException e) {
+                throw new OrasException("Failed to create zip file", e);
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to create zip file", e);
+        }
+        return LocalPath.of(zipFile, Const.BLOB_DIR_ZIP_MEDIA_TYPE);
+    }
+
+    /**
+     * Extract a zip file to a target directory
+     * @param path The zip file
+     * @param target The target directory
+     */
+    public static void unzip(Path path, Path target) {
+        try {
+            unzip(Files.newInputStream(path), target);
+        } catch (IOException e) {
+            throw new OrasException("Failed to extract zip file", e);
+        }
+    }
+
+    /**
+     * Extract a zip stream to a target directory
+     * @param is The zip input stream
+     * @param target The target directory
+     */
+    public static void unzip(InputStream is, Path target) {
+        try {
+            try (BufferedInputStream bis = new BufferedInputStream(is);
+                    ZipArchiveInputStream zais = new ZipArchiveInputStream(bis)) {
+
+                ZipArchiveEntry entry;
+                while ((entry = zais.getNextEntry()) != null) {
+
+                    // Prevent path traversal attacks
+                    ensureSafeEntry(entry, target);
+
+                    Path outputPath = target.resolve(entry.getName()).normalize();
+                    LOG.trace("Extracting zip entry: {}", entry.getName());
+
+                    if (entry.isDirectory()) {
+                        LOG.debug("Extracting directory: {}", entry.getName());
+                        Files.createDirectories(outputPath);
+                    } else {
+                        AsiExtraField asiField =
+                                (AsiExtraField) entry.getExtraField(new AsiExtraField().getHeaderId());
+                        if (entry.isUnixSymlink() || (asiField != null && asiField.isLink())) {
+                            LOG.trace("Extracting symlink: {}", entry.getName());
+                            Files.createDirectories(outputPath.getParent());
+                            String linkStr = asiField != null
+                                    ? asiField.getLinkedFile()
+                                    : new String(zais.readAllBytes(), StandardCharsets.UTF_8);
+                            Files.createSymbolicLink(outputPath, Paths.get(linkStr));
+                        } else {
+                            LOG.trace("Extracting file: {}", entry.getName());
+                            Files.createDirectories(outputPath.getParent());
+                            try (OutputStream out = Files.newOutputStream(outputPath)) {
+                                zais.transferTo(out);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to extract zip file", e);
+        }
     }
 
     /**
