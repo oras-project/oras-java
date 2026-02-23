@@ -56,6 +56,18 @@ class IndexTest {
     }
 
     @Test
+    void shouldAddArtifactType() {
+        Index index = Index.fromManifests(List.of());
+        index = index.withArtifactType("application/vnd.opentofu.provider");
+        assertNotNull(index.getArtifactType());
+        assertEquals(
+                "application/vnd.opentofu.provider", index.getArtifactType().getMediaType());
+        assertEquals(
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"artifactType\":\"application/vnd.opentofu.provider\",\"manifests\":[]}",
+                index.toJson());
+    }
+
+    @Test
     void shouldReadAndWriteIndexWithAnnotations() {
         String json =
                 "{\"schemaVersion\":2,\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:f381775b1f558b02165b5dfe1b2f973387d995e18302c4039daabd32f938cb27\",\"size\":559,\"annotations\":{\"foo\":\"bar\"}}]}";

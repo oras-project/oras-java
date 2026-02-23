@@ -206,6 +206,16 @@ public final class Index extends Descriptor implements Describable {
     }
 
     /**
+     * Return a new index with the given artifact type
+     * @param artifactType The artifact type
+     * @return The index
+     */
+    public Index withArtifactType(String artifactType) {
+        return new Index(
+                schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);
+    }
+
+    /**
      * Return a new index with the given descriptor
      * @param descriptor The descriptor
      * @return The manifest
