@@ -272,6 +272,71 @@ class AuthStoreTest {
                 });
     }
 
+    // language=json
+    public static final String SAMPLE_HIERARCHICAL_CONFIG =
+            """
+    {
+        "auths": {
+            "my-registry.local/namespace/user/image": {
+                "auth": "dXNlcjE6cGFzczE="
+            },
+            "my-registry.local": {
+                "auth": "dXNlcjI6cGFzczI="
+            }
+        }
+    }
+    """;
+
+    @Test
+    void testHierarchicalCredentialLookupMostSpecific() throws Exception {
+        Path configFile = tempDir.resolve("hierarchical-config.json");
+        Files.writeString(configFile, SAMPLE_HIERARCHICAL_CONFIG);
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+
+        // Most specific key: my-registry.local/namespace/user/image
+        AuthStore.Credential credential = store.get(ContainerRef.parse("my-registry.local/namespace/user/image:latest"));
+        assertNotNull(credential);
+        assertEquals("user1", credential.username());
+        assertEquals("pass1", credential.password());
+    }
+
+    @Test
+    void testHierarchicalCredentialLookupFallsBackToRegistry() throws Exception {
+        Path configFile = tempDir.resolve("hierarchical-config.json");
+        Files.writeString(configFile, SAMPLE_HIERARCHICAL_CONFIG);
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+
+        // Different image under the same registry falls back to registry-level credential
+        AuthStore.Credential credential = store.get(ContainerRef.parse("my-registry.local/other/repo:latest"));
+        assertNotNull(credential);
+        assertEquals("user2", credential.username());
+        assertEquals("pass2", credential.password());
+    }
+
+    @Test
+    void testHierarchicalCredentialLookupRegistryOnly() throws Exception {
+        Path configFile = tempDir.resolve("hierarchical-config.json");
+        Files.writeString(configFile, SAMPLE_HIERARCHICAL_CONFIG);
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+
+        // Image without namespace falls back to registry-level credential
+        AuthStore.Credential credential = store.get(ContainerRef.parse("my-registry.local/image:latest"));
+        assertNotNull(credential);
+        assertEquals("user2", credential.username());
+        assertEquals("pass2", credential.password());
+    }
+
+    @Test
+    void testHierarchicalCredentialLookupNoMatch() throws Exception {
+        Path configFile = tempDir.resolve("hierarchical-config.json");
+        Files.writeString(configFile, SAMPLE_HIERARCHICAL_CONFIG);
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+
+        // Unknown registry returns null
+        AuthStore.Credential credential = store.get(ContainerRef.parse("unknown-registry.local/foo/bar:latest"));
+        assertNull(credential);
+    }
+
     @Test
     void testWithoutXdgRuntimeDir() throws Exception {
         new EnvironmentVariables().remove("XDG_RUNTIME_DIR").execute(() -> {
