@@ -280,6 +280,9 @@ class AuthStoreTest {
             "my-registry.local/namespace/user/image": {
                 "auth": "dXNlcjE6cGFzczE="
             },
+            "my-registry.local/namespace": {
+                "auth": "dXNlcjM6cGFzczM="
+            },
             "my-registry.local": {
                 "auth": "dXNlcjI6cGFzczI="
             }
@@ -294,10 +297,26 @@ class AuthStoreTest {
         AuthStore store = AuthStore.newStore(List.of(configFile));
 
         // Most specific key: my-registry.local/namespace/user/image
-        AuthStore.Credential credential = store.get(ContainerRef.parse("my-registry.local/namespace/user/image:latest"));
+        AuthStore.Credential credential =
+                store.get(ContainerRef.parse("my-registry.local/namespace/user/image:latest"));
         assertNotNull(credential);
         assertEquals("user1", credential.username());
         assertEquals("pass1", credential.password());
+    }
+
+    @Test
+    void testHierarchicalCredentialLookupNamespaceOnly() throws Exception {
+        Path configFile = tempDir.resolve("hierarchical-config.json");
+        Files.writeString(configFile, SAMPLE_HIERARCHICAL_CONFIG);
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+
+        // Credential stored at namespace level: my-registry.local/namespace
+        // Image under that namespace but not exact-matched should fall back to namespace credential
+        AuthStore.Credential credential =
+                store.get(ContainerRef.parse("my-registry.local/namespace/other-image:latest"));
+        assertNotNull(credential);
+        assertEquals("user3", credential.username());
+        assertEquals("pass3", credential.password());
     }
 
     @Test

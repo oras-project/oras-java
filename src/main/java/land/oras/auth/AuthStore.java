@@ -223,19 +223,22 @@ public class AuthStore {
          */
         public @Nullable Credential getCredential(ContainerRef containerRef) throws OrasException {
             String registry = containerRef.getRegistry();
-            List<String> keys = getHierarchicalKeys(containerRef);
 
-            LOG.debug("Looking for credentials for containerRef with hierarchical keys: {}", keys);
+            // Start at the most specific key: registry/namespace/repository (or registry/repository)
+            String key = registry + "/" + containerRef.getFullRepository();
 
-            for (String key : keys) {
-                // Check direct credential first
+            LOG.debug("Looking for credentials for containerRef starting at key '{}'", key);
+
+            // Iterate from most-specific to least-specific, ending at the registry level
+            while (true) {
+                // Check direct credential
                 Credential cred = credentialStore.get(key);
                 if (cred != null) {
                     LOG.debug("Found credential for key '{}'", key);
                     return cred;
                 }
 
-                // Then, try credential helper for this key
+                // Check credential helper for this key
                 String helperSuffix = credentialHelperStore.get(key);
                 if (helperSuffix != null) {
                     try {
@@ -245,6 +248,14 @@ public class AuthStore {
                         LOG.warn("Failed to get credential from helper for key {}: {}", key, e.getMessage());
                     }
                 }
+
+                // Stop once the registry level has been checked
+                if (key.equals(registry)) {
+                    break;
+                }
+
+                // Remove the last path segment and continue with the less specific key
+                key = key.substring(0, key.lastIndexOf('/'));
             }
 
             // Finally, try all-registries helper
@@ -262,41 +273,6 @@ public class AuthStore {
             }
 
             return null;
-        }
-
-        /**
-         * Returns hierarchical lookup keys for the given containerRef, ordered from most-specific to least-specific.
-         * For example, "my-registry.local/namespace/user/image:latest" produces:
-         * ["my-registry.local/namespace/user/image", "my-registry.local/namespace/user",
-         *  "my-registry.local/namespace", "my-registry.local"]
-         *
-         * @param containerRef The containerRef to generate keys for.
-         * @return List of lookup keys ordered from most to least specific.
-         */
-        private static List<String> getHierarchicalKeys(ContainerRef containerRef) {
-            List<String> keys = new ArrayList<>();
-            String registry = containerRef.getRegistry();
-            String namespace = containerRef.getNamespace();
-            String repository = containerRef.getRepository();
-
-            // Build the full path: registry/namespace/repository or registry/repository
-            String path = namespace != null
-                    ? registry + "/" + namespace + "/" + repository
-                    : registry + "/" + repository;
-
-            // Add progressively less specific keys
-            keys.add(path);
-            int lastSlash = path.lastIndexOf('/');
-            while (lastSlash > registry.length()) {
-                path = path.substring(0, lastSlash);
-                keys.add(path);
-                lastSlash = path.lastIndexOf('/');
-            }
-
-            // Always include just the registry as the least specific key
-            keys.add(registry);
-
-            return keys;
         }
 
         private static Credential getFromCredentialHelper(String suffix, String hostname) throws OrasException {
