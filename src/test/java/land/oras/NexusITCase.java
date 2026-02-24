@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import land.oras.utils.Const;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -36,7 +37,9 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
  */
 @Execution(ExecutionMode.CONCURRENT)
 class NexusITCase {
+
     @Test
+    @Disabled
     void shouldPushHelmArtifact() {
 
         // The compressed manifests

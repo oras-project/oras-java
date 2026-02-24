@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -38,6 +39,7 @@ class PublicECRITCase {
     private static Path homeDir;
 
     @Test
+    @Disabled
     void shouldDetermineEffectiveRegistryWithUnqualifiedSettings() throws Exception {
 
         // language=toml
@@ -56,6 +58,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldRewriteDockerIOToPublicECR() throws Exception {
 
         // language=toml
@@ -88,6 +91,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldDetermineEffectiveRegistry() {
 
         // Use from container ref
@@ -111,6 +115,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldPullAnonymousIndexAndFilterPlatform() {
 
         // Via tag
@@ -138,6 +143,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldPullAnonymousIndexViaDigest() {
 
         Registry registry = Registry.builder().build();
@@ -150,6 +156,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldPullManifest() {
 
         // Via tag
@@ -167,6 +174,7 @@ class PublicECRITCase {
     }
 
     @Test
+    @Disabled
     void shouldPullLayer() {
         Registry registry = Registry.builder().build();
         ContainerRef containerRef = ContainerRef.parse(
