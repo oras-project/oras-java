@@ -36,3 +36,4 @@ target/
 oci/
 !src/test/resources/oci/
 !src/test/resources/oci/**/*.json
+!src/test/resources/archives/*.zip

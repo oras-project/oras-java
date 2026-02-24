@@ -56,7 +56,7 @@ class OpenTofuITCase {
         ArtifactType manifestArtifactType = ArtifactType.from("application/vnd.opentofu.provider-target");
         String contentMediaType = "archive/zip";
 
-        Path image = Paths.get("src/test/resources/img").resolve("flux-cd.png");
+        Path image = Paths.get("src/test/resources/img").resolve("opentofu.png");
 
         Platform linuxAmd64 = Platform.linuxAmd64();
 
