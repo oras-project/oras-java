@@ -151,27 +151,28 @@ class ContainerRefTest {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldDetermineEffectiveRegistry(@TempDir Path homeDir) throws Exception {
 
-        // Use from container ref
-        Registry registry = Registry.builder().defaults().build();
-        ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
-        assertEquals("docker.io", containerRef.getEffectiveRegistry(registry));
-
-        // Took from registry
-        assertEquals("foo.io", containerRef.forRegistry("foo.io").getEffectiveRegistry(registry));
-
-        // Unqualified with registry
-        Registry registryWithRegistry =
-                Registry.builder().defaults().withRegistry("foo.io").build();
-        ContainerRef unqualifiedWithRegistryRef = ContainerRef.parse("library/foo/alpine:latest");
-        assertEquals("foo.io", unqualifiedWithRegistryRef.getEffectiveRegistry(registryWithRegistry));
-
         // language=toml
         // Ensure empty config does not cause error with machine contains default registry
         String config = "";
-
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
+
+            // Use from container ref
+            Registry registry = Registry.builder().defaults().build();
+            ContainerRef containerRef =
+                    ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
+            assertEquals("docker.io", containerRef.getEffectiveRegistry(registry));
+
+            // Took from registry
+            assertEquals("foo.io", containerRef.forRegistry("foo.io").getEffectiveRegistry(registry));
+
+            // Unqualified with registry
+            Registry registryWithRegistry =
+                    Registry.builder().defaults().withRegistry("foo.io").build();
+            ContainerRef unqualifiedWithRegistryRef = ContainerRef.parse("library/foo/alpine:latest");
+            assertEquals("foo.io", unqualifiedWithRegistryRef.getEffectiveRegistry(registryWithRegistry));
+
             Registry r = Registry.builder().defaults().build();
 
             // Unqualified without config use docker.io
