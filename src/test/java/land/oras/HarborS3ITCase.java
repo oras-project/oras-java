@@ -91,7 +91,7 @@ class HarborS3ITCase {
 
         // The compressed manifests
         Path archive = Paths.get("src/test/resources/archives").resolve("flux-manifests.tgz");
-        Path image = Paths.get("src/test/resources/img").resolve("flux-cd.png");
+        Path image = Paths.get("src/test/resources/img").resolve("opentofu.png");
         String configMediaType = "application/vnd.cncf.flux.config.v1+json";
         String contentMediaType = "application/vnd.cncf.flux.content.v1.tar+gzip";
 

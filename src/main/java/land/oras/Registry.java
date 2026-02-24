@@ -262,7 +262,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushManifest(containerRef, manifest);
+            return asInsecure().pushManifest(ref, manifest);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] manifestData = manifest.getJson() != null
@@ -284,7 +284,7 @@ public final class Registry extends OCI<ContainerRef> {
                         "Subject was set on manifest but not OCI subject header was returned. Legacy flow not implemented");
             }
         }
-        return getManifest(containerRef);
+        return getManifest(ref);
     }
 
     @Override

@@ -28,8 +28,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+/**
+ * Test for {@link ManifestDescriptor}
+ */
 @Execution(ExecutionMode.CONCURRENT)
 class ManifestDescriptorTest {
+
+    @Test
+    void shouldBuildDescriptorFromManifest() {
+        Manifest manifest = Manifest.empty();
+        ManifestDescriptor descriptor = ManifestDescriptor.of(manifest);
+        assertEquals("sha256:961dcd96e41989cc3cbf17141e0a9b3d39447cdcf2540b844e22b4f207a2e1f1", descriptor.getDigest());
+        assertEquals(253, descriptor.getSize());
+        assertEquals(Platform.empty(), descriptor.getPlatform());
+        assertEquals(Map.of(), descriptor.getAnnotations());
+    }
 
     @Test
     void shouldSetAnnotations() {

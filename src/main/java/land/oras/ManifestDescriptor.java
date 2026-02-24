@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -208,6 +209,34 @@ public final class ManifestDescriptor {
      */
     public static ManifestDescriptor of(Descriptor descriptor) {
         return of(descriptor, descriptor.getDigest());
+    }
+
+    /**
+     * Utility method. Useful when assembly manifest to be added to an Index using no platform, empty annotations and default supported algorithm
+     * @param manifest The manifest
+     * @return The manifest descriptor
+     */
+    public static ManifestDescriptor of(Manifest manifest) {
+        return of(manifest, Platform.empty(), Annotations.empty(), SupportedAlgorithm.getDefault());
+    }
+
+    /**
+     * Utility method. Useful when assembly manifest to be added to an Index
+     * @param manifest The manifest
+     * @param platform The platform
+     * @param annotations The annotations
+     * @param supportedAlgorithm The supported algorithm to calculate the digest of the manifest
+     * @return The manifest descriptor
+     */
+    public static ManifestDescriptor of(
+            Manifest manifest, Platform platform, Annotations annotations, SupportedAlgorithm supportedAlgorithm) {
+        String json = manifest.toJson();
+        String digest = supportedAlgorithm.digest(json.getBytes());
+        long size = json.length();
+        return ManifestDescriptor.of(manifest.getMediaType(), digest, size)
+                .withAnnotations(annotations.manifestAnnotations())
+                .withPlatform(platform)
+                .withArtifactType(manifest.getArtifactTypeAsString());
     }
 
     /**
