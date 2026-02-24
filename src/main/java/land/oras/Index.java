@@ -21,6 +21,7 @@
 package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -70,7 +72,42 @@ public final class Index extends Descriptor implements Describable {
             @JsonProperty(Const.JSON_PROPERTY_MANIFESTS) List<ManifestDescriptor> manifests,
             @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) Map<String, String> annotations,
             @JsonProperty(Const.JSON_PROPERTY_SUBJECT) Subject subject) {
-        this(schemaVersion, mediaType, artifactType, manifests, annotations, subject, null, null, null);
+        super(
+                null,
+                null,
+                mediaType,
+                annotations != null && !annotations.isEmpty() ? Map.copyOf(annotations) : null,
+                artifactType,
+                null,
+                null);
+        this.schemaVersion = schemaVersion;
+        this.manifests = manifests;
+        this.descriptor = null;
+        this.subject = subject;
+    }
+
+    private Index(
+            int schemaVersion,
+            String mediaType,
+            ArtifactType artifactType,
+            List<ManifestDescriptor> manifests,
+            Map<String, String> annotations,
+            Subject subject,
+            ManifestDescriptor descriptor,
+            String registry,
+            String json) {
+        super(
+                null,
+                null,
+                mediaType,
+                annotations,
+                artifactType != null ? artifactType.getMediaType() : null,
+                registry,
+                json);
+        this.schemaVersion = schemaVersion;
+        this.descriptor = descriptor;
+        this.subject = subject;
+        this.manifests = manifests;
     }
 
     private Index(
@@ -139,6 +176,15 @@ public final class Index extends Descriptor implements Describable {
                 .orElse(null);
     }
 
+    @Override
+    @JsonIgnore
+    public @NonNull ArtifactType getArtifactType() {
+        if (artifactType != null) {
+            return ArtifactType.from(artifactType);
+        }
+        return ArtifactType.unknown();
+    }
+
     /**
      * Get the artifact type as string for JSON serialization
      * @return The artifact type as string
@@ -185,7 +231,15 @@ public final class Index extends Descriptor implements Describable {
         }
         newManifests.add(manifest);
         return new Index(
-                schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, registry, json);
+                schemaVersion,
+                mediaType,
+                ArtifactType.from(artifactType),
+                newManifests,
+                annotations,
+                subject,
+                descriptor,
+                registry,
+                json);
     }
 
     @Override
@@ -210,7 +264,7 @@ public final class Index extends Descriptor implements Describable {
      * @param artifactType The artifact type
      * @return The index
      */
-    public Index withArtifactType(String artifactType) {
+    public Index withArtifactType(ArtifactType artifactType) {
         return new Index(
                 schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);
     }
@@ -274,7 +328,8 @@ public final class Index extends Descriptor implements Describable {
      * @return The index
      */
     public static Index fromManifests(List<ManifestDescriptor> descriptors) {
-        return new Index(2, Const.DEFAULT_INDEX_MEDIA_TYPE, null, descriptors, null, null, null, null, null);
+        return new Index(
+                2, Const.DEFAULT_INDEX_MEDIA_TYPE, (ArtifactType) null, descriptors, null, null, null, null, null);
     }
 
     @Override

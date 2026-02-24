@@ -41,7 +41,8 @@ class IndexTest {
         assertNull(index.getMediaType());
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
-        assertNull(index.getArtifactType());
+        assertNull(index.getArtifactTypeAsString());
+        assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, index.getArtifactType().getMediaType());
         assertNull(index.getAnnotations());
         assertNull(index.getDescriptor());
         assertEquals(
@@ -58,7 +59,7 @@ class IndexTest {
     @Test
     void shouldAddArtifactType() {
         Index index = Index.fromManifests(List.of());
-        index = index.withArtifactType("application/vnd.opentofu.provider");
+        index = index.withArtifactType(ArtifactType.from("application/vnd.opentofu.provider"));
         assertNotNull(index.getArtifactType());
         assertEquals(
                 "application/vnd.opentofu.provider", index.getArtifactType().getMediaType());
@@ -75,7 +76,8 @@ class IndexTest {
         assertNull(index.getMediaType());
         assertEquals(2, index.getSchemaVersion());
         assertEquals(1, index.getManifests().size());
-        assertNull(index.getArtifactType());
+        assertNull(index.getArtifactTypeAsString());
+        assertEquals(Const.DEFAULT_ARTIFACT_MEDIA_TYPE, index.getArtifactType().getMediaType());
         assertNull(index.getAnnotations());
         assertNull(index.getDescriptor());
         assertEquals(
