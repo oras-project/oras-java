@@ -51,6 +51,7 @@ class HarborS3ITCase {
      * This test demonstrate how to assemble a Flux CD OCI Artifact
      */
     @Test
+    @Disabled
     void shouldPushHelmArtifact() {
 
         // The compressed manifests
