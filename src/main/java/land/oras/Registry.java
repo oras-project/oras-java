@@ -425,7 +425,7 @@ public final class Registry extends OCI<ContainerRef> {
         LOG.debug("Digest: {}", digest);
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlob(containerRef, blob, annotations);
+            return asInsecure().pushBlob(ref, blob, annotations);
         }
         // This might not works with registries performing HEAD request
         if (hasBlob(ref.withDigest(digest))) {
@@ -453,8 +453,8 @@ public final class Registry extends OCI<ContainerRef> {
             String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
-                location = "%s://%s/%s"
-                        .formatted(getScheme(), containerRef.getApiRegistry(this), location.replaceFirst("^/", ""));
+                location =
+                        "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
 
@@ -465,7 +465,7 @@ public final class Registry extends OCI<ContainerRef> {
                     uploadURI,
                     Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
                     blob,
-                    Scopes.of(this, containerRef),
+                    Scopes.of(this, ref),
                     authProvider);
             if (response.statusCode() == 201) {
                 LOG.debug("Successful push: {}", response.response());
