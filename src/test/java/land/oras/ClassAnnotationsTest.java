@@ -40,6 +40,7 @@ class ClassAnnotationsTest {
     void shouldHaveAnnotationOnModel() {
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
+                .enableAllInfo()
                 .enableAnnotationInfo()
                 .acceptPackages("land.oras")
                 .scan()) {
@@ -48,7 +49,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(20, modelClasses.size());
+            assertEquals(25, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
@@ -73,6 +74,7 @@ class ClassAnnotationsTest {
     void shouldHaveAnnotationOnAuthPackage() {
         try (ScanResult scanResult = new ClassGraph()
                 .enableClassInfo()
+                .enableAllInfo()
                 .enableAnnotationInfo()
                 .acceptPackages("land.oras.auth")
                 .scan()) {
@@ -81,7 +83,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(2, modelClasses.size());
+            assertEquals(7, modelClasses.size());
         }
     }
 }
