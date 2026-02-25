@@ -691,6 +691,11 @@ public final class Registry extends OCI<ContainerRef> {
             throw new OrasException(
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
+        if (contentType.equals(Const.LEGACY_MANIFEST_MEDIA_TYPE)) {
+            throw new OrasException(
+                    "Schema version 1 with manifest media type '%s' is not supported. Please use schema version 2 or higher"
+                            .formatted(contentType));
+        }
         String json = descriptor.getJson();
         String digest = descriptor.getDigest();
         if (digest == null) {
