@@ -132,6 +132,7 @@ public class AuthStore {
      * @param credHelpers The credential helpers map.
      * @param credsStore The credentials store.
      */
+    @OrasModel
     record ConfigFile(
             Map<String, Map<String, String>> auths,
             @Nullable Map<String, String> credHelpers,
