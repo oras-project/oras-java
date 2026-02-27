@@ -231,7 +231,8 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      */
     protected boolean isManifestMediaType(String mediaType) {
         return mediaType.equals(Const.DEFAULT_MANIFEST_MEDIA_TYPE)
-                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE);
+                || mediaType.equals(Const.DOCKER_MANIFEST_MEDIA_TYPE)
+                || mediaType.equals(Const.LEGACY_MANIFEST_MEDIA_TYPE);
     }
 
     /**

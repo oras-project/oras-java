@@ -164,6 +164,12 @@ public final class Const {
     public static final String DEFAULT_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json";
 
     /**
+     * Legacy manifest media type for Docker distribution manifest v1, which is a JWS (JSON Web Signature) format and is not widely used anymore, but some registries may still support it for backward compatibility
+     * Ensure to raise a proper error message when we encounter this media type, as it is not supported by the SDK
+     */
+    public static final String LEGACY_MANIFEST_MEDIA_TYPE = "application/vnd.docker.distribution.manifest.v1+prettyjws";
+
+    /**
      * The artifact manifest media type
      */
     public static final String ARTIFACT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.artifact.manifest.v1+json";
