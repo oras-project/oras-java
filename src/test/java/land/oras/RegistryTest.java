@@ -36,6 +36,7 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
+import land.oras.utils.SupportedCompression;
 import land.oras.utils.ZotContainer;
 import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Assertions;
@@ -65,6 +66,9 @@ class RegistryTest {
 
     @TempDir
     private Path extractDir;
+
+    @TempDir
+    private Path extractDirZip;
 
     @BeforeEach
     void before() {
@@ -1363,6 +1367,52 @@ class RegistryTest {
         assertEquals(1, layer2.getAnnotations().size());
         assertNull(layer2.getAnnotations().get(Const.ANNOTATION_TITLE), "Title should not be added");
         assertEquals("bar", layer2.getAnnotations().get("foo"), "Custom annotation should be preserved");
+    }
+
+    @Test
+    void testShouldPushAndPullCompressedZipDirectoryButNotUnpackIt() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-zip".formatted(this.registry.getRegistry()));
+
+        Path file1 = blobDir.resolve("file1.txt");
+        Path file2 = blobDir.resolve("file2.txt");
+        Path file3 = blobDir.resolve("file3.txt");
+        Files.writeString(file1, "foobar");
+        Files.writeString(file2, "test1234");
+        Files.writeString(file3, "barfoo");
+
+        // Upload blob dir
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(blobDir, Const.ZIP_MEDIA_TYPE));
+        assertEquals(1, manifest.getLayers().size());
+
+        Layer layer = manifest.getLayers().get(0);
+
+        // A compressed directory file as zip
+        assertEquals(Const.ZIP_MEDIA_TYPE, layer.getMediaType());
+        Map<String, String> annotations = layer.getAnnotations();
+
+        // Assert annotations of the layer (no unpack here)
+        assertEquals(2, annotations.size());
+        assertEquals("false", annotations.get(Const.ANNOTATION_ORAS_UNPACK));
+
+        // Title must container filename
+        assertEquals(
+                "%s.%s".formatted(blobDir.getFileName().toString(), SupportedCompression.ZIP.getFileExtension()),
+                annotations.get(Const.ANNOTATION_TITLE));
+
+        // Pull
+        registry.pullArtifact(containerRef, extractDirZip, true);
+
+        // Assert extracted files
+        Path zipFile = extractDirZip.resolve(annotations.get(Const.ANNOTATION_TITLE));
+        assertTrue(Files.exists(zipFile), "Extracted zip file should exist");
+        assertTrue(Files.isRegularFile(zipFile), "Extracted zip file should be a file");
+        assertFalse(Files.isRegularFile(extractDirZip.resolve("file1.txt")), "file1.txt should not be extracted");
     }
 
     @Test

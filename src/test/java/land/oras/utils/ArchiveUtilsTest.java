@@ -20,9 +20,7 @@
 
 package land.oras.utils;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -63,6 +61,9 @@ class ArchiveUtilsTest {
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
     private static Path targetGzDir;
+
+    @TempDir(cleanup = CleanupMode.ON_SUCCESS)
+    private static Path targetZipDir;
 
     @TempDir(cleanup = CleanupMode.ON_SUCCESS)
     private static Path targetZstdDir;
@@ -133,7 +134,7 @@ class ArchiveUtilsTest {
     }
 
     @Test
-    void shouldFailWithUnknownDirectories() {
+    void shouldFailWithUnknownDirectoriesForTar() {
         assertThrows(OrasException.class, () -> {
             ArchiveUtils.untar(Path.of("unknown"), Path.of("foo"));
         });
@@ -146,6 +147,52 @@ class ArchiveUtilsTest {
         assertThrows(OrasException.class, () -> {
             ArchiveUtils.tarcompress(LocalPath.of("foo"), SupportedCompression.ZSTD.getMediaType());
         });
+    }
+
+    @Test
+    void shouldFailWithUnknownDirectoriesForZip() {
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.unzip(Path.of("unknown"), Path.of("foo"));
+        });
+        assertThrows(OrasException.class, () -> {
+            ArchiveUtils.zip(LocalPath.of("foo"));
+        });
+    }
+
+    @Test
+    void shouldCreateZipAndExtractIt() throws Exception {
+        LocalPath directory = LocalPath.of(archiveDir);
+        LocalPath archive = ArchiveUtils.zip(directory);
+        LOG.info("Archive created: {}", archive);
+        assertEquals(Const.ZIP_MEDIA_TYPE, archive.getMediaType());
+        assertTrue(Files.exists(archive.getPath()), "Archive should exist");
+
+        ArchiveUtils.unzip(archive.getPath(), targetZipDir);
+
+        // Ensure all files are extracted
+        Path extractedDir = targetZipDir.resolve(directory.getPath().getFileName());
+        assertTrue(Files.exists(extractedDir.resolve("dir1")), "dir1 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2")), "dir2 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file1")), "file1 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("file2")), "file2 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
+        assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
+
+        // Empty directory
+        assertTrue(Files.exists(extractedDir.resolve("empty")), "empty should exist");
+
+        // Assert file content
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir1").resolve("file1")).equals("file1"),
+                "file1 content should match");
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir2").resolve("file2")).equals("file2"),
+                "file2 content should match");
+        assertTrue(
+                Files.readString(extractedDir.resolve("dir2").resolve("dir3").resolve("file4"))
+                        .equals("file4"),
+                "file4 content should match");
     }
 
     @Test
@@ -206,6 +253,15 @@ class ArchiveUtilsTest {
         assertNotNull(archive, "Archive should exist");
         assertTrue(Files.exists(archive), "Archive should exist");
         ArchiveUtils.uncompressuntar(archive, existingArchiveDir, SupportedCompression.GZIP.getMediaType());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"terraform-provider-random_3.8.1_linux_amd64.zip"})
+    void shouldExtractExistingZipArchive(String file) {
+        Path archive = Paths.get("src/test/resources/archives").resolve(file);
+        assertNotNull(archive, "Archive should exist");
+        assertTrue(Files.exists(archive), "Archive should exist");
+        ArchiveUtils.unzip(archive, existingArchiveDir);
     }
 
     @Test

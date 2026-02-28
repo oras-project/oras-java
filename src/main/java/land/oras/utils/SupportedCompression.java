@@ -40,7 +40,7 @@ public enum SupportedCompression {
     /**
      * No compression
      */
-    NO_COMPRESSION(Const.DEFAULT_BLOB_MEDIA_TYPE, (localPath -> localPath), (is -> {
+    NO_COMPRESSION(Const.DEFAULT_BLOB_MEDIA_TYPE, "tar", (localPath -> localPath), (is -> {
         // This is just a tar we need to copy the stream to a temporary file
         try {
             Path temp = ArchiveUtils.createTempTar();
@@ -52,19 +52,29 @@ public enum SupportedCompression {
     })),
 
     /**
+     * ZIP
+     */
+    ZIP(Const.ZIP_MEDIA_TYPE, "zip", ArchiveUtils::zip, ArchiveUtils::unzip),
+
+    /**
      * GZIP
      */
-    GZIP(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE, ArchiveUtils::compressGzip, ArchiveUtils::uncompressGzip),
+    GZIP(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE, "gz", ArchiveUtils::compressGzip, ArchiveUtils::uncompressGzip),
 
     /**
      * ZSTD
      */
-    ZSTD(Const.BLOB_DIR_ZSTD_MEDIA_TYPE, ArchiveUtils::compressZstd, ArchiveUtils::uncompressZstd);
+    ZSTD(Const.BLOB_DIR_ZSTD_MEDIA_TYPE, "zst", ArchiveUtils::compressZstd, ArchiveUtils::uncompressZstd);
 
     /**
      * The media type
      */
     private final String mediaType;
+
+    /**
+     * The file extension
+     */
+    private final String fileExtension;
 
     /**
      * The compress function
@@ -82,11 +92,29 @@ public enum SupportedCompression {
      */
     SupportedCompression(
             String mediaType,
+            String fileExtension,
             Function<LocalPath, LocalPath> compressFunction,
             Function<InputStream, LocalPath> uncompressFunction) {
         this.mediaType = mediaType;
+        this.fileExtension = fileExtension;
         this.compressFunction = compressFunction;
         this.uncompressFunction = uncompressFunction;
+    }
+
+    /**
+     * Get the file extension
+     * @return The file extension
+     */
+    public String getFileExtension() {
+        return fileExtension;
+    }
+
+    /**
+     * Whether the media type is auto unpacked (it's an image layer, not whatever media type the user specified)
+     * @return True if the media type is auto unpacked by OCI runtime, false otherwise
+     */
+    public boolean isAutoUnpack() {
+        return getMediaType().startsWith("application/vnd.oci.image.layer.v1.tar");
     }
 
     /**
@@ -103,9 +131,6 @@ public enum SupportedCompression {
      * @return The compressed path
      */
     LocalPath compress(LocalPath path) {
-        if (!path.getMediaType().equals(Const.DEFAULT_BLOB_MEDIA_TYPE)) {
-            throw new OrasException("Can only compress tar media type. Given " + path.getMediaType());
-        }
         return compressFunction.apply(path);
     }
 
@@ -123,7 +148,7 @@ public enum SupportedCompression {
      * @param mediaType The media type
      * @return The supported algorithm
      */
-    static SupportedCompression fromMediaType(String mediaType) {
+    public static SupportedCompression fromMediaType(String mediaType) {
         for (SupportedCompression compression : SupportedCompression.values()) {
             if (mediaType.equalsIgnoreCase(compression.getMediaType())) {
                 return compression;
