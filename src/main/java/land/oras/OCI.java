@@ -37,6 +37,7 @@ import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
+import land.oras.utils.SupportedCompression;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -163,8 +164,13 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
             try {
                 // Create tar.gz archive for directory
                 if (Files.isDirectory(path.getPath())) {
-                    LocalPath tempTar = ArchiveUtils.tar(path);
-                    LocalPath tempArchive = ArchiveUtils.compress(tempTar, path.getMediaType());
+                    SupportedCompression compression = SupportedCompression.fromMediaType(path.getMediaType());
+
+                    // If source need to be packed first
+                    boolean autoUnpack = compression.isAutoUnpack();
+                    LocalPath tempSource = autoUnpack ? ArchiveUtils.tar(path) : path;
+                    LocalPath tempArchive = ArchiveUtils.compress(tempSource, path.getMediaType());
+
                     if (withDigest) {
                         ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
                     }
@@ -172,6 +178,11 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                         String title = path.getPath().isAbsolute()
                                 ? path.getPath().getFileName().toString()
                                 : path.getPath().toString();
+
+                        // We store the filename, based on directory name if we don't auto unpack
+                        if (!autoUnpack) {
+                            title = "%s.%s".formatted(title, compression.getFileExtension());
+                        }
                         LOG.debug("Uploading directory as archive with title: {}", title);
 
                         Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
@@ -179,10 +190,16 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                                 : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
 
                         // Add oras digest/unpack
-                        layerAnnotations.put(
-                                Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                ref.getAlgorithm().digest(tempTar.getPath()));
-                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+                        // For example zip can be packed application/zip but never unpacked by the runtime
+                        // This is convenience method to pack zip layer as directories
+                        if (compression.isAutoUnpack()) {
+                            layerAnnotations.put(
+                                    Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                    ref.getAlgorithm().digest(tempSource.getPath()));
+                            layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+                        } else {
+                            layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "false");
+                        }
 
                         Layer layer = pushBlob(ref, is)
                                 .withMediaType(path.getMediaType())
