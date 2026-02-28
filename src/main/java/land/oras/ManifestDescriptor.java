@@ -53,7 +53,7 @@ public final class ManifestDescriptor {
     private final long size;
 
     @Nullable
-    private final Map<String, String> platform;
+    private final Platform platform;
 
     @Nullable
     private final Map<String, String> annotations;
@@ -64,7 +64,7 @@ public final class ManifestDescriptor {
             @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
             @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest,
             @JsonProperty(Const.JSON_PROPERTY_SIZE) long size,
-            @JsonProperty(Const.JSON_PROPERTY_PLATFORM) @Nullable Map<String, String> platform,
+            @JsonProperty(Const.JSON_PROPERTY_PLATFORM) @Nullable Platform platform,
             @JsonProperty(Const.JSON_PROPERTY_ANNOTATIONS) @Nullable Map<String, String> annotations) {
         this.artifactType = artifactType;
         this.mediaType = mediaType;
@@ -107,20 +107,22 @@ public final class ManifestDescriptor {
     }
 
     /**
-     * Get the platform as annotations
-     * @return The platform
-     */
-    public @Nullable @JsonProperty(Const.JSON_PROPERTY_PLATFORM) Map<String, String> getPlatformAnnotations() {
-        return platform;
-    }
-
-    /**
      * Return the platform as a Platform object
      * @return The platform
      */
     @JsonIgnore
     public Platform getPlatform() {
-        return Platform.of(platform);
+        return platform != null ? platform : Platform.empty();
+    }
+
+    /**
+     * Return the platform or null if the platform is not set
+     * Only use for serialization purposes, as the platform field is nullable in the JSON representation of the manifest descriptor
+     * @return The platform or null
+     */
+    @JsonProperty(Const.JSON_PROPERTY_PLATFORM)
+    public @Nullable Platform getPlatformOrNull() {
+        return platform;
     }
 
     /**
@@ -188,7 +190,7 @@ public final class ManifestDescriptor {
      * @return The subject
      */
     public ManifestDescriptor withPlatform(Platform platform) {
-        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform.annotations(), annotations);
+        return new ManifestDescriptor(artifactType, mediaType, digest, size, platform, annotations);
     }
 
     /**

@@ -63,8 +63,8 @@ class ManifestDescriptorTest {
                 "sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529",
                 descriptor.getAnnotations().get("vnd.docker.reference.digest"));
         assertEquals("attestation-manifest", descriptor.getAnnotations().get("vnd.docker.reference.type"));
-        assertEquals("unknown", descriptor.getPlatformAnnotations().get("architecture"));
-        assertEquals("unknown", descriptor.getPlatformAnnotations().get("os"));
+        assertEquals("unknown", descriptor.getPlatform().architecture());
+        assertEquals("unknown", descriptor.getPlatform().os());
         descriptor.toJson();
     }
 
@@ -80,7 +80,7 @@ class ManifestDescriptorTest {
     void testToString() {
         ManifestDescriptor descriptor = ManifestDescriptor.fromJson(descriptor());
         String expected =
-                "{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:09c8ec8bf0d43a250ba7fed2eb6f242935b2987be5ed921ee06c93008558f980\",\"size\":838,\"platform\":{\"architecture\":\"unknown\",\"os\":\"unknown\"},\"annotations\":{\"com.docker.official-images.bashbrew.arch\":\"riscv64\",\"vnd.docker.reference.digest\":\"sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529\",\"vnd.docker.reference.type\":\"attestation-manifest\"}}";
+                "{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:09c8ec8bf0d43a250ba7fed2eb6f242935b2987be5ed921ee06c93008558f980\",\"size\":838,\"platform\":{\"os\":\"unknown\",\"architecture\":\"unknown\"},\"annotations\":{\"com.docker.official-images.bashbrew.arch\":\"riscv64\",\"vnd.docker.reference.digest\":\"sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529\",\"vnd.docker.reference.type\":\"attestation-manifest\"}}";
         assertEquals(expected, descriptor.toString());
     }
 

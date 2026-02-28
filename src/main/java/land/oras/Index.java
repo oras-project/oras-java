@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiPredicate;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NonNull;
@@ -149,8 +150,18 @@ public final class Index extends Descriptor implements Describable {
      * @return The list of manifests that match the platform
      */
     public List<ManifestDescriptor> filter(Platform platform) {
+        return filter(platform, Platform::matches);
+    }
+
+    /**
+     * Filter the manifests by platform with a custom comparator
+     * @param platform The platform
+     * @param comparator The comparator to compare the platform of the manifest descriptor and the given platform. The first parameter is the platform of the manifest descriptor, and the second parameter is the given platform. The comparator should return true if the manifest descriptor matches the given platform, and false otherwise.
+     * @return The list of manifests that match the platform
+     */
+    public List<ManifestDescriptor> filter(Platform platform, BiPredicate<Platform, Platform> comparator) {
         return getManifests().stream()
-                .filter(descriptor -> descriptor.getPlatform().equals(platform))
+                .filter(descriptor -> comparator.test(descriptor.getPlatform(), platform))
                 .toList();
     }
 
@@ -170,10 +181,7 @@ public final class Index extends Descriptor implements Describable {
      * @return The manifest that matches the platform, or null if there are multiple matches or no matches
      */
     public @Nullable ManifestDescriptor findUnique(Platform platform) {
-        return getManifests().stream()
-                .filter(descriptor -> descriptor.getPlatform().equals(platform))
-                .findFirst()
-                .orElse(null);
+        return filter(platform).stream().findFirst().orElse(null);
     }
 
     @Override

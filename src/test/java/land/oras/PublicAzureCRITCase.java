@@ -21,9 +21,11 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -34,6 +36,29 @@ class PublicAzureCRITCase {
 
     @TempDir
     private Path tempDir;
+
+    @Test
+    void shouldContainsCommonWindowsPlatform() {
+
+        // Source registry
+        Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+
+        ContainerRef containerSource = ContainerRef.parse(
+                "mcr.microsoft.com/windows@sha256:755e998e6f63e40f709deb731eee9b1d219673bfb21149cccf29aba5dfd32e0f");
+
+        Index index = sourceRegistry.getIndex(containerSource);
+
+        assertTrue(index.getManifests().stream()
+                .anyMatch(m -> m.getPlatform().equals(Platform.windowsAmd64().withOsVersion("10.0.17763.8389"))));
+
+        containerSource = ContainerRef.parse(
+                "mcr.microsoft.com/windows/servercore@sha256:79aa6a176b2e4f1786eb29c4facd33077769eddde4c4a650aea552f6320893c7");
+        index = sourceRegistry.getIndex(containerSource);
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform()
+                .equals(Platform.windowsAmd64()
+                        .withOsVersion("10.0.26100.32370")
+                        .withOsFeatures(List.of("win32k")))));
+    }
 
     @Test
     void shouldPullAnonymousIndex() {
