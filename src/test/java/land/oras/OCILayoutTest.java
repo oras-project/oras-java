@@ -705,7 +705,7 @@ class OCILayoutTest {
         registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
 
         // Copy to oci layout
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, false);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.shallow());
 
         assertOciLayout(layoutPath);
 
@@ -736,7 +736,7 @@ class OCILayoutTest {
         OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
-        CopyUtils.copy(source, sourceRef, target, targetRef, true);
+        CopyUtils.copy(source, sourceRef, target, targetRef, CopyUtils.CopyOptions.deep());
 
         // Assertion
         assertOciLayout(ociLayoutPath);
@@ -766,7 +766,7 @@ class OCILayoutTest {
         OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
-        CopyUtils.copy(source, sourceRef, target, targetRef, false);
+        CopyUtils.copy(source, sourceRef, target, targetRef, CopyUtils.CopyOptions.shallow());
 
         // Assertion
         assertOciLayout(ociLayoutPath);
@@ -814,7 +814,7 @@ class OCILayoutTest {
                 LocalPath.of(file3));
 
         // Copy to oci layout
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         assertOciLayout(layoutPath);
 
@@ -865,7 +865,7 @@ class OCILayoutTest {
         Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
 
         // Copy to oci layout
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         assertOciLayout(layoutPath);
 
@@ -895,7 +895,7 @@ class OCILayoutTest {
         assertLayerExists(layoutPath, layer2);
 
         // Copy to oci layout again
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         // Check manifest exists
         assertBlobExists(layoutPath, pushedManifest.getDescriptor().getDigest());
@@ -941,7 +941,7 @@ class OCILayoutTest {
         Index index = registry.pushIndex(containerRef, Index.fromManifests(List.of(pushedManifest.getDescriptor())));
 
         // Copy to oci layout
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         assertOciLayout(layoutPathIndex);
 
@@ -971,7 +971,7 @@ class OCILayoutTest {
         assertBlobExists(layoutPathIndex, pushedManifest.getDescriptor().getDigest());
 
         // Copy to oci layout again
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         // Check manifest exists
         assertLayerExists(layoutPathIndex, layer1);
@@ -1007,7 +1007,7 @@ class OCILayoutTest {
                 containerRef, ArtifactType.from("my/artifact"), Annotations.empty(), config, LocalPath.of(file1));
 
         // Copy to oci layout
-        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, true);
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
 
         assertOciLayout(layoutPath);
 

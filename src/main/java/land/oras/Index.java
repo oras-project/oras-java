@@ -204,6 +204,30 @@ public final class Index extends Descriptor implements Describable {
     }
 
     /**
+     * Return a new index with the given manifest descriptor removed from the index
+     * @param descriptor The manifest descriptor to remove
+     * @return The index with the manifest descriptor removed
+     */
+    public Index removeDescriptor(ManifestDescriptor descriptor) {
+        List<ManifestDescriptor> newManifests = new LinkedList<>();
+        for (ManifestDescriptor d : manifests) {
+            if (!d.getDigest().equals(descriptor.getDigest())) {
+                newManifests.add(ManifestDescriptor.fromJson(d.toJson()));
+            }
+        }
+        return new Index(
+                schemaVersion,
+                mediaType,
+                ArtifactType.from(artifactType),
+                newManifests,
+                annotations,
+                subject,
+                this.descriptor,
+                registry,
+                json);
+    }
+
+    /**
      * Return a new index with new manifest added to index
      * @param manifest The manifest
      * @return The index

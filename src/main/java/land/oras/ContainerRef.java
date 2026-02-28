@@ -213,6 +213,15 @@ public final class ContainerRef extends Ref<ContainerRef> {
         return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
     }
 
+    /**
+     * Return a copy of reference with the given tag
+     * @param tag The tag
+     * @return The container reference with the given tag
+     */
+    public ContainerRef withTag(String tag) {
+        return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
+    }
+
     @Override
     public SupportedAlgorithm getAlgorithm() {
         // Default if not set

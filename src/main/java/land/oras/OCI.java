@@ -124,28 +124,54 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @param ref The ref
      * @param contentType The content type
      * @param includeAll Include all layers or only the ones with title annotation
+     * @param deep Whether to collect layers of index of index
      * @return The layers
      */
-    protected List<Layer> collectLayers(T ref, String contentType, boolean includeAll) {
+    protected List<Layer> collectLayers(T ref, String contentType, boolean includeAll, boolean deep) {
         List<Layer> layers = new LinkedList<>();
         if (isManifestMediaType(contentType)) {
             return getManifest(ref).getLayers();
         }
         Index index = getIndex(ref);
         for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
-            List<Layer> manifestLayers =
-                    getManifest(ref.withDigest(manifestDescriptor.getDigest())).getLayers();
-            for (Layer manifestLayer : manifestLayers) {
-                if (manifestLayer.getAnnotations().isEmpty()
-                        || !manifestLayer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
-                    if (includeAll) {
-                        LOG.debug("Including layer without title annotation: {}", manifestLayer.getDigest());
-                        layers.add(manifestLayer);
+            String manifestContentType = manifestDescriptor.getMediaType();
+            // We just skip unknown media type descriptor
+            if (!isManifestMediaType(manifestContentType) && !isIndexMediaType(manifestContentType)) {
+                LOG.info(
+                        "Unrecognized content type {}, skipping descriptor {}",
+                        manifestContentType,
+                        manifestDescriptor.getDigest());
+                continue;
+            }
+            // Shallow
+            if (!deep && isIndexMediaType(manifestContentType)) {
+                LOG.debug(
+                        "Skipping index of index due to shallow copy of manifest with digest {}",
+                        manifestDescriptor.getDigest());
+                continue;
+            }
+            // Deep copy
+            if (isIndexMediaType(manifestContentType)) {
+                LOG.debug("Collecting layers from index of index with digest {}", manifestDescriptor.getDigest());
+                layers.addAll(collectLayers(
+                        ref.withDigest(manifestDescriptor.getDigest()), manifestContentType, includeAll, deep));
+            }
+            // Collect layer for each manifest
+            else {
+                List<Layer> manifestLayers = getManifest(ref.withDigest(manifestDescriptor.getDigest()))
+                        .getLayers();
+                for (Layer manifestLayer : manifestLayers) {
+                    if (manifestLayer.getAnnotations().isEmpty()
+                            || !manifestLayer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
+                        if (includeAll) {
+                            LOG.debug("Including layer without title annotation: {}", manifestLayer.getDigest());
+                            layers.add(manifestLayer);
+                        }
+                        LOG.debug("Skipping layer without title annotation: {}", manifestLayer.getDigest());
+                        continue;
                     }
-                    LOG.debug("Skipping layer without title annotation: {}", manifestLayer.getDigest());
-                    continue;
+                    layers.add(manifestLayer);
                 }
-                layers.add(manifestLayer);
             }
         }
         return layers;

@@ -332,7 +332,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
         // Only collect layer that are files
         String contentType = getContentType(ref);
-        List<Layer> layers = collectLayers(ref, contentType, false);
+        List<Layer> layers = collectLayers(ref, contentType, false, false);
         if (layers.isEmpty()
                 || layers.stream().noneMatch(layer -> layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE))) {
             LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);

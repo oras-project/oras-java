@@ -937,6 +937,104 @@ class RegistryTest {
     }
 
     @Test
+    void testShouldCopyIndexOfIndexArtifactFromRegistryIntoRegistryWithShallowCopy() throws IOException {
+        // Copy to same registry
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/artifact-source".formatted(this.registry.getRegistry()));
+
+        // Create files
+        Path file1 = blobDir.resolve("source1.txt");
+        Files.writeString(file1, "foobar");
+        Path file2 = blobDir.resolve("source2.txt");
+        Files.writeString(file2, "barfoo");
+
+        // Push individual manifests
+        Manifest manifest1 = registry.pushArtifact(containerSource.withTag("manifest1"), LocalPath.of(file1));
+        Manifest manifest2 = registry.pushArtifact(containerSource.withTag("manifest2"), LocalPath.of(file2));
+
+        assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
+        assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
+
+        Index index1 = Index.fromManifests(List.of(manifest1.getDescriptor()));
+
+        // Push first index
+        index1 = registry.pushIndex(containerSource.withTag("index1"), index1);
+        assertNotNull(index1.getDescriptor(), "Index 1 descriptor should not be null");
+
+        Index index2 = Index.fromManifests(List.of(manifest2.getDescriptor(), index1.getDescriptor()));
+        registry.pushIndex(containerSource.withTag("index2"), index2);
+
+        // Copy to other registry
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+            otherRegistryContainer.start();
+            ContainerRef containerTarget =
+                    ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
+            CopyUtils.copy(
+                    registry,
+                    containerSource.withTag("index2"),
+                    registry,
+                    containerTarget.withTag("index2"),
+                    CopyUtils.CopyOptions.shallow());
+            Index index = registry.getIndex(containerTarget.withTag("index2"));
+            assertEquals(1, index.getManifests().size(), "Index should have 1 manifests due to shallow copy");
+        }
+    }
+
+    @Test
+    void testShouldCopyIndexOfIndexArtifactFromRegistryIntoRegistryWithDeepCopy() throws IOException {
+        // Copy to same registry
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/artifact-source".formatted(this.registry.getRegistry()));
+
+        // Create files
+        Path file1 = blobDir.resolve("source1.txt");
+        Files.writeString(file1, "foobar");
+        Path file2 = blobDir.resolve("source2.txt");
+        Files.writeString(file2, "barfoo");
+
+        // Push individual manifests
+        Manifest manifest1 = registry.pushArtifact(containerSource.withTag("manifest1"), LocalPath.of(file1));
+        Manifest manifest2 = registry.pushArtifact(containerSource.withTag("manifest2"), LocalPath.of(file2));
+
+        assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
+        assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
+
+        Index index1 = Index.fromManifests(List.of(manifest1.getDescriptor()));
+
+        // Push first index
+        index1 = registry.pushIndex(containerSource.withTag("index1"), index1);
+        assertNotNull(index1.getDescriptor(), "Index 1 descriptor should not be null");
+
+        Index index2 = Index.fromManifests(List.of(manifest2.getDescriptor(), index1.getDescriptor()));
+        index2 = registry.pushIndex(containerSource.withTag("index2"), index2);
+
+        // Copy to other registry
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+            otherRegistryContainer.start();
+            ContainerRef containerTarget =
+                    ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
+            CopyUtils.copy(
+                    registry,
+                    containerSource.withTag("index2"),
+                    registry,
+                    containerTarget.withTag("index2"),
+                    CopyUtils.CopyOptions.deep());
+            Index index = registry.getIndex(containerTarget.withTag("index2"));
+            assertEquals(2, index.getManifests().size(), "Index should have 1 manifests due to shallow copy");
+        }
+    }
+
+    @Test
     void testShouldCopySingleArtifactFromRegistryIntoRegistry() throws IOException {
         // Copy to same registry
         Registry registry = Registry.Builder.builder()
@@ -958,7 +1056,7 @@ class RegistryTest {
             otherRegistryContainer.start();
             ContainerRef containerTarget =
                     ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
-            CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
+            CopyUtils.copy(registry, containerSource, registry, containerTarget, CopyUtils.CopyOptions.shallow());
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
         }
@@ -1051,7 +1149,8 @@ class RegistryTest {
 
                     // Copy to other registry
                     ContainerRef containerTarget = ContainerRef.parse("the-target");
-                    CopyUtils.copy(registry, containerSource, registry, containerTarget, false);
+                    CopyUtils.copy(
+                            registry, containerSource, registry, containerTarget, CopyUtils.CopyOptions.shallow());
                     registry.pullArtifact(containerTarget, artifactDir, true);
                     assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
                 } catch (Exception e) {
@@ -1076,7 +1175,7 @@ class RegistryTest {
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
 
-        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, false);
+        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, CopyUtils.CopyOptions.shallow());
 
         // Pull
         Path extractPath = artifactDir.resolve("testShouldCopyFromOciLayoutToRegistryNonRecursive");
@@ -1113,7 +1212,7 @@ class RegistryTest {
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
 
-        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, true);
+        CopyUtils.copy(ociLayout, layoutRef, registry, targetRef, CopyUtils.CopyOptions.deep());
 
         // Pull
         Path extractPath = artifactDir.resolve("testShouldCopyFromOciLayoutToRegistryRecursive");
