@@ -68,7 +68,7 @@ class ReferrersTest {
     void testToString() {
         Referrers referrers = Referrers.from(List.of(ManifestDescriptor.fromJson(descriptor())));
         assertEquals(
-                "{\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:09c8ec8bf0d43a250ba7fed2eb6f242935b2987be5ed921ee06c93008558f980\",\"size\":838,\"platform\":{\"architecture\":\"unknown\",\"os\":\"unknown\"},\"annotations\":{\"com.docker.official-images.bashbrew.arch\":\"riscv64\",\"vnd.docker.reference.digest\":\"sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529\",\"vnd.docker.reference.type\":\"attestation-manifest\"}}]}",
+                "{\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:09c8ec8bf0d43a250ba7fed2eb6f242935b2987be5ed921ee06c93008558f980\",\"size\":838,\"platform\":{\"os\":\"unknown\",\"architecture\":\"unknown\"},\"annotations\":{\"com.docker.official-images.bashbrew.arch\":\"riscv64\",\"vnd.docker.reference.digest\":\"sha256:1de5eb4a9a6735adb46b2c9c88674c0cfba3444dd4ac2341b3babf1261700529\",\"vnd.docker.reference.type\":\"attestation-manifest\"}}]}",
                 referrers.toString());
     }
 }

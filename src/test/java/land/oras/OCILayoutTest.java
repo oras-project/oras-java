@@ -564,7 +564,6 @@ class OCILayoutTest {
         assertNotNull(manifestDescriptor.getAnnotations());
         assertNotNull(manifestDescriptor.getAnnotations().get(Const.ANNOTATION_CREATED));
         assertEquals("latest", manifestDescriptor.getAnnotations().get(Const.ANNOTATION_REF));
-        assertNull(manifestDescriptor.getPlatformAnnotations());
         assertNotNull(manifestDescriptor.getPlatform());
         assertEquals(Platform.empty(), manifestDescriptor.getPlatform());
     }

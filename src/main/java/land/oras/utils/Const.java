@@ -266,6 +266,21 @@ public final class Const {
     public static final String PLATFORM_VARIANT = "variant";
 
     /**
+     * The platform OS version key, which can be used in the annotation "os.version" to specify the version of the OS, such as ubuntu 20.04 or alpine 3.14
+     */
+    public static final String PLATFORM_OS_VERSION = "os.version";
+
+    /**
+     * The platform OS features key, which can be used in the annotation "os.features" to specify the features of the OS, such as sse4 or aes
+     */
+    public static final String PLATFORM_OS_FEATURES = "os.features";
+
+    /**
+     * The platform features key, which can be used in the annotation "features" to specify the features of the platform, such as gpu or fpga
+     */
+    public static final String PLATFORM_FEATURES = "features";
+
+    /**
      * The default value for unknown platform information
      */
     public static final String PLATFORM_UNKNOWN = "unknown";
@@ -299,6 +314,21 @@ public final class Const {
      * The platform value for arm64 architecture
      */
     public static final String PLATFORM_ARCHITECTURE_ARM64 = "arm64";
+
+    /**
+     * The platform value for ppc64le architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_PPC64LE = "ppc64le";
+
+    /**
+     * The platform value for riscv64 architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_RISCV64 = "riscv64";
+
+    /**
+     * The platform value for s390x architecture
+     */
+    public static final String PLATFORM_ARCHITECTURE_S390X = "s390x";
 
     /**
      * The v5 variant for arm architecture, which can be used in the annotation "variant" to specify the variant of the arm architecture

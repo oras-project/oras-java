@@ -130,6 +130,8 @@ class PublicECRITCase {
         assertEquals(1, manifests.size());
         assertNotNull(manifests.get(0));
 
+        manifests = index.filter(Platform.linuxAmd64(), Platform::matches);
+
         // Find unique
         ManifestDescriptor manifest = index.findUnique(Platform.linuxAmd64());
         assertNotNull(manifest);

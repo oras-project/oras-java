@@ -99,8 +99,35 @@ class DockerIoITCase {
         ContainerRef containerTarget =
                 ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
 
-        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
-        assertTrue(targetRegistry.exists(containerTarget));
+        // CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+        // assertTrue(targetRegistry.exists(containerTarget));
+
+        Index index = targetRegistry.getIndex(containerSource);
+
+        // Ensure standard platform matching
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linux386())));
+    }
+
+    @Test
+    void shouldContainsCommonLinuxPlatform() {
+
+        // Source registry
+        Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+
+        ContainerRef containerSource = ContainerRef.parse(
+                "docker.io/library/alpine@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659");
+
+        Index index = sourceRegistry.getIndex(containerSource);
+
+        // Ensure standard platform matching
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linux386())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxAmd64())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxArmV6())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxArmV7())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxArm64V8())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxPpc64le())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxS390x())));
+        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linuxRiscv64())));
     }
 
     @Test

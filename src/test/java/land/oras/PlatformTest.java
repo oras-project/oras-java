@@ -22,6 +22,7 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
@@ -80,12 +81,22 @@ class PlatformTest {
     }
 
     @Test
+    void shouldSerializeToJsonWithOptionalValues() {
+        Platform platform =
+                Platform.linuxAmd64().withFeatures(List.of("sse4", "avx2")).withOsFeatures(List.of("linux-gnu"));
+        String json = JsonUtils.toJson(platform);
+        // language=json
+        String expected =
+                "{\"os\":\"linux\",\"architecture\":\"amd64\",\"os.features\":[\"linux-gnu\"],\"features\":[\"sse4\",\"avx2\"]}";
+        assertEquals(expected, json);
+    }
+
+    @Test
     void shouldTestEmptyPlatform() {
         Platform platform = Platform.empty();
         assertNotEquals(Platform.unknown(), platform);
         assertEquals(Const.PLATFORM_UNKNOWN, platform.os());
         assertEquals(Const.PLATFORM_UNKNOWN, platform.architecture());
-        assertNull(platform.annotations());
         assertNull(platform.variant());
     }
 
@@ -95,7 +106,6 @@ class PlatformTest {
         assertNotEquals(Platform.empty(), platform);
         assertEquals(Const.PLATFORM_UNKNOWN, platform.os());
         assertEquals(Const.PLATFORM_UNKNOWN, platform.architecture());
-        assertNotNull(platform.annotations());
         assertNull(platform.variant());
     }
 
@@ -124,5 +134,58 @@ class PlatformTest {
             """;
         platform = JsonUtils.fromJson(json, Platform.class);
         assertEquals(Platform.unknown(), platform);
+    }
+
+    @Test
+    void shouldReadFromJsonWithOptionalValues() {
+        // language=json
+        String json =
+                """
+            {
+              "architecture": "amd64",
+              "variant": "v8",
+              "os.features": ["linux-gnu"],
+              "os.version": "1.0",
+              "features": ["sse4", "avx2"],
+              "os": "linux"
+            }
+            """;
+        Platform platform = JsonUtils.fromJson(json, Platform.class);
+        assertEquals("amd64", platform.architecture());
+        assertEquals("linux", platform.os());
+        assertEquals("v8", platform.variant());
+        assertEquals(List.of("linux-gnu"), platform.osFeatures());
+        assertEquals(List.of("sse4", "avx2"), platform.features());
+        assertEquals(
+                Platform.linuxAmd64()
+                        .withOsVersion("1.0")
+                        .withFeatures(List.of("sse4", "avx2"))
+                        .withOsFeatures(List.of("linux-gnu"))
+                        .withVariant("v8"),
+                platform);
+
+        json =
+                """
+            {
+              "architecture": "unknown",
+              "os": "unknown"
+            }
+            """;
+        platform = JsonUtils.fromJson(json, Platform.class);
+        assertEquals(Platform.unknown(), platform);
+    }
+
+    @Test
+    void shouldCompareTwoPlatformWithoutVersion() {
+        assertTrue(Platform.matches(Platform.linuxAmd64(), Platform.linuxAmd64().withOsVersion("1.0")));
+        assertFalse(Platform.matches(Platform.windowsAmd64(), Platform.linuxAmd64()));
+        assertFalse(
+                Platform.matches(Platform.linuxAmd64(), Platform.linuxAmd64().withOsVersion("1.0"), true));
+        assertTrue(Platform.matches(
+                Platform.linuxAmd64().withOsVersion("1.0"),
+                Platform.linuxAmd64().withOsVersion("1.0"),
+                true));
+        assertTrue(Platform.matches(Platform.linuxArmV6(), Platform.linuxArmV6()));
+        assertFalse(Platform.matches(Platform.linuxArmV6(), Platform.linuxArmV7()));
     }
 }
