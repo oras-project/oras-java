@@ -120,7 +120,7 @@ class GitHubContainerRegistryITCase {
         ContainerRef containerTarget =
                 ContainerRef.parse("%s/docker/library/oras:main".formatted(unsecureRegistry.getRegistry()));
 
-        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());
         assertTrue(targetRegistry.exists(containerTarget));
     }
 }
