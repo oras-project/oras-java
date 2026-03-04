@@ -99,13 +99,8 @@ class DockerIoITCase {
         ContainerRef containerTarget =
                 ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
 
-        // CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
-        // assertTrue(targetRegistry.exists(containerTarget));
-
-        Index index = targetRegistry.getIndex(containerSource);
-
-        // Ensure standard platform matching
-        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform().equals(Platform.linux386())));
+        CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());
+        assertTrue(targetRegistry.exists(containerTarget));
     }
 
     @Test
@@ -156,7 +151,8 @@ class DockerIoITCase {
             ContainerRef containerTarget =
                     ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
 
-            CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
+            CopyUtils.copy(
+                    sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());
             assertTrue(targetRegistry.exists(containerTarget));
         });
     }

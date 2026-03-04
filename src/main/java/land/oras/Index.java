@@ -292,6 +292,16 @@ public final class Index extends Descriptor implements Describable {
     }
 
     /**
+     * Return a new index with the given annotations
+     * @param annotations The annotations
+     * @return The index
+     */
+    public Index withAnnotations(Map<String, String> annotations) {
+        return new Index(
+                schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);
+    }
+
+    /**
      * Return a new index with the given artifact type
      * @param artifactType The artifact type
      * @return The index
