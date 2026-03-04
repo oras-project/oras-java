@@ -146,8 +146,8 @@ public final class CopyUtils {
             }
 
             LOG.debug("Copying index {}", manifestDigest);
-            target.pushIndex(effectiveTargetRef.withDigest(tag), index);
-            LOG.debug("Copied index {}", manifestDigest);
+            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(tag), index);
+            LOG.debug("Copied index {} with tag {}", pushedIndex, tag);
 
         } else {
             throw new OrasException("Unsupported content type: %s".formatted(contentType));

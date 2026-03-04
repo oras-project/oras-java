@@ -225,7 +225,7 @@ public final class Index extends Descriptor implements Describable {
         return new Index(
                 schemaVersion,
                 mediaType,
-                ArtifactType.from(artifactType),
+                artifactType,
                 newManifests,
                 annotations,
                 subject,
@@ -270,18 +270,11 @@ public final class Index extends Descriptor implements Describable {
         }
         newManifests.add(manifest);
         return new Index(
-                schemaVersion,
-                mediaType,
-                ArtifactType.from(artifactType),
-                newManifests,
-                annotations,
-                subject,
-                descriptor,
-                registry,
-                json);
+                schemaVersion, mediaType, artifactType, newManifests, annotations, subject, descriptor, registry, json);
     }
 
     @Override
+    @JsonIgnore
     public ManifestDescriptor getDescriptor() {
         return descriptor;
     }
