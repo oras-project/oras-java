@@ -352,11 +352,11 @@ public final class ArchiveUtils {
                 // Iterate through zip entries
                 while ((entry = zais.getNextEntry()) != null) {
 
-                    // Prevent path traversal attacks
-                    Path outputPath = target.resolve(entry.getName()).normalize();
-
                     // Check if the entry is outside the target directory
                     ensureSafeEntry(entry, target);
+
+                    // Prevent path traversal attacks
+                    Path outputPath = target.resolve(entry.getName()).normalize();
 
                     if (entry.isDirectory()) {
                         LOG.debug("Extracting directory: {}", entry.getName());
@@ -403,11 +403,11 @@ public final class ArchiveUtils {
                 // Iterate through tar entries
                 while ((entry = tais.getNextEntry()) != null) {
 
-                    // Prevent path traversal attacks
-                    Path outputPath = target.resolve(entry.getName()).normalize();
-
                     // Check if the entry is outside the target directory
                     ensureSafeEntry(entry, target);
+
+                    // Prevent path traversal attacks
+                    Path outputPath = target.resolve(entry.getName()).normalize();
 
                     LOG.trace("Extracting entry: {}", entry.getName());
 
