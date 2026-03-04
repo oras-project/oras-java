@@ -255,7 +255,11 @@ public final class Registry extends OCI<ContainerRef> {
     public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
 
         Map<String, String> annotations = manifest.getAnnotations();
-        if (!annotations.containsKey(Const.ANNOTATION_CREATED) && containerRef.getDigest() == null) {
+
+        // Only add created annotation if not already present or from original JSON
+        if (!annotations.containsKey(Const.ANNOTATION_CREATED)
+                && containerRef.getDigest() == null
+                && manifest.getJson() == null) {
             Map<String, String> manifestAnnotations = new HashMap<>(annotations);
             manifestAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
             manifest = manifest.withAnnotations(manifestAnnotations);
@@ -289,6 +293,18 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public Index pushIndex(ContainerRef containerRef, Index index) {
+
+        Map<String, String> annotations = index.getAnnotations();
+
+        // Only add created annotation if not already present or from original JSON
+        if ((annotations == null || !annotations.containsKey(Const.ANNOTATION_CREATED))
+                && containerRef.getDigest() == null
+                && index.getJson() == null) {
+            Map<String, String> indexAnnotations = new HashMap<>(annotations != null ? annotations : new HashMap<>());
+            indexAnnotations.put(Const.ANNOTATION_CREATED, Const.currentTimestamp());
+            index = index.withAnnotations(indexAnnotations);
+        }
+
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
             return asInsecure().pushIndex(containerRef, index);

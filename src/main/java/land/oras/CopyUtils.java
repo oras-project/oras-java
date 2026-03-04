@@ -44,12 +44,89 @@ public final class CopyUtils {
     }
 
     /**
+     * Options for copy.
+     * @param includeReferrers Whether to include referrers in the copy
+     */
+    public record CopyOptions(boolean includeReferrers) {
+
+        /**
+         * The default copy options with includeReferrers to false
+         * @return The default copy options
+         */
+        public static CopyOptions shallow() {
+            return new CopyOptions(false);
+        }
+
+        /**
+         * The copy options with includeReferrers and recursive set to true.
+         * @return The copy options with includeReferrers and recursive set to true
+         */
+        public static CopyOptions deep() {
+            return new CopyOptions(true);
+        }
+    }
+
+    /**
+     * Copy a container from source to target.
+     * @deprecated Use {@link #copy(OCI, Ref, OCI, Ref, CopyOptions)} instead. This method will be removed in a future release.
+     * @param source The source OCI
+     * @param sourceRef The source reference
+     * @param target The target OCI
+     * @param targetRef The target reference
+     * @param recursive Copy refferers
+     * @param <SourceRefType> The source reference type
+     * @param <TargetRefType> The target reference type
+     */
+    @Deprecated(forRemoval = true)
+    public static <SourceRefType extends Ref<@NonNull SourceRefType>, TargetRefType extends Ref<@NonNull TargetRefType>>
+            void copy(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef,
+                    boolean recursive) {
+        copy(source, sourceRef, target, targetRef, recursive ? CopyOptions.deep() : CopyOptions.shallow());
+    }
+
+    /**
+     * Copy all layers for a given reference and content type from source to target.
+     * @param source The source OCI
+     * @param sourceRef The source reference
+     * @param target The target OCI
+     * @param targetRef The target reference
+     * @param contentType The content type (manifest or index media type)
+     * @param <SourceRefType> The source reference type
+     * @param <TargetRefType> The target reference type
+     */
+    private static <
+                    SourceRefType extends Ref<@NonNull SourceRefType>,
+                    TargetRefType extends Ref<@NonNull TargetRefType>>
+            void copyLayers(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef,
+                    String contentType) {
+        for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
+            Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
+            Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
+            LOG.debug("Copying layer {}", layer.getDigest());
+            target.pushBlob(
+                    targetRef.withDigest(layer.getDigest()),
+                    layer.getSize(),
+                    () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
+                    layer.getAnnotations());
+            LOG.debug("Copied layer {}", layer.getDigest());
+        }
+    }
+
+    /**
      * Copy a container from source to target.
      * @param source The source OCI
      * @param sourceRef The source reference
      * @param target The target OCI
      * @param targetRef The target reference
-     * @param recursive Whether to copy referrers recursively
+     * @param options The copy option
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
@@ -59,7 +136,9 @@ public final class CopyUtils {
                     SourceRefType sourceRef,
                     OCI<TargetRefType> target,
                     TargetRefType targetRef,
-                    boolean recursive) {
+                    CopyOptions options) {
+
+        boolean includeReferrers = options.includeReferrers();
 
         Descriptor descriptor = source.probeDescriptor(sourceRef);
 
@@ -79,21 +158,11 @@ public final class CopyUtils {
         SourceRefType effectiveSourceRef = sourceRef.forTarget(source).forTarget(resolveSourceRegistry);
         TargetRefType effectiveTargetRef = targetRef.forTarget(target).forTarget(effectiveTargetRegistry);
 
-        // Write all layer
-        for (Layer layer : source.collectLayers(effectiveSourceRef, contentType, true)) {
-            Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
-            Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
-            LOG.debug("Copying layer {}", layer.getDigest());
-            target.pushBlob(
-                    effectiveTargetRef.withDigest(layer.getDigest()),
-                    layer.getSize(),
-                    () -> source.fetchBlob(effectiveSourceRef.withDigest(layer.getDigest())),
-                    layer.getAnnotations());
-            LOG.debug("Copied layer {}", layer.getDigest());
-        }
-
         // Single manifest
         if (source.isManifestMediaType(contentType)) {
+
+            // Write all layers
+            copyLayers(source, effectiveSourceRef, target, effectiveTargetRef, contentType);
 
             // Write manifest as any blob
             Manifest manifest = source.getManifest(effectiveSourceRef);
@@ -109,18 +178,20 @@ public final class CopyUtils {
             target.pushManifest(effectiveTargetRef.withDigest(tag), manifest);
             LOG.debug("Copied manifest {}", manifestDigest);
 
-            if (recursive) {
-                LOG.debug("Recursively copy referrers");
+            if (includeReferrers) {
+                LOG.debug("Including referrers on copy of manifest {}", manifestDigest);
                 Referrers referrers = source.getReferrers(effectiveSourceRef.withDigest(manifestDigest), null);
                 for (ManifestDescriptor referer : referrers.getManifests()) {
-                    LOG.info("Copy reference {}", referer.getDigest());
+                    LOG.debug("Copy reference from referrers {}", referer.getDigest());
                     copy(
                             source,
                             effectiveSourceRef.withDigest(referer.getDigest()),
                             target,
                             effectiveTargetRef,
-                            recursive);
+                            options);
                 }
+            } else {
+                LOG.debug("Not including referrers on copy of manifest {}", manifestDigest);
             }
 
         }
@@ -132,17 +203,41 @@ public final class CopyUtils {
 
             // Write all manifests and their config
             for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
-                Manifest manifest = source.getManifest(effectiveSourceRef.withDigest(manifestDescriptor.getDigest()));
 
-                // Push config
-                copyConfig(manifest, source, effectiveSourceRef, target, effectiveTargetRef);
+                // Copy manifest
+                if (source.isManifestMediaType(manifestDescriptor.getMediaType())) {
+                    Manifest manifest =
+                            source.getManifest(effectiveSourceRef.withDigest(manifestDescriptor.getDigest()));
 
-                // Push the manifest
-                LOG.debug("Copying manifest {}", manifestDigest);
-                target.pushManifest(
-                        effectiveTargetRef.withDigest(manifest.getDigest()),
-                        manifest.withDescriptor(manifestDescriptor));
-                LOG.debug("Copied manifest {}", manifestDigest);
+                    // Copy all layers for this manifest
+                    copyLayers(
+                            source,
+                            effectiveSourceRef.withDigest(manifestDescriptor.getDigest()),
+                            target,
+                            effectiveTargetRef,
+                            manifestDescriptor.getMediaType());
+
+                    // Push config
+                    copyConfig(manifest, source, effectiveSourceRef, target, effectiveTargetRef);
+
+                    // Push the manifest
+                    LOG.debug("Copying nested manifest {}", manifestDescriptor.getDigest());
+                    Manifest pushedManifest = target.pushManifest(
+                            effectiveTargetRef.withDigest(manifest.getDigest()),
+                            manifest.withDescriptor(manifestDescriptor));
+                    LOG.debug("Copied nested manifest {}", manifestDescriptor.getDigest());
+
+                } else if (source.isIndexMediaType(manifestDescriptor.getMediaType())) {
+                    // Copy index of index
+                    LOG.debug("Copying nested index {}", manifestDescriptor.getDigest());
+                    copy(
+                            source,
+                            effectiveSourceRef.withDigest(manifestDescriptor.getDigest()),
+                            target,
+                            effectiveTargetRef.withDigest(manifestDescriptor.getDigest()),
+                            options);
+                    LOG.debug("Copied nested index {}", manifestDescriptor.getDigest());
+                }
             }
 
             LOG.debug("Copying index {}", manifestDigest);

@@ -133,6 +133,16 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
         }
         Index index = getIndex(ref);
         for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+            String manifestContentType = manifestDescriptor.getMediaType();
+            // We just skip unknown media type descriptor
+            if (!isManifestMediaType(manifestContentType) && !isIndexMediaType(manifestContentType)) {
+                LOG.info(
+                        "Unrecognized content type {}, skipping descriptor {}",
+                        manifestContentType,
+                        manifestDescriptor.getDigest());
+                continue;
+            }
+            // Collect layer for each manifest
             List<Layer> manifestLayers =
                     getManifest(ref.withDigest(manifestDescriptor.getDigest())).getLayers();
             for (Layer manifestLayer : manifestLayers) {
