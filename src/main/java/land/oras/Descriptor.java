@@ -79,6 +79,7 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      * @param mediaType The media type
      * @param annotations The annotations
      * @param artifactType The artifact type
+     * @param registry The resolved registry
      * @param json The original JSON
      */
     protected Descriptor(

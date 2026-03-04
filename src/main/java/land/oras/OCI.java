@@ -164,6 +164,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     /**
      * Push layers to the target
      * @param ref The ref
+     * @param annotations The annotations for layers (selected by title annotation).
      * @param withDigest Push with digest
      * @param paths The paths to the files
      * @return The layers
