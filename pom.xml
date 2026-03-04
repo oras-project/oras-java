@@ -467,6 +467,13 @@
             <publishingServerId>central</publishingServerId>
             <autoPublish>true</autoPublish>
             <waitUntil>published</waitUntil>
+
+            <!-- 2 hours. Default is 30 minutes which is too short -->
+            <waitMaxTime>7200</waitMaxTime>
+
+            <!-- Default is 5 seconds, which is too short and increase risk of request failing -->
+            <waitPollingInterval>30</waitPollingInterval>
+
           </configuration>
         </plugin>
         <plugin>
