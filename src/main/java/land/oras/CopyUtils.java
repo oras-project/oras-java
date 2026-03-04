@@ -20,9 +20,12 @@ package land.oras;
  * =LICENSEEND=
  */
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,15 +49,18 @@ public final class CopyUtils {
     /**
      * Options for copy.
      * @param includeReferrers Whether to include referrers in the copy
+     * @param targetPlatforms List of platforms to filter by. If null or empty, all platforms are included.
+     * @param includeUnspecifiedPlatforms Whether to include manifests without platform information when platform filtering is active
      */
-    public record CopyOptions(boolean includeReferrers) {
+    public record CopyOptions(
+            boolean includeReferrers, @Nullable List<Platform> targetPlatforms, boolean includeUnspecifiedPlatforms) {
 
         /**
          * The default copy options with includeReferrers to false
          * @return The default copy options
          */
         public static CopyOptions shallow() {
-            return new CopyOptions(false);
+            return new CopyOptions(false, null, true);
         }
 
         /**
@@ -62,7 +68,67 @@ public final class CopyUtils {
          * @return The copy options with includeReferrers and recursive set to true
          */
         public static CopyOptions deep() {
-            return new CopyOptions(true);
+            return new CopyOptions(true, null, true);
+        }
+
+        /**
+         * Copy options with platform filtering
+         * <p>
+         * Example usage:
+         * <pre>{@code
+         * List<Platform> platforms = List.of(Platform.linuxAmd64(), Platform.windowsAmd64());
+         * CopyOptions options = CopyOptions.withPlatforms(false, platforms);
+         * CopyUtils.copy(source, sourceRef, target, targetRef, options);
+         * }</pre>
+         *
+         * @param includeReferrers Whether to include referrers in the copy
+         * @param targetPlatforms List of platforms to filter by
+         * @return The copy options with platform filtering
+         */
+        public static CopyOptions withPlatforms(boolean includeReferrers, List<Platform> targetPlatforms) {
+            return new CopyOptions(includeReferrers, targetPlatforms, false);
+        }
+
+        /**
+         * Copy options with platform filtering including unspecified platforms
+         * @param includeReferrers Whether to include referrers in the copy
+         * @param targetPlatforms List of platforms to filter by
+         * @param includeUnspecifiedPlatforms Whether to include manifests without platform information
+         * @return The copy options with platform filtering
+         */
+        public static CopyOptions withPlatforms(
+                boolean includeReferrers, List<Platform> targetPlatforms, boolean includeUnspecifiedPlatforms) {
+            return new CopyOptions(includeReferrers, targetPlatforms, includeUnspecifiedPlatforms);
+        }
+
+        /**
+         * Check if platform filtering is enabled
+         * @return true if platform filtering is enabled
+         */
+        public boolean isPlatformFilteringEnabled() {
+            return targetPlatforms != null && !targetPlatforms.isEmpty();
+        }
+
+        /**
+         * Check if a manifest should be included based on its platform
+         * @param manifestDescriptor The manifest descriptor to check
+         * @return true if the manifest should be included
+         */
+        public boolean shouldIncludeManifest(ManifestDescriptor manifestDescriptor) {
+            if (!isPlatformFilteringEnabled()) {
+                return true;
+            }
+
+            Platform manifestPlatform = manifestDescriptor.getPlatform();
+
+            // Handle unspecified platforms
+            if (Platform.unspecified(manifestPlatform)) {
+                return includeUnspecifiedPlatforms;
+            }
+
+            // Check if manifest platform matches any target platform
+            return targetPlatforms.stream()
+                    .anyMatch(targetPlatform -> Platform.matches(manifestPlatform, targetPlatform));
         }
     }
 
@@ -122,11 +188,16 @@ public final class CopyUtils {
 
     /**
      * Copy a container from source to target.
+     * <p>
+     * This method supports platform-specific copying when configured in the options.
+     * When platform filtering is enabled, only manifests matching the target platforms
+     * will be copied, which saves bandwidth and storage space.
+     *
      * @param source The source OCI
      * @param sourceRef The source reference
      * @param target The target OCI
      * @param targetRef The target reference
-     * @param options The copy option
+     * @param options The copy options, including platform filtering configuration
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
@@ -201,8 +272,20 @@ public final class CopyUtils {
             Index index = source.getIndex(effectiveSourceRef);
             String tag = effectiveSourceRef.getTag();
 
+            List<ManifestDescriptor> copiedManifests = new LinkedList<>();
+
             // Write all manifests and their config
             for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+
+                // Skip manifest if platform filtering is enabled and manifest doesn't match
+                if (!options.shouldIncludeManifest(manifestDescriptor)) {
+                    LOG.debug(
+                            "Skipping manifest {} due to platform filter. Manifest platform: {}, Target platforms: {}",
+                            manifestDescriptor.getDigest(),
+                            manifestDescriptor.getPlatform(),
+                            options.targetPlatforms());
+                    continue;
+                }
 
                 // Copy manifest
                 if (source.isManifestMediaType(manifestDescriptor.getMediaType())) {
@@ -227,6 +310,9 @@ public final class CopyUtils {
                             manifest.withDescriptor(manifestDescriptor));
                     LOG.debug("Copied nested manifest {}", manifestDescriptor.getDigest());
 
+                    // Add to copied manifests
+                    copiedManifests.add(manifestDescriptor);
+
                 } else if (source.isIndexMediaType(manifestDescriptor.getMediaType())) {
                     // Copy index of index
                     LOG.debug("Copying nested index {}", manifestDescriptor.getDigest());
@@ -237,11 +323,31 @@ public final class CopyUtils {
                             effectiveTargetRef.withDigest(manifestDescriptor.getDigest()),
                             options);
                     LOG.debug("Copied nested index {}", manifestDescriptor.getDigest());
+
+                    // Add to copied manifests
+                    copiedManifests.add(manifestDescriptor);
                 }
             }
 
             LOG.debug("Copying index {}", manifestDigest);
-            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(tag), index);
+            // Create filtered index with only copied manifests if platform filtering was applied
+            Index indexToPush = index;
+            if (options.isPlatformFilteringEnabled()
+                    && copiedManifests.size() != index.getManifests().size()) {
+                LOG.debug(
+                        "Platform filtering applied: copied {} of {} manifests",
+                        copiedManifests.size(),
+                        index.getManifests().size());
+
+                // Create filtered index by removing non-matching manifests
+                indexToPush = index;
+                for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+                    if (!options.shouldIncludeManifest(manifestDescriptor)) {
+                        indexToPush = indexToPush.withRemovedDescriptor(manifestDescriptor);
+                    }
+                }
+            }
+            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(tag), indexToPush);
             LOG.debug("Copied index {} with tag {}", pushedIndex, tag);
 
         } else {
