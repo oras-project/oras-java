@@ -169,6 +169,11 @@ public final class Const {
     public static final String DEFAULT_INDEX_MEDIA_TYPE = "application/vnd.oci.image.index.v1+json";
 
     /**
+     * Content descriptor media type
+     */
+    public static final String CONTENT_DESCRIPTOR_MEDIA_TYPE = "application/vnd.oci.descriptor.v1+json";
+
+    /**
      * Legacy manifest media type for Docker distribution manifest v1, which is a JWS (JSON Web Signature) format and is not widely used anymore, but some registries may still support it for backward compatibility
      * Ensure to raise a proper error message when we encounter this media type, as it is not supported by the SDK
      */

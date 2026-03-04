@@ -252,6 +252,34 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     @Override
+    public Descriptor pushDescriptor(ContainerRef containerRef, Descriptor descriptor) {
+        if (descriptor instanceof Manifest manifest) {
+            return pushManifest(containerRef, manifest);
+        } else if (descriptor instanceof Index index) {
+            return pushIndex(containerRef, index);
+        } else {
+            ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+            if (ref.isInsecure(this) && !this.isInsecure()) {
+                return asInsecure().pushDescriptor(ref, descriptor);
+            }
+            URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+            byte[] descriptorData = descriptor.getJson() != null
+                    ? descriptor.getJson().getBytes()
+                    : descriptor.toJson().getBytes();
+            LOG.debug("Descriptor data to push: {}", new String(descriptorData, StandardCharsets.UTF_8));
+            HttpClient.ResponseWrapper<String> response = client.put(
+                    uri,
+                    descriptorData,
+                    Map.of(Const.CONTENT_TYPE_HEADER, descriptor.getMediaType()),
+                    Scopes.of(this, ref),
+                    authProvider);
+            logResponse(response);
+            handleError(response);
+            return getDescriptor(ref);
+        }
+    }
+
+    @Override
     public Manifest pushManifest(ContainerRef containerRef, Manifest manifest) {
 
         Map<String, String> annotations = manifest.getAnnotations();

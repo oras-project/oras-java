@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -72,6 +73,15 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     protected @Nullable String registry;
 
+    @JsonCreator
+    @SuppressWarnings("unused")
+    private Descriptor(
+            @JsonProperty(Const.JSON_PROPERTY_MEDIA_TYPE) String mediaType,
+            @JsonProperty(Const.JSON_PROPERTY_SIZE) Long size,
+            @JsonProperty(Const.JSON_PROPERTY_DIGEST) String digest) {
+        this(digest, size, mediaType, null, null, null, null);
+    }
+
     /**
      * Constructor
      * @param digest The digest
@@ -96,6 +106,22 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
         this.artifactType = artifactType;
         this.registry = registry;
         this.json = json;
+    }
+
+    /**
+     * Create a new descriptor from a manifest descriptor
+     * @param descriptor The manifest descriptor
+     * @return The new descriptor
+     */
+    public Descriptor withDescriptor(ManifestDescriptor descriptor) {
+        return new Descriptor(
+                descriptor.getDigest(),
+                descriptor.getSize(),
+                descriptor.getMediaType(),
+                descriptor.getAnnotations(),
+                descriptor.getArtifactType() != null ? descriptor.getArtifactType() : null,
+                registry,
+                json);
     }
 
     /**
@@ -247,6 +273,15 @@ public sealed class Descriptor permits Config, Manifest, Layer, Index {
      */
     public static Descriptor of(String digest, Long size) {
         return new Descriptor(digest, size, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE, null, null, null, null);
+    }
+
+    /**
+     * Create a descriptor from a JSON string
+     * @param json The JSON string
+     * @return The descriptor
+     */
+    public static Descriptor fromJson(String json) {
+        return JsonUtils.fromJson(json, Descriptor.class).withJson(json);
     }
 
     @Override

@@ -316,6 +316,7 @@ public final class Index extends Descriptor implements Describable {
      * @param descriptor The descriptor
      * @return The manifest
      */
+    @Override
     public Index withDescriptor(ManifestDescriptor descriptor) {
         return new Index(
                 schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, json);

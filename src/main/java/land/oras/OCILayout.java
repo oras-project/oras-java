@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -120,6 +121,37 @@ public final class OCILayout extends OCI<LayoutRef> {
             Files.copy(blobPath, path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
         } catch (IOException e) {
             throw new OrasException("Failed to copy blob", e);
+        }
+    }
+
+    @Override
+    public Descriptor pushDescriptor(LayoutRef layoutRef, Descriptor descriptor) {
+        if (descriptor instanceof Manifest manifest) {
+            return pushManifest(layoutRef, manifest);
+        } else if (descriptor instanceof Index index) {
+            return pushIndex(layoutRef, index);
+        } else {
+            ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor);
+            Index index = Index.fromPath(getIndexPath()).withNewManifests(manifestDescriptor);
+
+            if (layoutRef.getTag() != null && !layoutRef.isValidDigest()) {
+                Map<String, String> newAnnotations = new HashMap<>();
+                if (index.getAnnotations() != null) {
+                    newAnnotations.putAll(index.getAnnotations());
+                }
+                newAnnotations.put(Const.ANNOTATION_REF, layoutRef.getTag());
+                manifestDescriptor = manifestDescriptor.withAnnotations(newAnnotations);
+                descriptor = descriptor.withDescriptor(manifestDescriptor);
+            }
+
+            // Write blobs
+            try {
+                writeDescriptor(descriptor);
+                writeOCIIndex(index);
+            } catch (IOException e) {
+                throw new OrasException("Failed to write manifest", e);
+            }
+            return descriptor;
         }
     }
 
@@ -528,6 +560,30 @@ public final class OCILayout extends OCI<LayoutRef> {
         Files.writeString(indexFile, index.getJson() != null ? index.getJson() : index.toJson());
         if (index.getJson() != null) {
             Files.writeString(getIndexBlobPath(index), index.getJson());
+        }
+    }
+
+    private void writeDescriptor(Descriptor descriptor) throws IOException {
+        Objects.requireNonNull(descriptor.getDigest(), "Descriptor digest is required to write descriptor");
+        Objects.requireNonNull(descriptor.getSize(), "Descriptor size is required to write descriptor");
+        ManifestDescriptor manifestDescriptor =
+                ManifestDescriptor.of(descriptor.getMediaType(), descriptor.getDigest(), descriptor.getSize());
+        Path descriptorFile = getBlobPath(manifestDescriptor);
+        Path manifestPrefixDirectory = getBlobAlgorithmPath(manifestDescriptor.getDigest());
+        if (!Files.exists(manifestPrefixDirectory)) {
+            Files.createDirectory(manifestPrefixDirectory);
+        }
+        // Skip if already exists
+        if (Files.exists(descriptorFile)) {
+            LOG.debug("Descriptor already exists: {}", descriptorFile);
+            return;
+        }
+        if (descriptor.getJson() == null) {
+            LOG.debug("Writing new descriptor: {}", descriptorFile);
+            Files.writeString(descriptorFile, descriptor.toJson());
+        } else {
+            LOG.debug("Writing existing descriptor: {}", descriptorFile);
+            Files.writeString(descriptorFile, descriptor.getJson());
         }
     }
 

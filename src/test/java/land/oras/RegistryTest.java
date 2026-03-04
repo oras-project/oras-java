@@ -957,6 +957,12 @@ class RegistryTest {
         Manifest manifest1 = registry.pushArtifact(containerSource.withTag("manifest1"), LocalPath.of(file1));
         Manifest manifest2 = registry.pushArtifact(containerSource.withTag("manifest2"), LocalPath.of(file2));
 
+        // A descriptor with unknown media type
+        String descriptor =
+                "{\"mediaType\":\"application/text-plain\",\"size\":3,\"digest\":\"sha512:f7fbba6e0636f890e56fbbf3283e524c6fa3204ae298382d624741d0dc6638326e282c41be5e4254d8820772c5518a2c5a8c0c7f7eda19594a7eb539453e1ed7\"}";
+        Descriptor descriptor1 = Descriptor.fromJson(descriptor);
+        descriptor1 = registry.pushDescriptor(containerSource, descriptor1);
+
         assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
         assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
 

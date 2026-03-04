@@ -341,6 +341,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Manifest pushManifest(T ref, Manifest manifest);
 
     /**
+     * Push an arbitrary content descriptor.
+     * @param ref The ref
+     * @param descriptor The descriptor
+     * @return The descriptor
+     */
+    public abstract Descriptor pushDescriptor(T ref, Descriptor descriptor);
+
+    /**
      * Push an index
      * @param ref The ref
      * @param index The index
