@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NonNull;
@@ -201,6 +202,36 @@ public final class Index extends Descriptor implements Describable {
     @SuppressWarnings("unused")
     public String getArtifactTypeAsString() {
         return artifactType;
+    }
+
+    /**
+     * Return a new index with the given manifest descriptor removed from the index
+     * @param descriptor The manifest descriptor to remove
+     * @return The index with the manifest descriptor removed
+     */
+    public Index withRemovedDescriptor(ManifestDescriptor descriptor) {
+        List<ManifestDescriptor> newManifests = new LinkedList<>(manifests);
+        boolean found = false;
+        for (ManifestDescriptor d : manifests) {
+            if (d.getDigest().equals(descriptor.getDigest())) {
+                found = true;
+                newManifests.remove(d);
+            }
+        }
+        if (!found) {
+            throw new OrasException("Cannot remove manifest descriptor with digest " + descriptor.getDigest()
+                    + " because it does not exist in the index");
+        }
+        return new Index(
+                schemaVersion,
+                mediaType,
+                ArtifactType.from(artifactType),
+                newManifests,
+                annotations,
+                subject,
+                this.descriptor,
+                registry,
+                json);
     }
 
     /**

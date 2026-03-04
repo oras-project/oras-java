@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
@@ -116,6 +117,28 @@ class IndexTest {
                 index.getManifests().get(0).getDigest());
         assertEquals(559, index.getManifests().get(0).getSize());
         assertEquals(json, index.toJson());
+    }
+
+    @Test
+    void shouldRemoveManifest() {
+
+        // Create 2 descriptors
+        Manifest newManifest1 = Manifest.empty().withAnnotations(Map.of("foo", "bar"));
+        ManifestDescriptor descriptor1 = ManifestDescriptor.of(newManifest1);
+        Manifest newManifest2 = Manifest.empty().withAnnotations(Map.of("foo1", "bar2"));
+        ManifestDescriptor descriptor2 = ManifestDescriptor.of(newManifest2);
+
+        Index index = Index.fromManifests(List.of(descriptor1, descriptor2));
+        assertEquals(2, index.getManifests().size());
+
+        final Index indexFinal = index.withRemovedDescriptor(descriptor1);
+        assertEquals(1, indexFinal.getManifests().size());
+        assertEquals(descriptor2.getDigest(), indexFinal.getManifests().get(0).getDigest());
+
+        OrasException e = assertThrows(OrasException.class, () -> indexFinal.withRemovedDescriptor(descriptor1));
+        assertEquals(
+                "Cannot remove manifest descriptor with digest sha256:d37ee97188d29dd838306ac7c5d35c03cc4cdac37c6a9e98529fee5aa0d65635 because it does not exist in the index",
+                e.getMessage());
     }
 
     @Test
