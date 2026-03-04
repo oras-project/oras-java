@@ -134,6 +134,8 @@ class IndexTest {
         final Index indexFinal = index.withRemovedDescriptor(descriptor1);
         assertEquals(1, indexFinal.getManifests().size());
         assertEquals(descriptor2.getDigest(), indexFinal.getManifests().get(0).getDigest());
+        assertNull(index.getArtifactTypeAsString());
+        assertNull(indexFinal.getArtifactTypeAsString());
 
         OrasException e = assertThrows(OrasException.class, () -> indexFinal.withRemovedDescriptor(descriptor1));
         assertEquals(

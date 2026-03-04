@@ -1042,9 +1042,12 @@ class OCILayoutTest {
     private void assertIndex(Path ociLayoutPath, Index index, int size) {
         assertTrue(Files.exists(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX)));
         Index ociIndex = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
-        LOG.debug("Index is {}", ociIndex.toJson());
+        LOG.debug("OCI Index JSON is {}", ociIndex.toJson());
+        LOG.debug("Expected Index JSON is {}", index.toJson());
         assertEquals(2, ociIndex.getSchemaVersion());
         assertEquals(size, ociIndex.getManifests().size());
+        assertEquals(index.getArtifactType(), ociIndex.getArtifactType());
+        assertEquals(index.getArtifactTypeAsString(), ociIndex.getArtifactTypeAsString());
         assertEquals(Const.DEFAULT_INDEX_MEDIA_TYPE, ociIndex.getMediaType());
         assertEquals(
                 index.getDescriptor().getSize(),
