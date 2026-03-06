@@ -411,7 +411,9 @@ public final class HttpClient {
 
         LOG.debug("WWW-Authenticate header: realm={}, service={}, scope={}, error={}", realm, service, scope, error);
 
-        URI uri = URI.create(realm + "?scope=" + scope + "&service=" + service);
+        String query = "scope=%s&service=%s".formatted(scope, URLEncoder.encode(service, StandardCharsets.UTF_8));
+
+        URI uri = URI.create(realm + "?" + query);
 
         // Perform the request to get the token
         Map<String, String> headers = new HashMap<>();
