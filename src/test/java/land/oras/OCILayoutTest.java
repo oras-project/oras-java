@@ -142,6 +142,33 @@ class OCILayoutTest {
     }
 
     @Test
+    void shouldListTagsWithLimit() throws Exception {
+        Path extractDir1 = extractDir.resolve("shouldListTags");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        Tags tags = ociLayout.getTags(layoutRef, 1, null);
+        assertEquals("subject", tags.name());
+        assertEquals(1, tags.tags().size());
+        assertEquals("latest", tags.tags().get(0));
+    }
+
+    @Test
+    void shouldThrowIfLastTagInvalid() throws Exception {
+        Path extractDir1 = extractDir.resolve("shouldListTags");
+        Files.createDirectory(extractDir1);
+
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+        assertThrows(OrasException.class, () -> {
+            ociLayout.getTags(layoutRef, 1, "unknown");
+        });
+    }
+
+    @Test
     void shouldListRepositories() throws Exception {
         Path extractDir1 = extractDir.resolve("shouldListRepositories");
         Files.createDirectory(extractDir1);

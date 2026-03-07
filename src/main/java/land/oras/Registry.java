@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
@@ -200,8 +201,25 @@ public final class Registry extends OCI<ContainerRef> {
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
+        logResponse(response);
         handleError(response);
-        return JsonUtils.fromJson(response.response(), Tags.class);
+        return JsonUtils.fromJson(response.response(), Tags.class)
+                .withLast(getLastFromLink(response).orElse(null));
+    }
+
+    @Override
+    public Tags getTags(ContainerRef containerRef, int n, @Nullable String last) {
+        ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().getTags(containerRef);
+        }
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this, n, last)));
+        HttpClient.ResponseWrapper<String> response = client.get(
+                uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
+        logResponse(response);
+        handleError(response);
+        return JsonUtils.fromJson(response.response(), Tags.class)
+                .withLast(getLastFromLink(response).orElse(null));
     }
 
     @Override
@@ -215,6 +233,7 @@ public final class Registry extends OCI<ContainerRef> {
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getRepositoriesPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
+        logResponse(response);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Repositories.class);
     }
@@ -231,6 +250,7 @@ public final class Registry extends OCI<ContainerRef> {
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(this, ref), authProvider);
+        logResponse(response);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Referrers.class);
     }
@@ -966,6 +986,35 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(response);
         handleError(response);
         return new ResolvedRegistry(ref.getRegistry(), response.headers());
+    }
+
+    private Optional<String> getLastFromLink(HttpClient.ResponseWrapper<String> response) {
+        String linkHeader = response.headers().get(Const.LINK_HEADER.toLowerCase());
+        if (linkHeader == null) {
+            return Optional.empty();
+        }
+
+        int start = linkHeader.indexOf('<');
+        int end = linkHeader.indexOf('>', start + 1);
+        if (start == -1 || end == -1) {
+            return Optional.empty();
+        }
+
+        String uri = linkHeader.substring(start + 1, end);
+        int q = uri.indexOf('?');
+        if (q == -1) {
+            return Optional.empty();
+        }
+
+        String query = uri.substring(q + 1);
+        for (String param : query.split("&")) {
+            int eq = param.indexOf('=');
+            if (eq > 0 && "last".equals(param.substring(0, eq))) {
+                return Optional.of(param.substring(eq + 1));
+            }
+        }
+
+        return Optional.empty();
     }
 
     /**

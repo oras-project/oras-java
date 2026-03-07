@@ -370,6 +370,10 @@ class ContainerRefTest {
     void shouldGetTagsPathDockerIo() {
         ContainerRef containerRef = ContainerRef.parse("docker.io/library/foo/alpine:latest@sha256:1234567890abcdef");
         assertEquals("registry-1.docker.io/v2/library/foo/alpine/tags/list", containerRef.getTagsPath());
+        assertEquals("registry-1.docker.io/v2/library/foo/alpine/tags/list?n=1", containerRef.getTagsPath(1, null));
+        assertEquals(
+                "registry-1.docker.io/v2/library/foo/alpine/tags/list?n=1&last=latest",
+                containerRef.getTagsPath(1, "latest"));
     }
 
     @Test

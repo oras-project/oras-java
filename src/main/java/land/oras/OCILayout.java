@@ -329,8 +329,24 @@ public final class OCILayout extends OCI<LayoutRef> {
         List<String> tags = index.getManifests().stream()
                 .filter(m -> m.getAnnotations() != null && m.getAnnotations().containsKey(Const.ANNOTATION_REF))
                 .map(m -> m.getAnnotations().get(Const.ANNOTATION_REF))
+                .sorted()
                 .toList();
         return new Tags(name, tags);
+    }
+
+    @Override
+    public Tags getTags(LayoutRef ref, int n, @Nullable String last) {
+        Tags allTags = getTags(ref);
+        String name = allTags.name();
+        List<String> tags = allTags.tags();
+        int startIndex = 0;
+        if (last != null) {
+            int lastIndex = tags.indexOf(last);
+            if (lastIndex == -1) {
+                throw new OrasException("Last tag not found: %s".formatted(last));
+            }
+        }
+        return new Tags(name, tags.stream().skip(startIndex).limit(n).toList());
     }
 
     @Override

@@ -22,12 +22,33 @@ package land.oras;
 
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The tags response object
  * @param name The name
  * @param tags The tags
+ * @param last The last tag index, to iterate
  */
 @NullMarked
 @OrasModel
-public record Tags(String name, List<String> tags) {}
+public record Tags(String name, List<String> tags, @Nullable String last) {
+
+    /**
+     * Constructor without last
+     * @param name The name
+     * @param tags The tags
+     */
+    public Tags(String name, List<String> tags) {
+        this(name, tags, null);
+    }
+
+    /**
+     * With last
+     * @param last The last tag index, to iterate
+     * @return A new Tags object with the last index
+     */
+    public Tags withLast(@Nullable String last) {
+        return new Tags(this.name, this.tags, last);
+    }
+}

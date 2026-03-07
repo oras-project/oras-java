@@ -238,6 +238,33 @@ class RegistryWireMockTest {
     }
 
     @Test
+    void shouldListTagsWithLimit(WireMockRuntimeInfo wmRuntimeInfo) {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/tags/list?n=1"))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest"))))));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        // Test
+        List<String> tags = registry.getTags(
+                        ContainerRef.parse("%s/library/artifact-text"
+                                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))),
+                        1,
+                        null)
+                .tags();
+
+        // Assert
+        assertEquals(1, tags.size());
+        assertEquals("latest", tags.get(0));
+    }
+
+    @Test
     void shouldListTagsWithConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
@@ -263,6 +290,16 @@ class RegistryWireMockTest {
                     Registry.Builder.builder().withAuthProvider(authProvider).build();
             List<String> tags = registry.getTags(
                             ContainerRef.parse("%s/library/artifact-text-with-confg".formatted(registryAsString)))
+                    .tags();
+            assertEquals(2, tags.size());
+            assertEquals("latest", tags.get(0));
+            assertEquals("0.1.1", tags.get(1));
+
+            // With limit
+            tags = registry.getTags(
+                            ContainerRef.parse("%s/library/artifact-text-with-confg".formatted(registryAsString)),
+                            1,
+                            null)
                     .tags();
             assertEquals(2, tags.size());
             assertEquals("latest", tags.get(0));

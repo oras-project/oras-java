@@ -309,6 +309,15 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
 
     /**
      * Get the tags for a ref
+     * @param ref The ref
+     * @param n The number of tags to return. If n is less than or equal to 0, return all tags
+     * @param last The last tag index, to iterate. If null, start from the beginning
+     * @return The tags
+     */
+    public abstract Tags getTags(T ref, int n, @Nullable String last);
+
+    /**
+     * Get the tags for a ref
      * @return The repositories
      */
     public abstract Repositories getRepositories();

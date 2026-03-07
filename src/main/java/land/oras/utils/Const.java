@@ -377,6 +377,11 @@ public final class Const {
     public static final String AUTHORIZATION_HEADER = "Authorization";
 
     /**
+     * Link header, which is used for pagination in the registry API
+     */
+    public static final String LINK_HEADER = "Link";
+
+    /**
      * User agent header
      */
     public static final String USER_AGENT_HEADER = "User-Agent";
