@@ -42,6 +42,23 @@ class DockerIoITCase {
     private final ZotUnsecureContainer unsecureRegistry = new ZotUnsecureContainer().withStartupAttempts(3);
 
     @Test
+    void shouldGetTags() {
+        Registry registry = Registry.builder().build();
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine");
+        Tags tags = registry.getTags(containerRef);
+        assertNotNull(tags);
+        assertTrue(tags.tags().size() > 100);
+        tags = registry.getTags(containerRef, 2, null);
+        assertNotNull(tags);
+        assertEquals(2, tags.tags().size());
+        assertEquals("2.7", tags.last());
+        tags = registry.getTags(containerRef, 2, tags.last());
+        assertNotNull(tags);
+        assertEquals(2, tags.tags().size());
+        assertEquals("20190408", tags.last());
+    }
+
+    @Test
     void shouldPullAnonymousIndexFQDN() {
 
         // FQDN

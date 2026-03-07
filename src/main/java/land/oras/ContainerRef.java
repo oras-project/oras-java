@@ -273,10 +273,44 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     /**
      * Return the tag URL
+     * @param n The optional number of tags to return, for pagination
+     * @param last The optional last tag index, for pagination
+     * @return The tag URL
+     */
+    public String getTagsPath(@Nullable Integer n, @Nullable String last) {
+        return getTagsPath(null, n, last);
+    }
+
+    /**
+     * Return the tag URL
+     * @param n The optional number of tags to return, for pagination
+     * @param last The optional last tag index, for pagination
+     * @param target The target registry
+     * @return The tag URL
+     */
+    public String getTagsPath(@Nullable Registry target, @Nullable Integer n, @Nullable String last) {
+        if (n == null && last == null) {
+            return getTagsPath(target);
+        }
+        StringBuilder url = new StringBuilder(getTagsPath(target)).append("?");
+        if (n != null) {
+            url.append("n=").append(n);
+        }
+        if (last != null) {
+            if (n != null) {
+                url.append("&");
+            }
+            url.append("last=").append(URLEncoder.encode(last, StandardCharsets.UTF_8));
+        }
+        return url.toString();
+    }
+
+    /**
+     * Return the tag URL
      * @return The tag URL
      */
     public String getTagsPath() {
-        return getTagsPath(null);
+        return getTagsPath(null, null);
     }
 
     /**
