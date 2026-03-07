@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -44,6 +46,8 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @SuppressWarnings("all")
     private final String imageLayoutVersion = "1.0.0";
+
+    private final ExecutorService executors = Executors.newSingleThreadExecutor();
 
     /**
      * Path on the file system of the OCI Layout
@@ -61,6 +65,11 @@ public final class OCILayout extends OCI<LayoutRef> {
      */
     public static OCILayout.Builder builder() {
         return OCILayout.Builder.builder();
+    }
+
+    @Override
+    public ExecutorService getExecutorService() {
+        return executors;
     }
 
     @Override

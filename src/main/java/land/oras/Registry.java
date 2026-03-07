@@ -33,6 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
@@ -54,6 +57,16 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 public final class Registry extends OCI<ContainerRef> {
+
+    /**
+     * Max concurrent downloads and upload for blobs
+     */
+    private int maxConcurrentDownloads = 1;
+
+    /**
+     * The executor service for parallel operations
+     */
+    private ExecutorService executors;
 
     /**
      * The registries configuration loaded from the environment
@@ -119,6 +132,14 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Set the max concurrent downloads and uploads for blobs. Default to number of available processors
+     * @param maxConcurrentDownloads Max concurrent downloads and uploads for blobs
+     */
+    private void setMaxConcurrentDownloads(int maxConcurrentDownloads) {
+        this.maxConcurrentDownloads = maxConcurrentDownloads;
+    }
+
+    /**
      * Return if this registry is insecure
      * @return True if insecure
      */
@@ -156,6 +177,11 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private Registry build() {
         client = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify).build();
+        executors = Executors.newFixedThreadPool(maxConcurrentDownloads, r -> {
+            Thread t = new Thread(r);
+            t.setName("layer-transfer-worker-%d".formatted(t.getId()));
+            return t;
+        });
         return this;
     }
 
@@ -190,6 +216,11 @@ public final class Registry extends OCI<ContainerRef> {
      */
     public @Nullable String getRegistry() {
         return registry;
+    }
+
+    @Override
+    public ExecutorService getExecutorService() {
+        return executors;
     }
 
     @Override
@@ -374,45 +405,17 @@ public final class Registry extends OCI<ContainerRef> {
             LOG.info("Skipped pulling layers without file name in '{}'", Const.ANNOTATION_TITLE);
             return;
         }
-        for (Layer layer : layers) {
-            if (!layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE)) {
-                LOG.info("Skipped pulling layer without file name in '{}'", Const.ANNOTATION_TITLE);
-                continue;
-            }
-            try (InputStream is = fetchBlob(ref.withDigest(layer.getDigest()))) {
-                // Unpack or just copy blob
-                if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
-                    LOG.debug("Extracting blob to: {}", path);
-
-                    // Uncompress the tar.gz archive and verify digest if present
-                    LocalPath tempArchive = ArchiveUtils.uncompress(is, layer.getMediaType());
-                    String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
-                    if (expectedDigest != null) {
-                        LOG.trace("Expected digest: {}", expectedDigest);
-                        String actualDigest = ref.getAlgorithm().digest(tempArchive.getPath());
-                        LOG.trace("Actual digest: {}", actualDigest);
-                        if (!expectedDigest.equals(actualDigest)) {
-                            throw new OrasException(
-                                    "Digest mismatch: expected %s but got %s".formatted(expectedDigest, actualDigest));
-                        }
-                    }
-
-                    // Extract the tar
-                    ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
-
-                } else {
-                    Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE));
-                    if (Files.exists(targetPath) && !overwrite) {
-                        LOG.info("File already exists: {}", targetPath);
-                        continue;
-                    }
-                    LOG.debug("Copying blob to: {}", targetPath);
-                    Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } catch (IOException e) {
-                throw new OrasException("Failed to pull artifact", e);
-            }
+        if (layers.stream().noneMatch(layer -> layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE))) {
+            LOG.info("Skipped pulling artifact without file name in '{}'", Const.ANNOTATION_TITLE);
+            return;
         }
+        // Pull layers in parallel
+        CompletableFuture.allOf(layers.stream()
+                        .filter(layer -> layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE))
+                        .map(layer -> CompletableFuture.runAsync(
+                                () -> pullLayer(ref, layer, path, overwrite), getExecutorService()))
+                        .toArray(CompletableFuture[]::new))
+                .join();
     }
 
     @Override
@@ -946,6 +949,43 @@ public final class Registry extends OCI<ContainerRef> {
         return getResolvedHeaders(containerRef).headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
     }
 
+    private void pullLayer(ContainerRef ref, Layer layer, Path path, boolean overwrite) {
+        Objects.requireNonNull(layer.getDigest());
+        try (InputStream is = fetchBlob(ref.withDigest(layer.getDigest()))) {
+            // Unpack or just copy blob
+            if (Boolean.parseBoolean(layer.getAnnotations().getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"))) {
+                LOG.debug("Extracting blob to: {}", path);
+
+                // Uncompress the tar.gz archive and verify digest if present
+                LocalPath tempArchive = ArchiveUtils.uncompress(is, layer.getMediaType());
+                String expectedDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
+                if (expectedDigest != null) {
+                    LOG.trace("Expected digest: {}", expectedDigest);
+                    String actualDigest = ref.getAlgorithm().digest(tempArchive.getPath());
+                    LOG.trace("Actual digest: {}", actualDigest);
+                    if (!expectedDigest.equals(actualDigest)) {
+                        throw new OrasException(
+                                "Digest mismatch: expected %s but got %s".formatted(expectedDigest, actualDigest));
+                    }
+                }
+
+                // Extract the tar
+                ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
+
+            } else {
+                Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE));
+                if (Files.exists(targetPath) && !overwrite) {
+                    LOG.info("File already exists: {}", targetPath);
+                    return;
+                }
+                LOG.debug("Copying blob to: {}", targetPath);
+                Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to pull artifact", e);
+        }
+    }
+
     /**
      * Append digest to location header returned from upload post
      * @param location The location header from upload post
@@ -1066,6 +1106,7 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setInsecure(registry.insecure);
             this.registry.setRegistry(registry.registry);
             this.registry.setSkipTlsVerify(registry.skipTlsVerify);
+            this.registry.setMaxConcurrentDownloads(registry.maxConcurrentDownloads);
             return this;
         }
 
@@ -1139,6 +1180,16 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withAuthProvider(AuthProvider authProvider) {
             registry.setAuthProvider(authProvider);
+            return this;
+        }
+
+        /**
+         * Set the maximum number of concurrent downloads when pulling an artifact with multiple layers. Default is 4.
+         * @param maxConcurrentDownloads The maximum number of concurrent downloads
+         * @return The builder
+         */
+        public Builder withMaxConcurrentDownloads(int maxConcurrentDownloads) {
+            registry.setMaxConcurrentDownloads(maxConcurrentDownloads);
             return this;
         }
 

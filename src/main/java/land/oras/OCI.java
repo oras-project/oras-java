@@ -27,11 +27,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
@@ -170,77 +172,11 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @return The layers
      */
     protected final List<Layer> pushLayers(T ref, Annotations annotations, boolean withDigest, LocalPath... paths) {
-        List<Layer> layers = new ArrayList<>();
-        for (LocalPath path : paths) {
-            try {
-                // Create tar.gz archive for directory
-                if (Files.isDirectory(path.getPath())) {
-                    SupportedCompression compression = SupportedCompression.fromMediaType(path.getMediaType());
-
-                    // If source need to be packed first
-                    boolean autoUnpack = compression.isAutoUnpack();
-                    LocalPath tempSource = autoUnpack ? ArchiveUtils.tar(path) : path;
-                    LocalPath tempArchive = ArchiveUtils.compress(tempSource, path.getMediaType());
-
-                    if (withDigest) {
-                        ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
-                    }
-                    try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
-                        String title = path.getPath().isAbsolute()
-                                ? path.getPath().getFileName().toString()
-                                : path.getPath().toString();
-
-                        // We store the filename, based on directory name if we don't auto unpack
-                        if (!autoUnpack) {
-                            title = "%s.%s".formatted(title, compression.getFileExtension());
-                        }
-                        LOG.debug("Uploading directory as archive with title: {}", title);
-
-                        Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
-                                ? annotations.getFileAnnotations(title)
-                                : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
-
-                        // Add oras digest/unpack
-                        // For example zip can be packed application/zip but never unpacked by the runtime
-                        // This is convenience method to pack zip layer as directories
-                        if (compression.isAutoUnpack()) {
-                            layerAnnotations.put(
-                                    Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                    ref.getAlgorithm().digest(tempSource.getPath()));
-                            layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
-                        } else {
-                            layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "false");
-                        }
-
-                        Layer layer = pushBlob(ref, is)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(layerAnnotations);
-                        layers.add(layer);
-                        LOG.info("Uploaded directory: {}", layer.getDigest());
-                    }
-                    Files.delete(tempArchive.getPath());
-                } else {
-                    try (InputStream is = Files.newInputStream(path.getPath())) {
-                        if (withDigest) {
-                            ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
-                        }
-                        String title = path.getPath().getFileName().toString();
-                        Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
-                                ? annotations.getFileAnnotations(title)
-                                : Map.of(Const.ANNOTATION_TITLE, title);
-
-                        Layer layer = pushBlob(ref, is)
-                                .withMediaType(path.getMediaType())
-                                .withAnnotations(layerAnnotations);
-                        layers.add(layer);
-                        LOG.info("Uploaded: {}", layer.getDigest());
-                    }
-                }
-            } catch (IOException e) {
-                throw new OrasException("Failed to push artifact", e);
-            }
-        }
-        return layers;
+        return Arrays.stream(paths)
+                .map(p -> CompletableFuture.supplyAsync(
+                        () -> pushLayer(ref, annotations, withDigest, p), getExecutorService()))
+                .map(CompletableFuture::join)
+                .toList();
     }
 
     /**
@@ -306,6 +242,12 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @return The tags
      */
     public abstract Tags getTags(T ref);
+
+    /**
+     * Get the executor service for concurrent operations. This is used for concurrent pushing and pulling of layers.
+     * @return The executor service
+     */
+    public abstract ExecutorService getExecutorService();
 
     /**
      * Get the tags for a ref
@@ -482,5 +424,73 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                 ref.withDigest(
                         SupportedAlgorithm.getDefault().digest(manifest.toJson().getBytes(StandardCharsets.UTF_8))),
                 manifest);
+    }
+
+    protected Layer pushLayer(T ref, Annotations annotations, boolean withDigest, LocalPath path) {
+        try {
+            // Create tar.gz archive for directory
+            if (Files.isDirectory(path.getPath())) {
+                SupportedCompression compression = SupportedCompression.fromMediaType(path.getMediaType());
+
+                // If source need to be packed first
+                boolean autoUnpack = compression.isAutoUnpack();
+                LocalPath tempSource = autoUnpack ? ArchiveUtils.tar(path) : path;
+                LocalPath tempArchive = ArchiveUtils.compress(tempSource, path.getMediaType());
+
+                if (withDigest) {
+                    ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
+                }
+                try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
+                    String title = path.getPath().isAbsolute()
+                            ? path.getPath().getFileName().toString()
+                            : path.getPath().toString();
+
+                    // We store the filename, based on directory name if we don't auto unpack
+                    if (!autoUnpack) {
+                        title = "%s.%s".formatted(title, compression.getFileExtension());
+                    }
+                    LOG.debug("Uploading directory as archive with title: {}", title);
+
+                    Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                            ? annotations.getFileAnnotations(title)
+                            : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
+
+                    // Add oras digest/unpack
+                    // For example zip can be packed application/zip but never unpacked by the runtime
+                    // This is convenience method to pack zip layer as directories
+                    if (compression.isAutoUnpack()) {
+                        layerAnnotations.put(
+                                Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                                ref.getAlgorithm().digest(tempSource.getPath()));
+                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+                    } else {
+                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "false");
+                    }
+
+                    Layer layer =
+                            pushBlob(ref, is).withMediaType(path.getMediaType()).withAnnotations(layerAnnotations);
+                    LOG.info("Uploaded directory: {}", layer.getDigest());
+                    Files.delete(tempArchive.getPath());
+                    return layer;
+                }
+            } else {
+                try (InputStream is = Files.newInputStream(path.getPath())) {
+                    if (withDigest) {
+                        ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
+                    }
+                    String title = path.getPath().getFileName().toString();
+                    Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                            ? annotations.getFileAnnotations(title)
+                            : Map.of(Const.ANNOTATION_TITLE, title);
+
+                    Layer layer =
+                            pushBlob(ref, is).withMediaType(path.getMediaType()).withAnnotations(layerAnnotations);
+                    LOG.info("Uploaded: {}", layer.getDigest());
+                    return layer;
+                }
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to push artifact", e);
+        }
     }
 }
