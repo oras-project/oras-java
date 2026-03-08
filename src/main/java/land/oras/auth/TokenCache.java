@@ -89,11 +89,21 @@ public final class TokenCache {
      * @param token The token response to be cached
      */
     public static void put(Scopes scopes, HttpClient.TokenResponse token) {
-        LOG.trace("Caching token for scopes: {}", scopes);
-        CACHE.put(scopes, token);
-        if (scopes.getService() != null) {
-            LOG.trace("Caching service for registry: {}", scopes.getRegistry());
-            SERVICE_CACHE.put(scopes.getRegistry(), scopes.getService());
+        Scopes newScopes = scopes.getService() != null ? scopes : scopes.withService(token.service());
+        LOG.trace("Caching token for scopes: {}", newScopes);
+        CACHE.put(newScopes, token);
+        if (newScopes.getService() != null) {
+            LOG.trace("Caching service '{}' for registry '{}'", newScopes.getService(), newScopes.getRegistry());
+            SERVICE_CACHE.put(scopes.getRegistry(), newScopes.getService());
+        }
+        // Store global scopes if present for future lookups
+        if (scopes.hasGlobalScopes()) {
+            Scopes newScopesWithService =
+                    scopes.withService(newScopes.getService()).withOnlyGlobalScopes();
+            CACHE.put(newScopesWithService, token);
+            Scopes newScopesWithoutGlobal =
+                    scopes.withService(newScopes.getService()).withoutGlobalScopes();
+            CACHE.put(newScopesWithoutGlobal, token);
         }
     }
 
@@ -103,16 +113,50 @@ public final class TokenCache {
      * @return the token response associated with the scopes, or null if not found or expired
      */
     public static HttpClient.@Nullable TokenResponse get(Scopes scopes) {
+        String service =
+                scopes.getService() != null ? scopes.getService() : SERVICE_CACHE.getIfPresent(scopes.getRegistry());
         HttpClient.TokenResponse token = CACHE.getIfPresent(scopes);
-        if (token == null) {
-            // Lookup for specific service
-            String service = SERVICE_CACHE.getIfPresent(scopes.getRegistry());
-            if (service == null) {
-                return null;
-            }
-            return CACHE.getIfPresent(scopes.withService(service));
+        if (token != null) {
+            LOG.trace("Direct cache hit for scopes: {}", scopes);
+            return token;
         }
-        return token;
+        // Try lookup with service
+        token = CACHE.getIfPresent(scopes.withService(service));
+        if (token != null) {
+            LOG.trace("Cache lookup for scopes: {}, found with service '{}'", scopes, service);
+            return token;
+        }
+        // Check englobing scopes
+        if (scopes.isPullOnly() && !scopes.hasGlobalScopes()) {
+            Scopes newScopes = scopes.withService(service).withAddedRegistryScopes(Scope.PUSH); // Just add push scope
+            token = CACHE.getIfPresent(newScopes);
+            if (token != null) {
+                LOG.trace("Cache lookup for scopes: {}, found with push scope", scopes);
+                return token;
+            }
+            newScopes = newScopes.withService(service).withAddedRegistryScopes(Scope.DELETE); // Add delete scope
+            token = CACHE.getIfPresent(newScopes);
+            if (token != null) {
+                LOG.trace("Cache lookup for scopes: {}, found with push and delete scopes", scopes);
+                return token;
+            }
+            newScopes = newScopes.withService(service).withRegistryScopes(Scope.ALL); // All replace all scopes
+            token = CACHE.getIfPresent(newScopes);
+            if (token != null) {
+                LOG.trace("Cache lookup for scopes: {}, found with all scopes", scopes);
+                return token;
+            }
+            return null;
+        }
+        if (scopes.hasGlobalScopes()) {
+            token = CACHE.getIfPresent(scopes.withOnlyGlobalScopes());
+            if (token != null) {
+                LOG.trace("Cache lookup for scopes: {}, found with only global scopes", scopes);
+                return token;
+            }
+        }
+        LOG.trace("Cache miss for scopes: {}", scopes);
+        return null;
     }
 
     /**

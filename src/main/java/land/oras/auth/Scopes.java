@@ -111,13 +111,51 @@ public final class Scopes {
     }
 
     /**
-     * Return a new copy of the Scopes object with the given scopes
+     * Return a new copy of the Scopes object with the added scopes
      * @param newScopes The scopes to add
      * @return A new Scopes object with the given scopes
      */
-    public Scopes withNewRegistryScopes(Scope... newScopes) {
+    public Scopes withAddedRegistryScopes(Scope... newScopes) {
         return new Scopes(
                 containerRef, service, ScopeUtils.appendRepositoryScope(this.scopes, containerRef, newScopes));
+    }
+
+    /**
+     * Return a new copy of the Scopes object with the given scopes
+     * @param globalScopes The global scopes to add
+     * @return A new Scopes object with the given scopes
+     */
+    public Scopes withAddedGlobalScopes(String... globalScopes) {
+        List<String> newScopes = new LinkedList<>(scopes);
+        newScopes.addAll(List.of(globalScopes));
+        return new Scopes(
+                containerRef, service, newScopes.stream().sorted().distinct().toList());
+    }
+
+    /**
+     * Return scopes that only contains global scopes (i.e. no repository or registry scopes)
+     * @return A new Scopes object with only global scopes
+     */
+    public Scopes withOnlyGlobalScopes() {
+        List<String> globalScopes = scopes.stream()
+                .filter(s -> !s.startsWith("repository:") && !s.startsWith("registry:"))
+                .sorted()
+                .distinct()
+                .toList();
+        return new Scopes(containerRef, service, globalScopes);
+    }
+
+    /**
+     * Return scopes that only contains non-global scopes (i.e. only repository or registry scopes)
+     * @return A new Scopes object with only non-global scopes
+     */
+    public Scopes withoutGlobalScopes() {
+        List<String> nonGlobalScopes = scopes.stream()
+                .filter(s -> s.startsWith("repository:") || s.startsWith("registry:"))
+                .sorted()
+                .distinct()
+                .toList();
+        return new Scopes(containerRef, service, nonGlobalScopes);
     }
 
     /**
@@ -170,6 +208,31 @@ public final class Scopes {
      */
     public ContainerRef getContainerRef() {
         return containerRef;
+    }
+
+    /**
+     * Return if these are global scopes (i.e. no repository or registry scopes)
+     * Typically AWS ECR uses global scopes for authentication, while Docker Hub uses repository scopes.
+     * @return True if these are global scopes, false otherwise
+     */
+    public boolean isGlobal() {
+        return scopes.stream().noneMatch(s -> s.startsWith("repository:") || s.startsWith("registry:"));
+    }
+
+    /**
+     * Return if these scopes include global scopes (i.e. at least one scope that is not a repository or registry scope)
+     * @return True if these scopes include global scopes, false otherwise
+     */
+    public boolean hasGlobalScopes() {
+        return scopes.stream().anyMatch(s -> !s.startsWith("repository:") && !s.startsWith("registry:"));
+    }
+
+    /**
+     * Return if these are pull-only scopes (i.e. all scopes end with ":pull" and there are no global scopes)
+     * @return True if these are pull-only scopes, false otherwise
+     */
+    public boolean isPullOnly() {
+        return !isGlobal() && scopes.stream().allMatch(s -> s.endsWith(":pull"));
     }
 
     @Override

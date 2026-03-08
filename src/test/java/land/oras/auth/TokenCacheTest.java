@@ -1,0 +1,99 @@
+/*-
+ * =LICENSE=
+ * ORAS Java SDK
+ * ===
+ * Copyright (C) 2024 - 2026 ORAS
+ * ===
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * =LICENSEEND=
+ */
+
+package land.oras.auth;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import land.oras.ContainerRef;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+
+@Execution(ExecutionMode.CONCURRENT)
+class TokenCacheTest {
+
+    @BeforeAll
+    static void beforeAll() {
+        TokenCache.get(Scopes.empty(
+                ContainerRef.parse("foo/bar:tag"),
+                "fake-service-init")); // Initialize the cache to ensure it's ready for testing
+    }
+
+    @Test
+    void shouldLooupWithGlobalScope() {
+        HttpClient.TokenResponse tokenResponse =
+                new HttpClient.TokenResponse("other-token", null, "dockerhub", 1, null);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL).withAddedGlobalScopes("aws");
+        TokenCache.put(scopes, tokenResponse);
+        assertEquals(
+                tokenResponse,
+                TokenCache.get(Scopes.empty(containerRef, "dockerhub").withAddedGlobalScopes("aws")),
+                "Should retrieve the token before expiration");
+    }
+
+    @Test
+    void shouldAddAndRetrieveTokenThenExpiredIt() throws InterruptedException {
+        HttpClient.TokenResponse tokenResponse =
+                new HttpClient.TokenResponse("other-token", null, "dockerhub", 1, null);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine0:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL).withService("dockerhub"); // Pull only
+        TokenCache.put(scopes, tokenResponse);
+        assertEquals(tokenResponse, TokenCache.get(scopes), "Should retrieve the token before expiration");
+        Thread.sleep(1500); // Wait for the token to expire
+        assertNull(TokenCache.get(scopes), "Should return null after token expiration");
+    }
+
+    @Test
+    void shouldRetrieveTokenPullTokenUsingPushPullScope() throws InterruptedException {
+        HttpClient.TokenResponse tokenResponse =
+                new HttpClient.TokenResponse("other-token", null, "dockerhub", 3600, null);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine1:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL, Scope.PUSH); // Pull push
+        TokenCache.put(scopes, tokenResponse);
+        Scopes pullOnlyScopes = Scopes.of(containerRef, Scope.PULL); // Pull only
+        assertEquals(tokenResponse, TokenCache.get(pullOnlyScopes), "Should retrieve the token using pull-only scopes");
+    }
+
+    @Test
+    void shouldRetrieveTokenPullTokenUsingPushPullDeleteScope() throws InterruptedException {
+        HttpClient.TokenResponse tokenResponse =
+                new HttpClient.TokenResponse("other-token", null, "dockerhub", 3600, null);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine2:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL, Scope.PUSH, Scope.DELETE); // Pull push, delete
+        TokenCache.put(scopes, tokenResponse);
+        Scopes pullOnlyScopes = Scopes.of(containerRef, Scope.PULL); // Pull only
+        assertEquals(tokenResponse, TokenCache.get(pullOnlyScopes), "Should retrieve the token using pull-only scopes");
+    }
+
+    @Test
+    void shouldRetrieveTokenPullTokenUsingAllScope() throws InterruptedException {
+        HttpClient.TokenResponse tokenResponse =
+                new HttpClient.TokenResponse("other-token", null, "dockerhub", 3600, null);
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine3:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.ALL); // Pull push, delete
+        TokenCache.put(scopes, tokenResponse);
+        Scopes pullOnlyScopes = Scopes.of(containerRef, Scope.PULL); // Pull only
+        assertEquals(tokenResponse, TokenCache.get(pullOnlyScopes), "Should retrieve the token using pull-only scopes");
+    }
+}
