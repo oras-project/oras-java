@@ -21,6 +21,7 @@ package land.oras;
  */
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -107,17 +108,20 @@ public final class CopyUtils {
                     OCI<TargetRefType> target,
                     TargetRefType targetRef,
                     String contentType) {
-        for (Layer layer : source.collectLayers(sourceRef, contentType, true)) {
-            Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
-            Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
-            LOG.debug("Copying layer {}", layer.getDigest());
-            target.pushBlob(
-                    targetRef.withDigest(layer.getDigest()),
-                    layer.getSize(),
-                    () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
-                    layer.getAnnotations());
-            LOG.debug("Copied layer {}", layer.getDigest());
-        }
+        CompletableFuture.allOf(source.collectLayers(sourceRef, contentType, true).stream()
+                        .map(layer -> {
+                            Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
+                            Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
+                            return CompletableFuture.runAsync(
+                                    () -> target.pushBlob(
+                                            targetRef.withDigest(layer.getDigest()),
+                                            layer.getSize(),
+                                            () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
+                                            layer.getAnnotations()),
+                                    source.getExecutorService());
+                        })
+                        .toArray(CompletableFuture[]::new))
+                .join();
     }
 
     /**

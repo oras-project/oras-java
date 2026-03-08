@@ -106,11 +106,13 @@ class DockerIoITCase {
     void shouldCopyTagToInternalRegistry() {
 
         // Source registry
-        Registry sourceRegistry = Registry.Builder.builder().defaults().build();
+        Registry sourceRegistry =
+                Registry.Builder.builder().withParallelism(10).defaults().build();
 
         // Copy to this internal registry
         Registry targetRegistry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
+                .withParallelism(10)
                 .withInsecure(true)
                 .build();
 
