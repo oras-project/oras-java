@@ -59,7 +59,6 @@ final class ScopeUtils {
         }
         return cleanScopes(cleaned);
     }
-
     /**
      * Create a scope for a repository.
      * @param ref the container reference

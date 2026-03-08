@@ -406,7 +406,7 @@ public final class HttpClient {
         String error = matcher.group(5);
 
         // Add server scope to existing scopes
-        Scopes newScopes = scopes.withNewScope(scope);
+        Scopes newScopes = scopes.withNewScope(scope).withService(service);
         LOG.debug("New scopes with server: {}", newScopes.getScopes());
 
         LOG.debug("WWW-Authenticate header: realm={}, service={}, scope={}, error={}", realm, service, scope, error);
@@ -437,7 +437,10 @@ public final class HttpClient {
                                         ? "<redacted" // Replace value with ****
                                         : entry.getValue())));
 
-        return JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class);
+        // Put in the cache
+        TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class);
+        TokenCache.put(newScopes, token);
+        return token;
     }
 
     static boolean isSameOrigin(URI uri1, URI uri2) {
@@ -493,10 +496,23 @@ public final class HttpClient {
             LOG.debug("Existing scopes: {}", scopes.getScopes());
             LOG.debug("New scopes: {}", newScopes.getScopes());
 
-            // Add authentication header if any
+            // Check if token is present and reuse auth instead of passing auth provider
+            TokenResponse cachedToken = TokenCache.get(newScopes);
+            if (cachedToken == null) {
+                LOG.trace("No cached token found for scopes: {}", newScopes);
+            } else {
+                LOG.trace("Cached token for scopes: {}", newScopes);
+            }
+
+            // Add authentication header if any (from provider or cached token)
             var authHeader = authProvider.getAuthHeader(containerRef);
-            if (authHeader != null && !authProvider.getAuthScheme().equals(AuthScheme.NONE) && includeAuthHeader) {
+            if (cachedToken == null
+                    && authHeader != null
+                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
+                    && includeAuthHeader) {
                 builder = builder.header(Const.AUTHORIZATION_HEADER, authHeader);
+            } else if (cachedToken != null && includeAuthHeader) {
+                builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + cachedToken.getEffectiveToken());
             }
             headers.forEach(builder::header);
 
@@ -667,6 +683,7 @@ public final class HttpClient {
     /**
      * The token response
      * @param token The token
+     * @param service The service (not on response but on HTTP headers)
      * @param access_token The access token
      * @param expires_in The expires in
      * @param issued_at The issued at
@@ -675,8 +692,23 @@ public final class HttpClient {
     public record TokenResponse(
             String token,
             @Nullable String access_token,
+            @Nullable String service,
             @Nullable Integer expires_in,
-            @Nullable ZonedDateTime issued_at) {}
+            @Nullable ZonedDateTime issued_at) {
+
+        /**
+         * Get the effective token
+         * @return The effective token, which is either the access_token or the token field depending on which one is present
+         */
+        public String getEffectiveToken() {
+            return access_token != null ? access_token : token;
+        }
+
+        @Override
+        public String toString() {
+            return "TokenResponse{" + "expires_in=" + expires_in + ", issued_at=" + issued_at + '}';
+        }
+    }
 
     /**
      * Builder for the HTTP client
