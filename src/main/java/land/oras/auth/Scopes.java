@@ -136,7 +136,7 @@ public final class Scopes {
      * @param service The service to set
      * @return A new Scopes object with the given service
      */
-    public Scopes withService(String service) {
+    public Scopes withService(@Nullable String service) {
         return new Scopes(containerRef, service, scopes);
     }
 

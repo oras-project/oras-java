@@ -50,7 +50,8 @@ class OrasExceptionTest {
         HttpClient.ResponseWrapper<String> response = new HttpClient.ResponseWrapper<>(
                 JsonUtils.toJson(new Error("5001", "foo", "the details")),
                 500,
-                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE));
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE),
+                null);
         OrasException orasException = new OrasException(response);
 
         // Getters
@@ -64,7 +65,8 @@ class OrasExceptionTest {
 
     @Test
     void shouldWrapInvalidResponse() {
-        HttpClient.ResponseWrapper<String> response = new HttpClient.ResponseWrapper<>("corrupted", 500, Map.of());
+        HttpClient.ResponseWrapper<String> response =
+                new HttpClient.ResponseWrapper<>("corrupted", 500, Map.of(), null);
         OrasException orasException = new OrasException(response);
         assertEquals("Response code: 500", orasException.getMessage(), "Message should be correct");
         assertNull(orasException.getError(), "Error should be null");
