@@ -22,7 +22,6 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Disabled;
@@ -30,7 +29,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 @Execution(ExecutionMode.SAME_THREAD)
 class PublicECRITCase {
@@ -69,25 +67,22 @@ class PublicECRITCase {
                 location = "public.ecr.aws/docker/library"
                 """;
 
-        Files.writeString(homeDir.resolve(".config").resolve("containers").resolve("registries.conf"), config);
+        TestUtils.createRegistriesConfFile(homeDir, config);
 
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    Registry registry = Registry.builder().defaults().build();
-                    ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine:latest");
-                    assertEquals("public.ecr.aws", containerRef.getEffectiveRegistry(registry));
-                    assertEquals(
-                            "public.ecr.aws/docker/library/alpine:latest",
-                            containerRef.forRegistry(registry).toString());
-                    assertEquals(
-                            "my-proxy/library/alpine:latest",
-                            containerRef
-                                    .forRegistry(Registry.builder()
-                                            .withRegistry("my-proxy")
-                                            .build())
-                                    .toString());
-                });
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().build();
+            ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine:latest");
+            assertEquals("public.ecr.aws", containerRef.getEffectiveRegistry(registry));
+            assertEquals(
+                    "public.ecr.aws/docker/library/alpine:latest",
+                    containerRef.forRegistry(registry).toString());
+            assertEquals(
+                    "my-proxy/library/alpine:latest",
+                    containerRef
+                            .forRegistry(
+                                    Registry.builder().withRegistry("my-proxy").build())
+                            .toString());
+        });
     }
 
     @Test

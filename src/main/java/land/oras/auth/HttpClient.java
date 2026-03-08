@@ -486,11 +486,12 @@ public final class HttpClient {
 
             // Get scope based on method
             ContainerRef containerRef = scopes.getContainerRef();
+            LOG.debug("Scopes are adding registry scopes");
             Scopes newScopes =
                     switch (method) {
-                        case "GET", "HEAD" -> scopes.withNewRegistryScopes(Scope.PULL);
-                        case "POST", "PUT", "PATCH" -> scopes.withNewRegistryScopes(Scope.PUSH);
-                        case "DELETE" -> scopes.withNewRegistryScopes(Scope.DELETE);
+                        case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
+                        case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
+                        case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
                         default -> throw new OrasException("Unsupported HTTP method: " + method);
                     };
 
@@ -500,9 +501,9 @@ public final class HttpClient {
             // Check if token is present and reuse auth instead of passing auth provider
             TokenResponse cachedToken = TokenCache.get(newScopes);
             if (cachedToken == null) {
-                LOG.trace("No cached token found for scopes: {}", newScopes);
+                LOG.trace("No token found in cache for scopes: {}", newScopes);
             } else {
-                LOG.trace("Found cached token for scopes: {}", newScopes.withService(cachedToken.service()));
+                LOG.trace("Found token in cache for scopes: {}", newScopes.withService(cachedToken.service()));
             }
 
             // Add authentication header if any (from provider or cached token)

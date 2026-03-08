@@ -48,6 +48,12 @@ class ScopesTest {
         assertEquals(
                 "Scopes{scopes=[repository:library/test:pull], service='docker', registry=localhost:5000}",
                 scopes.withService("docker").toString());
+        assertFalse(scopes.isGlobal(), "Scopes should not be global");
+        assertTrue(
+                Scopes.empty(containerRef, "aws.public").withNewScope("aws").isGlobal(),
+                "Scopes with global scope should be global");
+        assertTrue(scopes.isPullOnly(), "Scopes with only pull scope should be pull-only");
+        assertFalse(scopes.withRegistryScopes(Scope.PUSH).isPullOnly(), "Should not be pull only scope");
 
         Scopes newScopes = scopes.withRegistryScopes(Scope.PUSH);
         assertNotSame(scopes, newScopes, "Scopes should be immutable");
@@ -57,7 +63,7 @@ class ScopesTest {
         assertEquals("localhost:5000", newScopes.getRegistry());
         assertEquals("localhost:5000", scopes.withService("localhost:5000").getService());
 
-        Scopes newScopes2 = newScopes.withNewRegistryScopes(Scope.PULL);
+        Scopes newScopes2 = newScopes.withAddedRegistryScopes(Scope.PULL);
         assertNotSame(newScopes, newScopes2, "Scopes should be immutable");
         assertEquals(1, newScopes2.getScopes().size());
         assertEquals("repository:library/test:pull,push", newScopes2.getScopes().get(0));

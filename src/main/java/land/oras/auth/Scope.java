@@ -26,6 +26,11 @@ package land.oras.auth;
 public enum Scope {
 
     /**
+     * Scope for all actions.
+     */
+    ALL,
+
+    /**
      * Scope for pulling images.
      */
     PULL,
@@ -45,6 +50,9 @@ public enum Scope {
      * @return the lowercase name of the enum
      */
     public String toLowerCase() {
+        if (this == ALL) {
+            return "*";
+        }
         return name().toLowerCase();
     }
 }
