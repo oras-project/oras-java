@@ -22,9 +22,10 @@ package land.oras.auth;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import land.oras.ContainerRef;
-import land.oras.Registry;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Store scopes
@@ -33,54 +34,71 @@ import org.jspecify.annotations.NullMarked;
 public final class Scopes {
 
     /**
-     * Constructor
+     * List of scopes
      */
     private final List<String> scopes;
 
-    private final Registry registry;
+    /**
+     * Service
+     */
+    private @Nullable final String service;
+
+    /**
+     * The container reference
+     */
     private final ContainerRef containerRef;
 
     /**
      * Private constructor
-     * @param registry The registry
      * @param containerRef The container reference
+     * @param service The service
      * @param scopes The scopes
      */
-    private Scopes(Registry registry, ContainerRef containerRef, Scope... scopes) {
-        this(registry, containerRef, ScopeUtils.appendRepositoryScope(List.of(), containerRef, scopes));
+    private Scopes(ContainerRef containerRef, @Nullable String service, Scope... scopes) {
+        this(containerRef, service, ScopeUtils.appendRepositoryScope(List.of(), containerRef, scopes));
     }
 
     /**
      * Private constructor
-     * @param registry The registry
      * @param containerRef The container reference
+     * @param service The service
      * @param scopes The scopes
      */
-    private Scopes(Registry registry, ContainerRef containerRef, List<String> scopes) {
-        this.registry = registry;
+    private Scopes(ContainerRef containerRef, @Nullable String service, List<String> scopes) {
         this.containerRef = containerRef;
+        this.service = service;
         this.scopes = scopes;
     }
 
     /**
      * Create a new Scopes object
-     * @param registry The registry
      * @param containerRef The container reference
      * @param scopes The scopes
      * @return A new Scopes object
      */
-    public static Scopes of(Registry registry, ContainerRef containerRef, Scope... scopes) {
-        return new Scopes(registry, containerRef, scopes);
+    public static Scopes of(ContainerRef containerRef, Scope... scopes) {
+        return new Scopes(containerRef, null, scopes);
+    }
+
+    /**
+     * Create a new Scopes object
+     * @param service The service
+     * @param containerRef The container reference
+     * @param scopes The scopes
+     * @return A new Scopes object
+     */
+    public static Scopes of(String service, ContainerRef containerRef, Scope... scopes) {
+        return new Scopes(containerRef, service, scopes);
     }
 
     /**
      * Create a new Scopes object with no scopes
-     * @param registry The registry
      * @param containerRef The container reference
+     * @param service The service
      * @return A new Scopes object with no scopes
      */
-    public static Scopes empty(Registry registry, ContainerRef containerRef) {
-        return new Scopes(registry, containerRef, List.of());
+    public static Scopes empty(ContainerRef containerRef, String service) {
+        return new Scopes(containerRef, service, List.of());
     }
 
     /**
@@ -89,7 +107,7 @@ public final class Scopes {
      * @return A new Scopes object with the given scopes
      */
     public Scopes withRegistryScopes(Scope... scopes) {
-        return new Scopes(registry, containerRef, scopes);
+        return new Scopes(containerRef, service, scopes);
     }
 
     /**
@@ -99,7 +117,7 @@ public final class Scopes {
      */
     public Scopes withNewRegistryScopes(Scope... newScopes) {
         return new Scopes(
-                registry, containerRef, ScopeUtils.appendRepositoryScope(this.scopes, containerRef, newScopes));
+                containerRef, service, ScopeUtils.appendRepositoryScope(this.scopes, containerRef, newScopes));
     }
 
     /**
@@ -110,7 +128,24 @@ public final class Scopes {
     public Scopes withNewScope(String scope) {
         List<String> newScopes = new LinkedList<>(scopes);
         newScopes.add(scope);
-        return new Scopes(registry, containerRef, ScopeUtils.cleanScopes(newScopes));
+        return new Scopes(containerRef, service, ScopeUtils.cleanScopes(newScopes));
+    }
+
+    /**
+     * Return a new copy of the Scopes object with the given service
+     * @param service The service to set
+     * @return A new Scopes object with the given service
+     */
+    public Scopes withService(String service) {
+        return new Scopes(containerRef, service, scopes);
+    }
+
+    /**
+     * Get the service
+     * @return The service
+     */
+    public @Nullable String getService() {
+        return service;
     }
 
     /**
@@ -126,7 +161,7 @@ public final class Scopes {
      * @return The registry
      */
     public String getRegistry() {
-        return containerRef.forRegistry(registry).getRegistry();
+        return containerRef.getRegistry();
     }
 
     /**
@@ -135,5 +170,29 @@ public final class Scopes {
      */
     public ContainerRef getContainerRef() {
         return containerRef;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Scopes scopes1 = (Scopes) o;
+        return Objects.equals(getScopes(), scopes1.getScopes())
+                && Objects.equals(getService(), scopes1.getService())
+                && Objects.equals(
+                        getContainerRef().getRegistry(),
+                        scopes1.getContainerRef().getRegistry());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getScopes(), getService(), getContainerRef().getRegistry());
+    }
+
+    @Override
+    public String toString() {
+        return "Scopes{" + "scopes="
+                + scopes + ", service='"
+                + service + '\'' + ", registry="
+                + containerRef.getRegistry() + '}';
     }
 }

@@ -23,7 +23,6 @@ package land.oras.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import land.oras.ContainerRef;
-import land.oras.Registry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -37,12 +36,18 @@ class ScopesTest {
     @Test
     void shouldBuildScopes() {
         ContainerRef containerRef = ContainerRef.parse("localhost:5000/library/test:latest");
-        Registry registry = Registry.builder().build();
-        Scopes scopes = Scopes.of(registry, containerRef, Scope.PULL);
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL);
         assertEquals(1, scopes.getScopes().size());
         assertEquals("repository:library/test:pull", scopes.getScopes().get(0));
         assertSame(containerRef, scopes.getContainerRef());
         assertEquals("localhost:5000", scopes.getRegistry());
+        assertEquals("docker", scopes.withService("docker").getService());
+        assertEquals(
+                "Scopes{scopes=[repository:library/test:pull], service='null', registry=localhost:5000}",
+                scopes.toString());
+        assertEquals(
+                "Scopes{scopes=[repository:library/test:pull], service='docker', registry=localhost:5000}",
+                scopes.withService("docker").toString());
 
         Scopes newScopes = scopes.withRegistryScopes(Scope.PUSH);
         assertNotSame(scopes, newScopes, "Scopes should be immutable");
@@ -50,6 +55,7 @@ class ScopesTest {
         assertEquals("repository:library/test:push", newScopes.getScopes().get(0));
         assertSame(containerRef, newScopes.getContainerRef());
         assertEquals("localhost:5000", newScopes.getRegistry());
+        assertEquals("localhost:5000", scopes.withService("localhost:5000").getService());
 
         Scopes newScopes2 = newScopes.withNewRegistryScopes(Scope.PULL);
         assertNotSame(newScopes, newScopes2, "Scopes should be immutable");

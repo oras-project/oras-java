@@ -571,7 +571,7 @@ class RegistryWireMockTest {
                 .inScenario("get token")
                 .willSetStateTo("get")
                 .willReturn(WireMock.okJson(JsonUtils.toJson(
-                        new HttpClient.TokenResponse("fake-token", "access-token", 300, ZonedDateTime.now())))));
+                        new HttpClient.TokenResponse("fake-token", "access-token", null, 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
@@ -616,12 +616,8 @@ class RegistryWireMockTest {
 
         // Execute Patch
         URI uri = URI.create("http://" + registryUrl + "/v2/test/blobs/uploads/session1");
-        HttpClient.ResponseWrapper<String> response = client.patch(
-                uri,
-                data,
-                headers,
-                Scopes.of(Registry.builder().build(), ContainerRef.parse("foo")),
-                new NoAuthProvider());
+        HttpClient.ResponseWrapper<String> response =
+                client.patch(uri, data, headers, Scopes.of(ContainerRef.parse("foo")), new NoAuthProvider());
 
         // Verify response uses all our constants
         assertEquals(202, response.statusCode());
@@ -835,7 +831,7 @@ class RegistryWireMockTest {
                 .whenScenarioStateIs("auth requested")
                 .willSetStateTo("got token")
                 .willReturn(WireMock.okJson(JsonUtils.toJson(
-                        new HttpClient.TokenResponse("fake-token", "access-token", 300, ZonedDateTime.now())))));
+                        new HttpClient.TokenResponse("fake-token", "access-token", null, 300, ZonedDateTime.now())))));
 
         // After getting token we get a redirect
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-first-token/blobs/%s".formatted(digest)))
@@ -974,8 +970,8 @@ class RegistryWireMockTest {
                         "/token?scope=repository:library/%s:pull&service=localhost".formatted(registryName)))
                 .inScenario(registryName)
                 .willSetStateTo("get")
-                .willReturn(WireMock.okJson(
-                        JsonUtils.toJson(new HttpClient.TokenResponse(token, accessToken, 300, ZonedDateTime.now())))));
+                .willReturn(WireMock.okJson(JsonUtils.toJson(
+                        new HttpClient.TokenResponse(token, accessToken, null, 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
         wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(registryName, digest)))
