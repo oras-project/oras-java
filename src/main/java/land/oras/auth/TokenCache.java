@@ -36,6 +36,11 @@ import org.slf4j.LoggerFactory;
 public final class TokenCache {
 
     /**
+     * Hard cache limit
+     */
+    public static final int MAX_CACHE_SIZE = 500;
+
+    /**
      * Logger for this class
      */
     private static final Logger LOG = LoggerFactory.getLogger(TokenCache.class);
@@ -48,10 +53,16 @@ public final class TokenCache {
     }
 
     /**
+     * Cache for storing service information based on the service URL. This is used to avoid redundant
+     */
+    private static final Cache<String, String> SERVICE_CACHE =
+            Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
+
+    /**
      * The cache
      */
     private static final Cache<Scopes, HttpClient.TokenResponse> CACHE = Caffeine.newBuilder()
-            .maximumSize(500)
+            .maximumSize(MAX_CACHE_SIZE)
             .expireAfter(new Expiry<Scopes, HttpClient.TokenResponse>() {
                 @Override
                 public long expireAfterCreate(Scopes key, HttpClient.TokenResponse token, long currentTime) {
@@ -80,6 +91,10 @@ public final class TokenCache {
     public static void put(Scopes scopes, HttpClient.TokenResponse token) {
         LOG.trace("Caching token for scopes: {}", scopes);
         CACHE.put(scopes, token);
+        if (scopes.getService() != null) {
+            LOG.trace("Caching service for registry: {}", scopes.getRegistry());
+            SERVICE_CACHE.put(scopes.getRegistry(), scopes.getService());
+        }
     }
 
     /**
@@ -88,7 +103,16 @@ public final class TokenCache {
      * @return the token response associated with the scopes, or null if not found or expired
      */
     public static HttpClient.@Nullable TokenResponse get(Scopes scopes) {
-        return CACHE.getIfPresent(scopes);
+        HttpClient.TokenResponse token = CACHE.getIfPresent(scopes);
+        if (token == null) {
+            // Lookup for specific service
+            String service = SERVICE_CACHE.getIfPresent(scopes.getRegistry());
+            if (service == null) {
+                return null;
+            }
+            return CACHE.getIfPresent(scopes.withService(service));
+        }
+        return token;
     }
 
     /**

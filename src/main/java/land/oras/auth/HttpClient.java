@@ -438,7 +438,8 @@ public final class HttpClient {
                                         : entry.getValue())));
 
         // Put in the cache
-        TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class);
+        TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class)
+                .forService(service);
         TokenCache.put(newScopes, token);
         return token;
     }
@@ -501,7 +502,7 @@ public final class HttpClient {
             if (cachedToken == null) {
                 LOG.trace("No cached token found for scopes: {}", newScopes);
             } else {
-                LOG.trace("Cached token for scopes: {}", newScopes);
+                LOG.trace("Found cached token for scopes: {}", newScopes.withService(cachedToken.service()));
             }
 
             // Add authentication header if any (from provider or cached token)
@@ -568,22 +569,17 @@ public final class HttpClient {
             AuthProvider authProvider) {
         if ((response.statusCode() == 401 || response.statusCode() == 403)) {
             LOG.debug("Requesting new token...");
-            HttpClient.TokenResponse token = refreshToken(toResponseWrapper(response), scopes, authProvider);
+            HttpClient.TokenResponse token =
+                    refreshToken(toResponseWrapper(response, scopes.getService()), scopes, authProvider);
             if (token.issued_at() != null && token.expires_in() != null) {
                 LOG.debug(
-                        "Found token issued_at {}, expire_id {} and expiring at {} ",
+                        "Received token issued_at {}, expire_id {} and expiring at {} ",
                         token.issued_at(),
                         token.expires_in(),
                         token.issued_at().plusSeconds(token.expires_in()));
             }
-            String bearerToken = token.token();
-            if (bearerToken == null) {
-                // Docker registry auth spec allows either token or auth_token (or both if they are the same)
-                bearerToken = token.access_token();
-            }
-            if (bearerToken == null) {
-                throw new OrasException("No Bearer token received");
-            }
+            String bearerToken = token.getEffectiveToken();
+            String service = token.service();
             try {
                 builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + bearerToken);
                 HttpResponse<T> newResponse = client.send(builder.build(), handler);
@@ -601,25 +597,26 @@ public final class HttpClient {
                     }
 
                     return toResponseWrapper(
-                            client.send(builder.uri(URI.create(location)).build(), handler));
+                            client.send(builder.uri(URI.create(location)).build(), handler), service);
                 }
-                return toResponseWrapper(newResponse);
+                return toResponseWrapper(newResponse, service);
 
             } catch (Exception e) {
                 LOG.error("Failed to redo request", e);
                 throw new OrasException("Unable to redo HTTP request", e);
             }
         }
-        return toResponseWrapper(response);
+        return toResponseWrapper(response, scopes.getService());
     }
 
-    private <T> ResponseWrapper<T> toResponseWrapper(HttpResponse<T> response) {
+    private <T> ResponseWrapper<T> toResponseWrapper(HttpResponse<T> response, @Nullable String service) {
         return new ResponseWrapper<>(
                 response.body(),
                 response.statusCode(),
                 response.headers().map().entrySet().stream()
                         .collect(Collectors.toMap(
-                                Map.Entry::getKey, e -> e.getValue().get(0))));
+                                Map.Entry::getKey, e -> e.getValue().get(0))),
+                service);
     }
 
     /**
@@ -649,8 +646,10 @@ public final class HttpClient {
      * @param response The response
      * @param statusCode The status code
      * @param headers The headers
+     * @param service The service (not on response but on HTTP headers)
      */
-    public record ResponseWrapper<T>(T response, int statusCode, Map<String, String> headers) {}
+    public record ResponseWrapper<T>(
+            T response, int statusCode, Map<String, String> headers, @Nullable String service) {}
 
     /**
      * Insecure trust manager when skipping TLS verification
@@ -697,6 +696,16 @@ public final class HttpClient {
             @Nullable ZonedDateTime issued_at) {
 
         /**
+         * Create a new token response with the service field set
+         * @param service The service
+         * @return A new token response with the service field set
+         */
+        public TokenResponse forService(String service) {
+            return new TokenResponse(token, access_token, service, expires_in, issued_at);
+        }
+
+        /**
+         * >>>>>>> 6379975 (Store token into caffeine cache (#631))
          * Get the effective token
          * @return The effective token, which is either the access_token or the token field depending on which one is present
          */

@@ -906,7 +906,8 @@ public final class Registry extends OCI<ContainerRef> {
                 LOG.debug("Response: {}", responseWrapper.response());
                 throw new OrasException((HttpClient.ResponseWrapper<String>) responseWrapper);
             }
-            throw new OrasException(new HttpClient.ResponseWrapper<>("", responseWrapper.statusCode(), Map.of()));
+            throw new OrasException(new HttpClient.ResponseWrapper<>(
+                    "", responseWrapper.statusCode(), Map.of(), responseWrapper.service()));
         }
     }
 
@@ -917,6 +918,7 @@ public final class Registry extends OCI<ContainerRef> {
     private void logResponse(HttpClient.ResponseWrapper<?> response) {
         LOG.debug("Status Code: {}", response.statusCode());
         LOG.debug("Headers: {}", response.headers());
+        LOG.debug("Service: {}", response.service());
         String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
         boolean isBinaryResponse = contentType != null && contentType.contains("octet-stream");
         // Only log non-binary responses

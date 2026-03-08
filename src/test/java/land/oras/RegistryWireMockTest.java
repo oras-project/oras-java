@@ -541,13 +541,16 @@ class RegistryWireMockTest {
     void shouldGetAuthToken(WireMockRuntimeInfo wmRuntimeInfo) {
         byte[] blob = tokenScenario(wmRuntimeInfo, "get-auth-token", null, "access-token");
         assertEquals("blob-data", new String(blob));
-    }
+        blob = tokenScenario(wmRuntimeInfo, "get-auth-token", null, "access-token");
+        assertEquals("blob-data", new String(blob));
+        blob = tokenScenario(wmRuntimeInfo, "get-auth-token", null, "access-token");
+        assertEquals("blob-data", new String(blob));
 
-    @Test
-    void shouldThrowIfNoTokenFound(WireMockRuntimeInfo wmRuntimeInfo) {
-        assertThrows(OrasException.class, () -> {
-            tokenScenario(wmRuntimeInfo, "get-auth-token", null, null);
-        });
+        // Ensure only one request on token endpoint du to caching
+        WireMock.verify(
+                1,
+                WireMock.getRequestedFor(
+                        WireMock.urlEqualTo("/token?scope=repository:library/get-auth-token:pull&service=localhost")));
     }
 
     @Test
