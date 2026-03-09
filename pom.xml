@@ -61,7 +61,7 @@
     <zstd-jni.version>1.5.7-7</zstd-jni.version>
     <bcprov-jdk18on.version>1.83</bcprov-jdk18on.version>
     <caffeine.version>3.2.3</caffeine.version>
-    <micrometer.version>1.15.0</micrometer.version>
+    <micrometer.version>1.16.3</micrometer.version>
 
     <!-- Test dependencies version -->
     <logback.version>1.5.32</logback.version>
