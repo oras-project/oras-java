@@ -66,7 +66,7 @@ public final class Registry extends OCI<ContainerRef> {
     /**
      * The executor service for parallel operations
      */
-    private ExecutorService executors;
+    private ExecutorService executorService;
 
     /**
      * The registries configuration loaded from the environment
@@ -140,6 +140,14 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Allow consumer to set custom executor service for parallel operations. If not set, a default one will be created with the given parallelism
+     * @param executorService The executor service
+     */
+    private void setExecutorService(ExecutorService executorService) {
+        this.executorService = executorService;
+    }
+
+    /**
      * Return if this registry is insecure
      * @return True if insecure
      */
@@ -177,11 +185,13 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private Registry build() {
         client = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify).build();
-        executors = Executors.newFixedThreadPool(maxConcurrentDownloads, r -> {
-            Thread t = new Thread(r);
-            t.setName("layer-transfer-worker-%d".formatted(t.getId()));
-            return t;
-        });
+        if (executorService == null) {
+            executorService = Executors.newFixedThreadPool(maxConcurrentDownloads, r -> {
+                Thread t = new Thread(r);
+                t.setName("layer-transfer-worker-%d".formatted(t.getId()));
+                return t;
+            });
+        }
         return this;
     }
 
@@ -220,7 +230,7 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public ExecutorService getExecutorService() {
-        return executors;
+        return executorService;
     }
 
     @Override
@@ -1108,6 +1118,7 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setInsecure(registry.insecure);
             this.registry.setRegistry(registry.registry);
             this.registry.setSkipTlsVerify(registry.skipTlsVerify);
+            this.registry.setExecutorService(registry.executorService);
             this.registry.setParallelism(registry.maxConcurrentDownloads);
             return this;
         }
@@ -1192,6 +1203,17 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withParallelism(int parallelism) {
             registry.setParallelism(parallelism);
+            return this;
+        }
+
+        /**
+         * Set the executor service to use for parallel uploads/downloads. By default it uses a parallelism level given by withParallelism() and a fixed thread pool.
+         * Only uses for layers upload/download, not for manifest or index upload/download.
+         * @param executorService The executor service
+         * @return The builder
+         */
+        public Builder withExecutorService(ExecutorService executorService) {
+            registry.setExecutorService(executorService);
             return this;
         }
 
