@@ -32,6 +32,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -558,6 +559,9 @@ class RegistryWireMockTest {
     @Test
     void shouldRefreshExpiredToken(WireMockRuntimeInfo wmRuntimeInfo) {
 
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        Metrics.addRegistry(meterRegistry);
+
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
 
         // Return data from wiremock
@@ -586,11 +590,9 @@ class RegistryWireMockTest {
                         WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Insecure registry with a custom meter registry to track metrics
-        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(new BearerTokenProvider()) // Already bearer token
                 .withInsecure(true)
-                .withMeterRegistry(meterRegistry)
                 .build();
 
         ContainerRef containerRef =
@@ -616,6 +618,7 @@ class RegistryWireMockTest {
                         .mapToDouble(Counter::count)
                         .sum());
         TestUtils.dumpMetrics(meterRegistry);
+        TestUtils.dumpMetrics(Metrics.globalRegistry);
     }
 
     @Test

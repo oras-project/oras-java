@@ -23,8 +23,7 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import java.nio.file.Path;
 import land.oras.utils.Const;
 import land.oras.utils.ZotUnsecureContainer;
@@ -110,12 +109,8 @@ class DockerIoITCase {
     void shouldCopyTagToInternalRegistry() {
 
         // Source registry
-        MeterRegistry meterRegistry = new SimpleMeterRegistry();
-        Registry sourceRegistry = Registry.Builder.builder()
-                .withMeterRegistry(meterRegistry)
-                .withParallelism(3)
-                .defaults()
-                .build();
+        Registry sourceRegistry =
+                Registry.Builder.builder().withParallelism(3).defaults().build();
 
         // Copy to this internal registry
         Registry targetRegistry = Registry.Builder.builder()
@@ -133,9 +128,11 @@ class DockerIoITCase {
 
         assertEquals(
                 1.0,
-                meterRegistry.find(Const.METRIC_TOKEN_REFRESH).counters().stream()
+                Metrics.globalRegistry.find(Const.METRIC_TOKEN_REFRESH).counters().stream()
                         .mapToDouble(Counter::count)
                         .sum());
+
+        TestUtils.dumpMetrics(Metrics.globalRegistry);
     }
 
     @Test

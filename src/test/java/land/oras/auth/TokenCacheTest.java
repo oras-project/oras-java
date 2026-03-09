@@ -22,8 +22,13 @@ package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import land.oras.ContainerRef;
+import land.oras.TestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -40,7 +45,10 @@ class TokenCacheTest {
     }
 
     @Test
-    void shouldLooupWithGlobalScope() {
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldLookupWithGlobalScope() {
+        MeterRegistry meterRegistry = new SimpleMeterRegistry();
+        TokenCache.setMeterRegistry(meterRegistry);
         HttpClient.TokenResponse tokenResponse =
                 new HttpClient.TokenResponse("other-token", null, "dockerhub", 1, null);
         ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine:latest");
@@ -50,10 +58,22 @@ class TokenCacheTest {
                 tokenResponse,
                 TokenCache.get(Scopes.empty(containerRef, "dockerhub").withAddedGlobalScopes("aws")),
                 "Should retrieve the token before expiration");
+        TestUtils.dumpMetrics(meterRegistry);
+
+        // At least one hit
+        assertTrue(
+                meterRegistry.find("cache.gets").tags("result", "hit").functionCounters().stream()
+                                .mapToDouble(FunctionCounter::count)
+                                .sum()
+                        >= 1,
+                "Should have at least one cache hit");
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldAddAndRetrieveTokenThenExpiredIt() throws InterruptedException {
+        MeterRegistry meterRegistry = new SimpleMeterRegistry();
+        TokenCache.setMeterRegistry(meterRegistry);
         HttpClient.TokenResponse tokenResponse =
                 new HttpClient.TokenResponse("other-token", null, "dockerhub", 1, null);
         ContainerRef containerRef = ContainerRef.parse("docker.io/library/alpine0:latest");
@@ -62,6 +82,14 @@ class TokenCacheTest {
         assertEquals(tokenResponse, TokenCache.get(scopes), "Should retrieve the token before expiration");
         Thread.sleep(1500); // Wait for the token to expire
         assertNull(TokenCache.get(scopes), "Should return null after token expiration");
+        TestUtils.dumpMetrics(meterRegistry);
+        // At least one eviction
+        assertTrue(
+                meterRegistry.find("cache.evictions").functionCounters().stream()
+                                .mapToDouble(FunctionCounter::count)
+                                .sum()
+                        >= 1,
+                "Should have at least one eviction");
     }
 
     @Test

@@ -21,7 +21,8 @@
 package land.oras.auth;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.*;
@@ -37,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -108,7 +110,7 @@ public final class HttpClient {
         this.skipTlsVerify = false;
         this.builder.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_NONE));
         this.setTimeout(60);
-        this.meterRegistry = new SimpleMeterRegistry();
+        this.meterRegistry = Metrics.globalRegistry;
     }
 
     /**
@@ -533,7 +535,7 @@ public final class HttpClient {
 
             HttpRequest request = builder.build();
             logRequest(request, body);
-            HttpResponse<T> response = client.send(request, handler);
+            HttpResponse<T> response = executeAndRecordRequest(request, handler);
 
             // Follow redirect
             if (shouldRedirect(response)) {
@@ -565,6 +567,23 @@ public final class HttpClient {
         }
     }
 
+    private <T> HttpResponse<T> executeAndRecordRequest(HttpRequest request, HttpResponse.BodyHandler<T> handler)
+            throws Exception {
+        long start = System.nanoTime();
+        HttpResponse<T> response = client.send(request, handler);
+        long duration = System.nanoTime() - start;
+        Timer.builder(Const.METRIC_HTTP_REQUESTS)
+                .tag("method", request.method())
+                .tag("host", request.uri().getHost())
+                .tag("status", response != null ? String.valueOf(response.statusCode()) : "IO_ERROR")
+                .register(meterRegistry)
+                .record(duration, TimeUnit.NANOSECONDS);
+        if (response == null) {
+            throw new OrasException("No response received");
+        }
+        return response;
+    }
+
     private <T> String getLocationHeader(HttpResponse<T> response) {
         return response.headers()
                 .firstValue("Location")
@@ -593,7 +612,7 @@ public final class HttpClient {
             String service = token.service();
             try {
                 builder = builder.setHeader(Const.AUTHORIZATION_HEADER, "Bearer " + bearerToken);
-                HttpResponse<T> newResponse = client.send(builder.build(), handler);
+                HttpResponse<T> newResponse = executeAndRecordRequest(builder.build(), handler);
 
                 // Follow redirect
                 if (shouldRedirect(newResponse)) {
@@ -608,7 +627,9 @@ public final class HttpClient {
                     }
 
                     return toResponseWrapper(
-                            client.send(builder.uri(URI.create(location)).build(), handler), service);
+                            executeAndRecordRequest(
+                                    builder.uri(URI.create(location)).build(), handler),
+                            service);
                 }
                 return toResponseWrapper(newResponse, service);
 
@@ -763,7 +784,6 @@ public final class HttpClient {
 
         /**
          * Set the meter registry for metrics. Following Micrometer best practices for libraries,
-         * a {@link SimpleMeterRegistry} is used by default when no registry is provided.
          * @param meterRegistry The meter registry
          * @return The builder
          */

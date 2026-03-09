@@ -23,6 +23,9 @@ package land.oras.auth;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -34,6 +37,11 @@ import org.slf4j.LoggerFactory;
  */
 @NullMarked
 public final class TokenCache {
+
+    /**
+     * Use global registry by default
+     */
+    private static MeterRegistry meterRegistry = Metrics.globalRegistry;
 
     /**
      * Hard cache limit
@@ -53,35 +61,50 @@ public final class TokenCache {
     }
 
     /**
+     * The cache
+     */
+    private static final Cache<Scopes, HttpClient.TokenResponse> CACHE;
+
+    static {
+        CACHE = Caffeine.newBuilder()
+                .maximumSize(MAX_CACHE_SIZE)
+                .recordStats()
+                .expireAfter(new Expiry<Scopes, HttpClient.TokenResponse>() {
+                    @Override
+                    public long expireAfterCreate(Scopes key, HttpClient.TokenResponse token, long currentTime) {
+                        return getExpiration(token);
+                    }
+
+                    @Override
+                    public long expireAfterUpdate(
+                            Scopes key, HttpClient.TokenResponse token, long currentTime, long currentDuration) {
+                        return currentDuration;
+                    }
+
+                    @Override
+                    public long expireAfterRead(
+                            Scopes key, HttpClient.TokenResponse token, long currentTime, long currentDuration) {
+                        return currentDuration;
+                    }
+                })
+                .build();
+        CaffeineCacheMetrics.monitor(TokenCache.meterRegistry, CACHE, "land.oras.token.cache");
+    }
+
+    /**
      * Cache for storing service information based on the service URL. This is used to avoid redundant
      */
     private static final Cache<String, String> SERVICE_CACHE =
             Caffeine.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
 
     /**
-     * The cache
+     * Set the meter registry for monitoring the cache metrics
+     * @param meterRegistry the meter registry to use for monitoring the cache metrics
      */
-    private static final Cache<Scopes, HttpClient.TokenResponse> CACHE = Caffeine.newBuilder()
-            .maximumSize(MAX_CACHE_SIZE)
-            .expireAfter(new Expiry<Scopes, HttpClient.TokenResponse>() {
-                @Override
-                public long expireAfterCreate(Scopes key, HttpClient.TokenResponse token, long currentTime) {
-                    return getExpiration(token);
-                }
-
-                @Override
-                public long expireAfterUpdate(
-                        Scopes key, HttpClient.TokenResponse token, long currentTime, long currentDuration) {
-                    return currentDuration;
-                }
-
-                @Override
-                public long expireAfterRead(
-                        Scopes key, HttpClient.TokenResponse token, long currentTime, long currentDuration) {
-                    return currentDuration;
-                }
-            })
-            .build();
+    public static void setMeterRegistry(MeterRegistry meterRegistry) {
+        TokenCache.meterRegistry = meterRegistry;
+        CaffeineCacheMetrics.monitor(TokenCache.meterRegistry, CACHE, "land.oras.token.cache");
+    }
 
     /**
      * Put a token response in the cache with the associated scopes.

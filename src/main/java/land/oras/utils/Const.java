@@ -444,7 +444,12 @@ public final class Const {
     /**
      * Metric name for token refresh counter
      */
-    public static final String METRIC_TOKEN_REFRESH = "land_oras_auth_token_refresh_total";
+    public static final String METRIC_TOKEN_REFRESH = "land.oras.auth.token.refresh";
+
+    /**
+     * Metric name for HTTP request
+     */
+    public static final String METRIC_HTTP_REQUESTS = "http.client.requests";
 
     /**
      * Metric name for token refresh duration
