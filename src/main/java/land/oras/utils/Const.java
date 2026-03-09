@@ -440,4 +440,19 @@ public final class Const {
      * OCI Chunk Minimum Length header
      */
     public static final String OCI_CHUNK_MIN_LENGTH_HEADER = "OCI-Chunk-Min-Length";
+
+    /**
+     * Metric name for token refresh counter
+     */
+    public static final String METRIC_TOKEN_REFRESH = "land_oras_auth_token_refresh_total";
+
+    /**
+     * Metric name for token refresh duration
+     */
+    public static final String METRIC_TAG_SERVICE = "service";
+
+    /**
+     * Metric name for token refresh duration
+     */
+    public static final String METRIC_TAG_REALM = "realm";
 }

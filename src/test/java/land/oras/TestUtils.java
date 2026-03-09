@@ -20,15 +20,37 @@
 
 package land.oras;
 
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Several tests utils
  */
 public final class TestUtils {
+
+    /**
+     * Logger
+     */
+    private static final Logger LOG = LoggerFactory.getLogger(TestUtils.class);
+
+    /**
+     * Dump current metrics to console for debug purpose
+     * @param meterRegistry the meter registry to dump
+     */
+    public static void dumpMetrics(MeterRegistry meterRegistry) {
+        meterRegistry.getMeters().forEach(meter -> {
+            Meter.Id id = meter.getId();
+            LOG.info("{} {}", id.getName(), id.getTags());
+
+            meter.measure().forEach(ms -> LOG.info("  {}={}", ms.getStatistic(), ms.getValue()));
+        });
+    }
 
     /**
      * Create a registries.conf file in the given home directory with the given content.

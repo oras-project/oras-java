@@ -31,6 +31,8 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -584,8 +586,7 @@ class RegistryWireMockTest {
                         WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         // Insecure registry with a custom meter registry to track metrics
-        io.micrometer.core.instrument.simple.SimpleMeterRegistry meterRegistry =
-                new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(new BearerTokenProvider()) // Already bearer token
                 .withInsecure(true)
@@ -600,8 +601,21 @@ class RegistryWireMockTest {
         // Verify that exactly one token refresh was performed
         assertEquals(
                 1.0,
-                meterRegistry.counter(HttpClient.TOKEN_REFRESH_METRIC).count(),
+                meterRegistry
+                        .counter(
+                                Const.METRIC_TOKEN_REFRESH,
+                                Const.METRIC_TAG_SERVICE,
+                                "localhost",
+                                Const.METRIC_TAG_REALM,
+                                "http://localhost:%d/token".formatted(wmRuntimeInfo.getHttpPort()))
+                        .count(),
                 "Token refresh counter should be 1 after one token refresh");
+        assertEquals(
+                1.0,
+                meterRegistry.find(Const.METRIC_TOKEN_REFRESH).counters().stream()
+                        .mapToDouble(Counter::count)
+                        .sum());
+        TestUtils.dumpMetrics(meterRegistry);
     }
 
     @Test
