@@ -20,7 +20,6 @@
 
 package land.oras.auth;
 
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.FileNotFoundException;
@@ -69,11 +68,6 @@ public final class HttpClient {
     private static final Logger LOG = LoggerFactory.getLogger(HttpClient.class);
 
     /**
-     * Metric name for token refresh counter
-     */
-    public static final String TOKEN_REFRESH_METRIC = "oras.auth.token.refresh";
-
-    /**
      * The pattern for the WWW-Authenticate header value
      */
     private static final Pattern WWW_AUTH_VALUE_PATTERN =
@@ -103,12 +97,6 @@ public final class HttpClient {
      * The meter registry for metrics
      */
     private MeterRegistry meterRegistry;
-
-    /**
-     * Counter for token refreshes
-     */
-    private Counter tokenRefreshCounter;
-
     /**
      * Hidden constructor
      */
@@ -157,9 +145,6 @@ public final class HttpClient {
      */
     public HttpClient build() {
         this.client = this.builder.build();
-        this.tokenRefreshCounter = Counter.builder(TOKEN_REFRESH_METRIC)
-                .description("Number of token refreshes performed against the registry")
-                .register(meterRegistry);
         return this;
     }
 
@@ -463,7 +448,9 @@ public final class HttpClient {
         TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class)
                 .forService(service);
         TokenCache.put(newScopes, token);
-        tokenRefreshCounter.increment();
+        meterRegistry
+                .counter(Const.METRIC_TOKEN_REFRESH, Const.METRIC_TAG_SERVICE, service, Const.METRIC_TAG_REALM, realm)
+                .increment();
         return token;
     }
 
