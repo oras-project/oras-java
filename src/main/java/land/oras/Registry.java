@@ -21,6 +21,7 @@
 package land.oras;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -1260,7 +1261,7 @@ public final class Registry extends OCI<ContainerRef> {
 
         /**
          * Set the meter registry for metrics. Following Micrometer best practices for libraries,
-         * a {@link io.micrometer.core.instrument.simple.SimpleMeterRegistry} is used by default when no registry is provided.
+         * a {@link SimpleMeterRegistry} is used by default when no registry is provided.
          * @param meterRegistry The meter registry
          * @return The builder
          */
