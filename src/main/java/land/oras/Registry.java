@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -97,6 +98,11 @@ public final class Registry extends OCI<ContainerRef> {
      * Skip TLS verification
      */
     private boolean skipTlsVerify;
+
+    /**
+     * The meter registry for metrics
+     */
+    private @Nullable MeterRegistry meterRegistry;
 
     /**
      * Constructor
@@ -180,11 +186,23 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Set the meter registry for metrics
+     * @param meterRegistry The meter registry
+     */
+    private void setMeterRegistry(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+    }
+
+    /**
      * Build the provider
      * @return The provider
      */
     private Registry build() {
-        client = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify).build();
+        HttpClient.Builder clientBuilder = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify);
+        if (meterRegistry != null) {
+            clientBuilder = clientBuilder.withMeterRegistry(meterRegistry);
+        }
+        client = clientBuilder.build();
         if (executorService == null) {
             executorService = Executors.newFixedThreadPool(maxConcurrentDownloads, r -> {
                 Thread t = new Thread(r);
@@ -1120,6 +1138,9 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setSkipTlsVerify(registry.skipTlsVerify);
             this.registry.setExecutorService(registry.executorService);
             this.registry.setParallelism(registry.maxConcurrentDownloads);
+            if (registry.meterRegistry != null) {
+                this.registry.setMeterRegistry(registry.meterRegistry);
+            }
             return this;
         }
 
@@ -1234,6 +1255,17 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withSkipTlsVerify(boolean skipTlsVerify) {
             registry.setSkipTlsVerify(skipTlsVerify);
+            return this;
+        }
+
+        /**
+         * Set the meter registry for metrics. Following Micrometer best practices for libraries,
+         * a {@link io.micrometer.core.instrument.simple.SimpleMeterRegistry} is used by default when no registry is provided.
+         * @param meterRegistry The meter registry
+         * @return The builder
+         */
+        public Builder withMeterRegistry(MeterRegistry meterRegistry) {
+            registry.setMeterRegistry(meterRegistry);
             return this;
         }
 
