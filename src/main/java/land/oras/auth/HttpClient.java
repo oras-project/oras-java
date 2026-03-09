@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.*;
@@ -66,6 +69,11 @@ public final class HttpClient {
     private static final Logger LOG = LoggerFactory.getLogger(HttpClient.class);
 
     /**
+     * Metric name for token refresh counter
+     */
+    public static final String TOKEN_REFRESH_METRIC = "oras.auth.token.refresh";
+
+    /**
      * The pattern for the WWW-Authenticate header value
      */
     private static final Pattern WWW_AUTH_VALUE_PATTERN =
@@ -92,6 +100,16 @@ public final class HttpClient {
     private Integer timeout;
 
     /**
+     * The meter registry for metrics
+     */
+    private MeterRegistry meterRegistry;
+
+    /**
+     * Counter for token refreshes
+     */
+    private Counter tokenRefreshCounter;
+
+    /**
      * Hidden constructor
      */
     private HttpClient() {
@@ -102,6 +120,7 @@ public final class HttpClient {
         this.skipTlsVerify = false;
         this.builder.cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_NONE));
         this.setTimeout(60);
+        this.meterRegistry = new SimpleMeterRegistry();
     }
 
     /**
@@ -138,6 +157,9 @@ public final class HttpClient {
      */
     public HttpClient build() {
         this.client = this.builder.build();
+        this.tokenRefreshCounter = Counter.builder(TOKEN_REFRESH_METRIC)
+                .description("Number of token refreshes performed against the registry")
+                .register(meterRegistry);
         return this;
     }
 
@@ -441,6 +463,7 @@ public final class HttpClient {
         TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class)
                 .forService(service);
         TokenCache.put(newScopes, token);
+        tokenRefreshCounter.increment();
         return token;
     }
 
@@ -748,6 +771,17 @@ public final class HttpClient {
          */
         public Builder withSkipTlsVerify(boolean skipTlsVerify) {
             client.setTlsVerify(skipTlsVerify);
+            return this;
+        }
+
+        /**
+         * Set the meter registry for metrics. Following Micrometer best practices for libraries,
+         * a {@link SimpleMeterRegistry} is used by default when no registry is provided.
+         * @param meterRegistry The meter registry
+         * @return The builder
+         */
+        public Builder withMeterRegistry(MeterRegistry meterRegistry) {
+            client.meterRegistry = meterRegistry;
             return this;
         }
 

@@ -583,16 +583,25 @@ class RegistryWireMockTest {
                 .willReturn(
                         WireMock.ok().withBody("blob-data").withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
-        // Insecure registry
+        // Insecure registry with a custom meter registry to track metrics
+        io.micrometer.core.instrument.simple.SimpleMeterRegistry meterRegistry =
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(new BearerTokenProvider()) // Already bearer token
                 .withInsecure(true)
+                .withMeterRegistry(meterRegistry)
                 .build();
 
         ContainerRef containerRef =
                 ContainerRef.parse("localhost:%d/library/refresh-token".formatted(wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
+
+        // Verify that exactly one token refresh was performed
+        assertEquals(
+                1.0,
+                meterRegistry.counter(HttpClient.TOKEN_REFRESH_METRIC).count(),
+                "Token refresh counter should be 1 after one token refresh");
     }
 
     @Test
