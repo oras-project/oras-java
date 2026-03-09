@@ -32,6 +32,8 @@ import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
@@ -325,6 +327,8 @@ class RegistryTest {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldPushPullManifestsAndBlobsByUsingConfig(@TempDir Path homeDir) throws Exception {
 
+        ExecutorService customExecutor = Executors.newSingleThreadExecutor();
+
         // language=toml
         String config =
                 """
@@ -336,7 +340,9 @@ class RegistryTest {
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
-            Registry registry = Registry.Builder.builder().build(); // Use default
+            Registry registry = Registry.Builder.builder()
+                    .withExecutorService(customExecutor)
+                    .build();
             ContainerRef containerRef = ContainerRef.parse(
                     "%s/library/artifact-text-manifest-blobs".formatted(this.unsecureRegistry.getRegistry()));
 
@@ -370,6 +376,8 @@ class RegistryTest {
             registry.deleteManifest(containerRef);
             registry.deleteBlob(containerRef.withDigest(otherDigest));
         });
+
+        customExecutor.shutdown();
     }
 
     @Test
