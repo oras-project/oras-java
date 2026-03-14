@@ -670,9 +670,8 @@ public final class Registry extends OCI<ContainerRef> {
             LOG.info("Blob already exists: {}", digest);
             return true;
         }
-        String sourceRepository = sourceRef.getFullRepository();
         URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRepository)));
+                "%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 new byte[0],
@@ -681,15 +680,20 @@ public final class Registry extends OCI<ContainerRef> {
                 authProvider);
         logResponse(response);
         if (response.statusCode() == 201) {
-            LOG.info("Blob mounted successfully from {}: {}", sourceRepository, digest);
+            LOG.info("Blob mounted successfully from {}: {}", sourceRef.getFullRepository(), digest);
             return true;
         }
         if (response.statusCode() == 202) {
-            LOG.info("Mount not possible for blob {} from {}, upload required", digest, sourceRepository);
+            LOG.info("Mount not possible for blob {} from {}, upload required", digest, sourceRef.getFullRepository());
             return false;
         }
         handleError(response);
         return false;
+    }
+
+    @Override
+    public boolean canMount(OCI<?> other) {
+        return other instanceof Registry;
     }
 
     /**

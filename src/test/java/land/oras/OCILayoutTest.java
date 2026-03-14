@@ -1138,16 +1138,15 @@ class OCILayoutTest {
         // Mount blob into target layout
         OCILayout targetLayout = OCILayout.Builder.builder().defaults(targetPath).build();
         LayoutRef targetRef = LayoutRef.of(targetLayout, digest);
-        boolean mounted = targetLayout.mountBlob(targetRef, sourceRef);
+        targetLayout.mountBlob(targetRef, sourceRef);
 
         // Assert mount succeeded
-        assertTrue(mounted, "Blob should be mounted successfully");
         assertBlobExists(targetPath, digest);
         assertBlobContent(targetPath, digest, "mount-test-content");
     }
 
     @Test
-    void shouldMountBlobReturnTrueIfAlreadyExists() {
+    void shouldMountBlobIdempotentIfAlreadyExists() {
 
         Path layoutPathDir = layoutPath.resolve("shouldMountBlobExisting");
 
@@ -1161,13 +1160,12 @@ class OCILayoutTest {
         ociLayout.pushBlob(ref, content);
         assertBlobExists(layoutPathDir, digest);
 
-        // Mounting again should return true (already exists)
-        boolean mounted = ociLayout.mountBlob(ref, ref);
-        assertTrue(mounted, "Mount should return true when blob already exists");
+        // Mounting again should be a no-op (already exists)
+        assertDoesNotThrow(() -> ociLayout.mountBlob(ref, ref));
     }
 
     @Test
-    void shouldMountBlobReturnFalseWhenSourceNotFound() {
+    void shouldThrowWhenMountingBlobWithMissingSource() {
 
         Path sourcePath = layoutPath.resolve("mountMissingSource");
         Path targetPath = layoutPath.resolve("mountMissingTarget");
@@ -1180,9 +1178,8 @@ class OCILayoutTest {
         LayoutRef sourceRef = LayoutRef.of(sourceLayout, digest);
         LayoutRef targetRef = LayoutRef.of(targetLayout, digest);
 
-        // Mounting a non-existent blob should return false
-        boolean mounted = targetLayout.mountBlob(targetRef, sourceRef);
-        assertFalse(mounted, "Mount should return false when source blob does not exist");
+        // Mounting a non-existent blob should throw OrasException
+        assertThrows(OrasException.class, () -> targetLayout.mountBlob(targetRef, sourceRef));
         assertBlobAbsent(targetPath, digest);
     }
 }

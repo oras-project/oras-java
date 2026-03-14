@@ -286,8 +286,7 @@ public final class CopyUtils {
 
     /**
      * Attempt to mount a blob from source to target without downloading and re-uploading.
-     * Mounting is only attempted when source and target are the same OCI type and,
-     * for registries, when they share the same registry host.
+     * Mounting is only attempted when {@link #canMount(OCI, OCI)} returns {@code true}.
      * @param source The source OCI
      * @param sourceRef The source reference
      * @param target The target OCI
@@ -307,29 +306,24 @@ public final class CopyUtils {
                     OCI<TargetRefType> target,
                     TargetRefType targetRef,
                     String digest) {
-        // Registry-to-Registry mounting: only when pointing at the same registry host
-        if (source instanceof Registry sourceRegistry && target instanceof Registry targetRegistry) {
-            ContainerRef srcRef = (ContainerRef) sourceRef;
-            ContainerRef tgtRef = (ContainerRef) targetRef;
-            String sourceApiRegistry = srcRef.getApiRegistry(sourceRegistry);
-            String targetApiRegistry = tgtRef.getApiRegistry(targetRegistry);
-            if (sourceApiRegistry.equals(targetApiRegistry)) {
-                ContainerRef layerSrcRef = srcRef.withDigest(digest);
-                ContainerRef layerTgtRef = tgtRef.withDigest(digest);
-                LOG.debug("Attempting mount of {} from {} to {}", digest, srcRef.getFullRepository(),
-                        tgtRef.getFullRepository());
-                return targetRegistry.mountBlob(layerTgtRef, layerSrcRef);
-            }
+        if (!canMount(source, target)) {
+            return false;
         }
-        // OCILayout-to-OCILayout mounting: direct file copy between layouts
-        if (source instanceof OCILayout && target instanceof OCILayout targetLayout) {
-            LayoutRef srcRef = (LayoutRef) sourceRef;
-            LayoutRef tgtRef = (LayoutRef) targetRef;
-            LayoutRef layerSrcRef = srcRef.withDigest(digest);
-            LayoutRef layerTgtRef = tgtRef.withDigest(digest);
-            LOG.debug("Attempting mount of {} from {} to {}", digest, srcRef.getFolder(), tgtRef.getFolder());
-            return targetLayout.mountBlob(layerTgtRef, layerSrcRef);
-        }
-        return false;
+        // canMount guarantees source and target are the same OCI type, so the cast is safe
+        TargetRefType sourceDigestRef = (TargetRefType) sourceRef.withDigest(digest);
+        LOG.debug("Attempting mount of {} from {} to {}", digest, sourceRef.getRepository(), targetRef.getRepository());
+        return target.mountBlob(targetRef.withDigest(digest), sourceDigestRef);
+    }
+
+    /**
+     * Return whether mounting is supported between the given source and target OCI instances.
+     * This delegates to {@link OCI#canMount(OCI)} on the target so that each OCI implementation
+     * defines its own compatibility rules without {@link CopyUtils} needing to know about concrete types.
+     * @param source The source OCI instance
+     * @param target The target OCI instance
+     * @return {@code true} if the target supports mounting blobs from the source
+     */
+    private static boolean canMount(OCI<?> source, OCI<?> target) {
+        return target.canMount(source);
     }
 }

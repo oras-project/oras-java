@@ -401,6 +401,15 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract boolean mountBlob(T targetRef, T sourceRef);
 
     /**
+     * Return whether this OCI instance supports mounting blobs from the given source OCI instance.
+     * Implementations should return {@code true} only when mounting is viable, e.g. both are
+     * registries sharing the same host, or both are OCI layouts on the local filesystem.
+     * @param other The source OCI instance to check compatibility with
+     * @return {@code true} if mounting from {@code other} is supported
+     */
+    public abstract boolean canMount(OCI<?> other);
+
+    /**
      * Get the referrers of a container
      * @param ref The ref
      * @param artifactType The optional artifact type

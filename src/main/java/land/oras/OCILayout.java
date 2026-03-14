@@ -350,8 +350,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                 .resolve(algorithm.getPrefix())
                 .resolve(SupportedAlgorithm.getDigest(digest));
         if (!Files.exists(sourceBlobPath)) {
-            LOG.info("Source blob not found at {}, upload required", sourceBlobPath);
-            return false;
+            throw new OrasException("Source blob not found at: %s".formatted(sourceBlobPath));
         }
         try {
             Files.copy(sourceBlobPath, targetBlobPath);
@@ -360,6 +359,11 @@ public final class OCILayout extends OCI<LayoutRef> {
         } catch (IOException e) {
             throw new OrasException("Failed to mount blob", e);
         }
+    }
+
+    @Override
+    public boolean canMount(OCI<?> other) {
+        return other instanceof OCILayout;
     }
 
     @Override
