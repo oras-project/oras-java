@@ -549,7 +549,7 @@
               <configuration>
                 <rules>
                   <requireMavenVersion>
-                    <version>[3.9.13,)</version>
+                    <version>[3.9.14,)</version>
                   </requireMavenVersion>
                   <requireJavaVersion>
                     <version>[${maven.compiler.release},)</version>
