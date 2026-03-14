@@ -99,6 +99,7 @@ public final class CopyUtils {
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
+    @SuppressWarnings("unchecked")
     private static <
                     SourceRefType extends Ref<@NonNull SourceRefType>,
                     TargetRefType extends Ref<@NonNull TargetRefType>>
@@ -114,14 +115,18 @@ public final class CopyUtils {
                             Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
                             return CompletableFuture.runAsync(
                                     () -> {
-                                        if (!tryMountBlob(source, sourceRef, target, targetRef, layer.getDigest())) {
-                                            target.pushBlob(
-                                                    targetRef.withDigest(layer.getDigest()),
-                                                    layer.getSize(),
-                                                    () -> source.fetchBlob(
-                                                            sourceRef.withDigest(layer.getDigest())),
-                                                    layer.getAnnotations());
+                                        String digest = layer.getDigest();
+                                        if (target.canMount(source)
+                                                && target.mountBlob(
+                                                        targetRef.withDigest(digest),
+                                                        (TargetRefType) sourceRef.withDigest(digest))) {
+                                            return;
                                         }
+                                        target.pushBlob(
+                                                targetRef.withDigest(digest),
+                                                layer.getSize(),
+                                                () -> source.fetchBlob(sourceRef.withDigest(digest)),
+                                                layer.getAnnotations());
                                     },
                                     source.getExecutorService());
                         })
@@ -258,6 +263,7 @@ public final class CopyUtils {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private static <
                     SourceRefType extends Ref<@NonNull SourceRefType>,
                     TargetRefType extends Ref<@NonNull TargetRefType>>
@@ -274,56 +280,17 @@ public final class CopyUtils {
         Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
         TargetRefType configTargetRef =
                 targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest());
-        if (!tryMountBlob(source, sourceRef, target, targetRef, config.getDigest())) {
-            target.pushBlob(
-                    configTargetRef,
-                    config.getSize(),
-                    () -> source.pullConfig(sourceRef, manifest.getConfig()),
-                    config.getAnnotations());
+        if (target.canMount(source)
+                && target.mountBlob(
+                        configTargetRef, (TargetRefType) sourceRef.withDigest(config.getDigest()))) {
+            LOG.debug("Copied config {}", manifest.getConfig().getDigest());
+            return;
         }
+        target.pushBlob(
+                configTargetRef,
+                config.getSize(),
+                () -> source.pullConfig(sourceRef, manifest.getConfig()),
+                config.getAnnotations());
         LOG.debug("Copied config {}", manifest.getConfig().getDigest());
-    }
-
-    /**
-     * Attempt to mount a blob from source to target without downloading and re-uploading.
-     * Mounting is only attempted when {@link #canMount(OCI, OCI)} returns {@code true}.
-     * @param source The source OCI
-     * @param sourceRef The source reference
-     * @param target The target OCI
-     * @param targetRef The target reference
-     * @param digest The digest of the blob to mount
-     * @param <SourceRefType> The source reference type
-     * @param <TargetRefType> The target reference type
-     * @return {@code true} if the blob was successfully mounted, {@code false} if a regular upload is required
-     */
-    @SuppressWarnings("unchecked")
-    private static <
-                    SourceRefType extends Ref<@NonNull SourceRefType>,
-                    TargetRefType extends Ref<@NonNull TargetRefType>>
-            boolean tryMountBlob(
-                    OCI<SourceRefType> source,
-                    SourceRefType sourceRef,
-                    OCI<TargetRefType> target,
-                    TargetRefType targetRef,
-                    String digest) {
-        if (!canMount(source, target)) {
-            return false;
-        }
-        // canMount guarantees source and target are the same OCI type, so the cast is safe
-        TargetRefType sourceDigestRef = (TargetRefType) sourceRef.withDigest(digest);
-        LOG.debug("Attempting mount of {} from {} to {}", digest, sourceRef.getRepository(), targetRef.getRepository());
-        return target.mountBlob(targetRef.withDigest(digest), sourceDigestRef);
-    }
-
-    /**
-     * Return whether mounting is supported between the given source and target OCI instances.
-     * This delegates to {@link OCI#canMount(OCI)} on the target so that each OCI implementation
-     * defines its own compatibility rules without {@link CopyUtils} needing to know about concrete types.
-     * @param source The source OCI instance
-     * @param target The target OCI instance
-     * @return {@code true} if the target supports mounting blobs from the source
-     */
-    private static boolean canMount(OCI<?> source, OCI<?> target) {
-        return target.canMount(source);
     }
 }
