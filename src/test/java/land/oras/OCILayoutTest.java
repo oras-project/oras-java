@@ -1130,13 +1130,15 @@ class OCILayoutTest {
         String digest = SupportedAlgorithm.SHA256.digest(content);
 
         // Push blob to source layout
-        OCILayout sourceLayout = OCILayout.Builder.builder().defaults(sourcePath).build();
+        OCILayout sourceLayout =
+                OCILayout.Builder.builder().defaults(sourcePath).build();
         LayoutRef sourceRef = LayoutRef.of(sourceLayout, digest);
         sourceLayout.pushBlob(sourceRef, content);
         assertBlobExists(sourcePath, digest);
 
         // Mount blob into target layout
-        OCILayout targetLayout = OCILayout.Builder.builder().defaults(targetPath).build();
+        OCILayout targetLayout =
+                OCILayout.Builder.builder().defaults(targetPath).build();
         LayoutRef targetRef = LayoutRef.of(targetLayout, digest);
         targetLayout.mountBlob(targetRef, sourceRef);
 
@@ -1153,7 +1155,8 @@ class OCILayoutTest {
         byte[] content = "existing-blob".getBytes(StandardCharsets.UTF_8);
         String digest = SupportedAlgorithm.SHA256.digest(content);
 
-        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPathDir).build();
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutPathDir).build();
         LayoutRef ref = LayoutRef.of(ociLayout, digest);
 
         // Push blob first
@@ -1172,8 +1175,10 @@ class OCILayoutTest {
 
         String digest = "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
-        OCILayout sourceLayout = OCILayout.Builder.builder().defaults(sourcePath).build();
-        OCILayout targetLayout = OCILayout.Builder.builder().defaults(targetPath).build();
+        OCILayout sourceLayout =
+                OCILayout.Builder.builder().defaults(sourcePath).build();
+        OCILayout targetLayout =
+                OCILayout.Builder.builder().defaults(targetPath).build();
 
         LayoutRef sourceRef = LayoutRef.of(sourceLayout, digest);
         LayoutRef targetRef = LayoutRef.of(targetLayout, digest);

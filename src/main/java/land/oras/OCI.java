@@ -395,10 +395,9 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * For an {@link OCILayout}, this copies the blob from the source layout folder.
      * @param targetRef The target reference containing the digest to mount
      * @param sourceRef The source reference containing the source repository or layout path
-     * @return {@code true} if the blob was successfully mounted without a full upload,
-     *         {@code false} if mounting failed and a regular upload is required
+     * @throws land.oras.exception.OrasException if mounting fails
      */
-    public abstract boolean mountBlob(T targetRef, T sourceRef);
+    public abstract void mountBlob(T targetRef, T sourceRef);
 
     /**
      * Return whether this OCI instance supports mounting blobs from the given source OCI instance.

@@ -657,21 +657,21 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     @Override
-    public boolean mountBlob(ContainerRef targetRef, ContainerRef sourceRef) {
+    public void mountBlob(ContainerRef targetRef, ContainerRef sourceRef) {
         String digest = targetRef.getDigest();
         if (digest == null) {
             throw new OrasException("Digest is required to mount blob");
         }
         ContainerRef ref = targetRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().mountBlob(targetRef, sourceRef);
+            asInsecure().mountBlob(targetRef, sourceRef);
+            return;
         }
         if (hasBlob(ref)) {
             LOG.info("Blob already exists: {}", digest);
-            return true;
+            return;
         }
-        URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 new byte[0],
@@ -681,19 +681,27 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(response);
         if (response.statusCode() == 201) {
             LOG.info("Blob mounted successfully from {}: {}", sourceRef.getFullRepository(), digest);
-            return true;
+            return;
         }
         if (response.statusCode() == 202) {
-            LOG.info("Mount not possible for blob {} from {}, upload required", digest, sourceRef.getFullRepository());
-            return false;
+            throw new OrasException(
+                    "Mount not supported for blob %s from %s".formatted(digest, sourceRef.getFullRepository()));
         }
         handleError(response);
-        return false;
     }
 
     @Override
     public boolean canMount(OCI<?> other) {
-        return other instanceof Registry;
+        if (!(other instanceof Registry otherRegistry)) {
+            return false;
+        }
+        // Both registries must have an explicit host configured; if null, the host is
+        // determined per-request from the ContainerRef and cannot be compared statically.
+        if (this.registry == null || otherRegistry.registry == null) {
+            return false;
+        }
+        return Objects.equals(this.registry, otherRegistry.registry)
+                && Objects.equals(this.authProvider, otherRegistry.authProvider);
     }
 
     /**

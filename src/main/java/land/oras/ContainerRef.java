@@ -387,9 +387,11 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/uploads/?mount=%s&from=%s".formatted(
-                getApiPrefix(registry), digest,
-                URLEncoder.encode(sourceRef.getFullRepository(registry), StandardCharsets.UTF_8));
+        return "%s/blobs/uploads/?mount=%s&from=%s"
+                .formatted(
+                        getApiPrefix(registry),
+                        digest,
+                        URLEncoder.encode(sourceRef.getFullRepository(registry), StandardCharsets.UTF_8));
     }
 
     /**

@@ -33,6 +33,16 @@ public final class NoAuthProvider implements AuthProvider {
     public NoAuthProvider() {}
 
     @Override
+    public boolean equals(Object obj) {
+        return obj instanceof NoAuthProvider;
+    }
+
+    @Override
+    public int hashCode() {
+        return NoAuthProvider.class.hashCode();
+    }
+
+    @Override
     public String getAuthHeader(ContainerRef registry) {
         return null;
     }

@@ -116,10 +116,9 @@ public final class CopyUtils {
                             return CompletableFuture.runAsync(
                                     () -> {
                                         String digest = layer.getDigest();
-                                        if (target.canMount(source)
-                                                && target.mountBlob(
-                                                        targetRef.withDigest(digest),
-                                                        (TargetRefType) sourceRef.withDigest(digest))) {
+                                        if (target.canMount(source)) {
+                                            target.mountBlob(targetRef.withDigest(digest), (TargetRefType)
+                                                    sourceRef.withDigest(digest));
                                             return;
                                         }
                                         target.pushBlob(
@@ -280,9 +279,8 @@ public final class CopyUtils {
         Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
         TargetRefType configTargetRef =
                 targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest());
-        if (target.canMount(source)
-                && target.mountBlob(
-                        configTargetRef, (TargetRefType) sourceRef.withDigest(config.getDigest()))) {
+        if (target.canMount(source)) {
+            target.mountBlob(configTargetRef, (TargetRefType) sourceRef.withDigest(config.getDigest()));
             LOG.debug("Copied config {}", manifest.getConfig().getDigest());
             return;
         }

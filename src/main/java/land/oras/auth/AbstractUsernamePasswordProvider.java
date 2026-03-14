@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Objects;
 import land.oras.ContainerRef;
 import org.jspecify.annotations.NonNull;
 
@@ -62,6 +65,20 @@ public abstract sealed class AbstractUsernamePasswordProvider implements AuthPro
      */
     public String getPassword() {
         return password;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof AbstractUsernamePasswordProvider other)) return false;
+        return Objects.equals(username, other.username)
+                && MessageDigest.isEqual(
+                        password.getBytes(StandardCharsets.UTF_8), other.password.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(username, password);
     }
 
     @Override
