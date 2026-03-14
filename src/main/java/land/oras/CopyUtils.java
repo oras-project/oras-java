@@ -113,11 +113,16 @@ public final class CopyUtils {
                             Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
                             Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
                             return CompletableFuture.runAsync(
-                                    () -> target.pushBlob(
-                                            targetRef.withDigest(layer.getDigest()),
-                                            layer.getSize(),
-                                            () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
-                                            layer.getAnnotations()),
+                                    () -> {
+                                        if (!tryMountBlob(source, sourceRef, target, targetRef, layer.getDigest())) {
+                                            target.pushBlob(
+                                                    targetRef.withDigest(layer.getDigest()),
+                                                    layer.getSize(),
+                                                    () -> source.fetchBlob(
+                                                            sourceRef.withDigest(layer.getDigest())),
+                                                    layer.getAnnotations());
+                                        }
+                                    },
                                     source.getExecutorService());
                         })
                         .toArray(CompletableFuture[]::new))
@@ -267,11 +272,64 @@ public final class CopyUtils {
         Config config = manifest.getConfig();
         Objects.requireNonNull(config.getDigest(), "Config digest is required for streaming copy");
         Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
-        target.pushBlob(
-                targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest()),
-                config.getSize(),
-                () -> source.pullConfig(sourceRef, manifest.getConfig()),
-                config.getAnnotations());
+        TargetRefType configTargetRef =
+                targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest());
+        if (!tryMountBlob(source, sourceRef, target, targetRef, config.getDigest())) {
+            target.pushBlob(
+                    configTargetRef,
+                    config.getSize(),
+                    () -> source.pullConfig(sourceRef, manifest.getConfig()),
+                    config.getAnnotations());
+        }
         LOG.debug("Copied config {}", manifest.getConfig().getDigest());
+    }
+
+    /**
+     * Attempt to mount a blob from source to target without downloading and re-uploading.
+     * Mounting is only attempted when source and target are the same OCI type and,
+     * for registries, when they share the same registry host.
+     * @param source The source OCI
+     * @param sourceRef The source reference
+     * @param target The target OCI
+     * @param targetRef The target reference
+     * @param digest The digest of the blob to mount
+     * @param <SourceRefType> The source reference type
+     * @param <TargetRefType> The target reference type
+     * @return {@code true} if the blob was successfully mounted, {@code false} if a regular upload is required
+     */
+    @SuppressWarnings("unchecked")
+    private static <
+                    SourceRefType extends Ref<@NonNull SourceRefType>,
+                    TargetRefType extends Ref<@NonNull TargetRefType>>
+            boolean tryMountBlob(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef,
+                    String digest) {
+        // Registry-to-Registry mounting: only when pointing at the same registry host
+        if (source instanceof Registry sourceRegistry && target instanceof Registry targetRegistry) {
+            ContainerRef srcRef = (ContainerRef) sourceRef;
+            ContainerRef tgtRef = (ContainerRef) targetRef;
+            String sourceApiRegistry = srcRef.getApiRegistry(sourceRegistry);
+            String targetApiRegistry = tgtRef.getApiRegistry(targetRegistry);
+            if (sourceApiRegistry.equals(targetApiRegistry)) {
+                ContainerRef layerSrcRef = srcRef.withDigest(digest);
+                ContainerRef layerTgtRef = tgtRef.withDigest(digest);
+                LOG.debug("Attempting mount of {} from {} to {}", digest, srcRef.getFullRepository(),
+                        tgtRef.getFullRepository());
+                return targetRegistry.mountBlob(layerTgtRef, layerSrcRef);
+            }
+        }
+        // OCILayout-to-OCILayout mounting: direct file copy between layouts
+        if (source instanceof OCILayout && target instanceof OCILayout targetLayout) {
+            LayoutRef srcRef = (LayoutRef) sourceRef;
+            LayoutRef tgtRef = (LayoutRef) targetRef;
+            LayoutRef layerSrcRef = srcRef.withDigest(digest);
+            LayoutRef layerTgtRef = tgtRef.withDigest(digest);
+            LOG.debug("Attempting mount of {} from {} to {}", digest, srcRef.getFolder(), tgtRef.getFolder());
+            return targetLayout.mountBlob(layerTgtRef, layerSrcRef);
+        }
+        return false;
     }
 }

@@ -389,6 +389,18 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Layer pushBlob(T ref, byte[] data);
 
     /**
+     * Mount a blob from another repository in the same OCI target.
+     * For a {@link Registry}, this uses the cross-repository blob mounting endpoint
+     * ({@code POST /v2/<name>/blobs/uploads/?mount=<digest>&from=<other_name>}).
+     * For an {@link OCILayout}, this copies the blob from the source layout folder.
+     * @param targetRef The target reference containing the digest to mount
+     * @param sourceRef The source reference containing the source repository or layout path
+     * @return {@code true} if the blob was successfully mounted without a full upload,
+     *         {@code false} if mounting failed and a regular upload is required
+     */
+    public abstract boolean mountBlob(T targetRef, T sourceRef);
+
+    /**
      * Get the referrers of a container
      * @param ref The ref
      * @param artifactType The optional artifact type

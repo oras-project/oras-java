@@ -378,6 +378,20 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Return the blobs mount URL for cross-repository blob mounting
+     * @param registry The registry
+     * @param sourceRepository The source repository to mount the blob from
+     * @return The blobs mount URL
+     */
+    public String getBlobsMountPath(Registry registry, String sourceRepository) {
+        if (digest == null) {
+            throw new OrasException("You are required to include a digest");
+        }
+        return "%s/blobs/uploads/?mount=%s&from=%s".formatted(
+                getApiPrefix(registry), digest, URLEncoder.encode(sourceRepository, StandardCharsets.UTF_8));
+    }
+
+    /**
      * Return the blobs URL
      * @param registry The registry
      * @return The blobs URL

@@ -656,6 +656,42 @@ public final class Registry extends OCI<ContainerRef> {
         return Layer.fromData(ref, data);
     }
 
+    @Override
+    public boolean mountBlob(ContainerRef targetRef, ContainerRef sourceRef) {
+        String digest = targetRef.getDigest();
+        if (digest == null) {
+            throw new OrasException("Digest is required to mount blob");
+        }
+        ContainerRef ref = targetRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().mountBlob(targetRef, sourceRef);
+        }
+        if (hasBlob(ref)) {
+            LOG.info("Blob already exists: {}", digest);
+            return true;
+        }
+        String sourceRepository = sourceRef.getFullRepository();
+        URI uri = URI.create(
+                "%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRepository)));
+        HttpClient.ResponseWrapper<String> response = client.post(
+                uri,
+                new byte[0],
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
+                Scopes.of(ref),
+                authProvider);
+        logResponse(response);
+        if (response.statusCode() == 201) {
+            LOG.info("Blob mounted successfully from {}: {}", sourceRepository, digest);
+            return true;
+        }
+        if (response.statusCode() == 202) {
+            LOG.info("Mount not possible for blob {} from {}, upload required", digest, sourceRepository);
+            return false;
+        }
+        handleError(response);
+        return false;
+    }
+
     /**
      * Return if the registry contains already the blob
      * @param containerRef The container

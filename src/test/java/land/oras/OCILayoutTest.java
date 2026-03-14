@@ -1119,4 +1119,70 @@ class OCILayoutTest {
                         .resolve(SupportedAlgorithm.getDigest(digest))),
                 "Expect blob content to match");
     }
+
+    @Test
+    void shouldMountBlobFromAnotherLayout() throws IOException {
+
+        Path sourcePath = layoutPath.resolve("shouldMountBlobSource");
+        Path targetPath = layoutPath.resolve("shouldMountBlobTarget");
+
+        byte[] content = "mount-test-content".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA256.digest(content);
+
+        // Push blob to source layout
+        OCILayout sourceLayout = OCILayout.Builder.builder().defaults(sourcePath).build();
+        LayoutRef sourceRef = LayoutRef.of(sourceLayout, digest);
+        sourceLayout.pushBlob(sourceRef, content);
+        assertBlobExists(sourcePath, digest);
+
+        // Mount blob into target layout
+        OCILayout targetLayout = OCILayout.Builder.builder().defaults(targetPath).build();
+        LayoutRef targetRef = LayoutRef.of(targetLayout, digest);
+        boolean mounted = targetLayout.mountBlob(targetRef, sourceRef);
+
+        // Assert mount succeeded
+        assertTrue(mounted, "Blob should be mounted successfully");
+        assertBlobExists(targetPath, digest);
+        assertBlobContent(targetPath, digest, "mount-test-content");
+    }
+
+    @Test
+    void shouldMountBlobReturnTrueIfAlreadyExists() {
+
+        Path layoutPathDir = layoutPath.resolve("shouldMountBlobExisting");
+
+        byte[] content = "existing-blob".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA256.digest(content);
+
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPathDir).build();
+        LayoutRef ref = LayoutRef.of(ociLayout, digest);
+
+        // Push blob first
+        ociLayout.pushBlob(ref, content);
+        assertBlobExists(layoutPathDir, digest);
+
+        // Mounting again should return true (already exists)
+        boolean mounted = ociLayout.mountBlob(ref, ref);
+        assertTrue(mounted, "Mount should return true when blob already exists");
+    }
+
+    @Test
+    void shouldMountBlobReturnFalseWhenSourceNotFound() {
+
+        Path sourcePath = layoutPath.resolve("mountMissingSource");
+        Path targetPath = layoutPath.resolve("mountMissingTarget");
+
+        String digest = "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+        OCILayout sourceLayout = OCILayout.Builder.builder().defaults(sourcePath).build();
+        OCILayout targetLayout = OCILayout.Builder.builder().defaults(targetPath).build();
+
+        LayoutRef sourceRef = LayoutRef.of(sourceLayout, digest);
+        LayoutRef targetRef = LayoutRef.of(targetLayout, digest);
+
+        // Mounting a non-existent blob should return false
+        boolean mounted = targetLayout.mountBlob(targetRef, sourceRef);
+        assertFalse(mounted, "Mount should return false when source blob does not exist");
+        assertBlobAbsent(targetPath, digest);
+    }
 }

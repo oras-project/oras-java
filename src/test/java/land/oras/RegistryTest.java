@@ -1863,4 +1863,51 @@ class RegistryTest {
         Files.delete(largeFile);
         registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
     }
+
+    @Test
+    void shouldMountBlobFromAnotherRepository() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Push a blob to source repository
+        String content = "hello-mount";
+        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA256.digest(contentBytes);
+        ContainerRef sourceRef = ContainerRef.parse(
+                "%s/library/mount-source@%s".formatted(this.registry.getRegistry(), digest));
+        registry.pushBlob(sourceRef, contentBytes);
+
+        // Mount the blob into a different repository on the same registry
+        ContainerRef targetRef = ContainerRef.parse(
+                "%s/library/mount-target@%s".formatted(this.registry.getRegistry(), digest));
+        boolean mounted = registry.mountBlob(targetRef, sourceRef);
+
+        // Mounting should succeed on Zot registry
+        assertTrue(mounted, "Blob should be mounted successfully");
+
+        // Verify the blob is now accessible in the target repository
+        byte[] blobContent = registry.getBlob(targetRef);
+        assertEquals(content, new String(blobContent, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void shouldMountBlobReturnFalseWhenMountNotPossible() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        // Try to mount a non-existent blob
+        String digest = "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        ContainerRef sourceRef = ContainerRef.parse(
+                "%s/library/nonexistent-source@%s".formatted(this.registry.getRegistry(), digest));
+        ContainerRef targetRef = ContainerRef.parse(
+                "%s/library/mount-fallback-target@%s".formatted(this.registry.getRegistry(), digest));
+
+        // Should return false when mount is not possible (source doesn't exist)
+        boolean mounted = registry.mountBlob(targetRef, sourceRef);
+        assertFalse(mounted, "Mount should fail when source blob does not exist");
+    }
 }
