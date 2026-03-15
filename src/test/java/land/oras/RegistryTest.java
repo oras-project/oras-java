@@ -251,6 +251,31 @@ class RegistryTest {
     }
 
     @Test
+    void shouldCheckIfCanMount() {
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
+                .build();
+        Registry otherRegistry = Registry.builder()
+                .insecure("localhost:8080", "myuser", "myuser")
+                .build();
+        Registry otherAuth = Registry.builder()
+                .insecure(this.registry.getRegistry(), "bar", "foo")
+                .build();
+        byte[] content = "foo".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.getDefault().digest(content);
+        long size = content.length;
+        InputStream stream = new ByteArrayInputStream(content);
+        ContainerRef containerRef = ContainerRef.parse("library/artifact-mount").withDigest(digest);
+        registry.pushBlob(containerRef, size, () -> stream, Map.of());
+        assertTrue(registry.canMount(registry, containerRef, containerRef), "Should mount same reference");
+        assertFalse(
+                registry.canMount(otherRegistry, containerRef, containerRef), "Should not mount if different registry");
+        assertFalse(
+                registry.canMount(otherAuth, containerRef, containerRef),
+                "Should not mount if different authentication");
+    }
+
+    @Test
     void shouldPushAndGetBlobThenDeleteWithSha256() {
         Registry registry = Registry.Builder.builder()
                 .defaults("myuser", "mypass")

@@ -314,6 +314,32 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
+     * Return the blobs mount URL for cross-repository blob mounting
+     * @param sourceRef The source container reference to mount the blob from
+     * @return The blobs mount URL
+     */
+    public String getBlobsMountPath(ContainerRef sourceRef) {
+        return getBlobsMountPath(null, sourceRef);
+    }
+
+    /**
+     * Return the blobs mount URL for cross-repository blob mounting
+     * @param registry The registry
+     * @param sourceRef The source container reference to mount the blob from
+     * @return The blobs mount URL
+     */
+    public String getBlobsMountPath(@Nullable Registry registry, ContainerRef sourceRef) {
+        if (digest == null) {
+            throw new OrasException("You are required to include a digest");
+        }
+        return "%s/blobs/uploads/?mount=%s&from=%s"
+                .formatted(
+                        getApiPrefix(registry),
+                        digest,
+                        URLEncoder.encode(sourceRef.getFullRepository(registry), StandardCharsets.UTF_8));
+    }
+
+    /**
      * Return the referrers URL for this container referrer
      * @param artifactType The optional artifact type
      * @param registry The optional registry

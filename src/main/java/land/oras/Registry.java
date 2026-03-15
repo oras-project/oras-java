@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,38 @@ public final class Registry extends OCI<ContainerRef> {
         this.authProvider = new NoAuthProvider();
         this.client = HttpClient.Builder.builder().build();
         this.registriesConf = RegistriesConf.newConf();
+    }
+
+    @Override
+    public boolean canMount(OCI<?> other, ContainerRef sourceRef, ContainerRef targetRef) {
+        if (!(other instanceof Registry otherRegistry)) {
+            LOG.debug("Other OCI is not a registry, cannot mount");
+            return false;
+        }
+        // Not the same registry
+        String effectiveSourceRegistry = sourceRef.getEffectiveRegistry(this);
+        String effectiveTargetRegistry = targetRef.getEffectiveRegistry(otherRegistry);
+        if (!effectiveSourceRegistry.equals(effectiveTargetRegistry)) {
+            LOG.debug(
+                    "Cannot mount blob from registry {} to registry {}",
+                    effectiveSourceRegistry,
+                    effectiveTargetRegistry);
+            return false;
+        }
+        // Not the same auth
+        String authHeaderSource = authProvider.getAuthHeader(sourceRef);
+        String authHeaderTarget = otherRegistry.authProvider.getAuthHeader(targetRef);
+        if (!(authHeaderSource == authHeaderTarget
+                || (authHeaderSource != null
+                        && authHeaderTarget != null
+                        && MessageDigest.isEqual(
+                                authHeaderSource.getBytes(StandardCharsets.UTF_8),
+                                authHeaderTarget.getBytes(StandardCharsets.UTF_8))))) {
+            LOG.debug("Authentication is different between source and target registry, cannot mount");
+            return false;
+        }
+        LOG.debug("Blob can be mounted from registry {} to registry {}", sourceRef, targetRef);
+        return true;
     }
 
     /**

@@ -263,6 +263,9 @@ class ContainerRefTest {
         assertEquals("alpine", containerRef.getRepository());
         assertEquals("latest", containerRef.getTag());
         assertEquals("sha256:1234567890abcdef", containerRef.getDigest());
+        assertEquals(
+                "demo.goharbor.com/v2/alpine/blobs/uploads/?mount=sha256:1234567890abcdef&from=alpine",
+                containerRef.getBlobsMountPath(containerRef));
     }
 
     @Test
