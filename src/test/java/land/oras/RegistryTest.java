@@ -284,6 +284,54 @@ class RegistryTest {
     }
 
     @Test
+    void shouldMountWithInsecureRegistry(@TempDir Path homeDir) throws Exception {
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder()
+                    .defaults(this.unsecureRegistry.getRegistry())
+                    .build();
+
+            byte[] content = "foo".getBytes(StandardCharsets.UTF_8);
+            String digest = SupportedAlgorithm.getDefault().digest(content);
+            ContainerRef sourceRef = ContainerRef.parse("library/artifact-mount-insecure-source");
+            ContainerRef targetRef = ContainerRef.parse("library/artifact-mount-insecure-target");
+            Layer layer = registry.pushBlob(sourceRef.withDigest(digest), content);
+            registry.mountBlob(sourceRef.withDigest(digest), targetRef.withDigest(digest));
+
+            // Ensure we can reference from both artifact
+            Manifest manifestSource = Manifest.empty().withLayers(List.of(layer));
+            Manifest manifestTarget = Manifest.empty().withLayers(List.of(layer));
+
+            // Push the empty config
+            registry.pushConfig(sourceRef, Config.empty());
+
+            // Mount also the config
+            String configDigest = Config.empty().getDigest();
+            assertNotNull(configDigest, "Config digest should not be null");
+            registry.mountBlob(sourceRef.withDigest(configDigest), targetRef.withDigest(configDigest));
+
+            registry.pushManifest(sourceRef, manifestSource);
+            registry.pushManifest(targetRef, manifestTarget);
+            assertThrows(
+                    OrasException.class,
+                    () -> {
+                        registry.mountBlob(sourceRef, targetRef.withDigest(configDigest));
+                    },
+                    "Missing digest");
+        });
+    }
+
+    @Test
     void shouldMount() {
         Registry registry = Registry.builder()
                 .insecure(this.registry.getRegistry(), "myuser", "mypass")

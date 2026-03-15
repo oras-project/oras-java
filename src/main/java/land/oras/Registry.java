@@ -155,7 +155,7 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = targetRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().mountBlob(targetRef, sourceRef);
+            return asInsecure().mountBlob(sourceRef, targetRef);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
         HttpClient.ResponseWrapper<String> response = client.post(
