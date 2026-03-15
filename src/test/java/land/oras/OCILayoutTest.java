@@ -900,7 +900,7 @@ class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse("%s:the-tag".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/image-no-index".formatted(this.registry.getRegistry()));
@@ -963,7 +963,7 @@ class OCILayoutTest {
         Index index = Index.fromPath(layoutPath.resolve(Const.OCI_LAYOUT_INDEX));
 
         // Check latest tag
-        assertEquals("latest", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
+        assertEquals("the-tag", index.getManifests().get(0).getAnnotations().get(Const.ANNOTATION_REF));
     }
 
     @Test
@@ -978,7 +978,7 @@ class OCILayoutTest {
 
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutPathIndex).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayout.getPath()));
 
         ContainerRef containerRef =
                 ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));

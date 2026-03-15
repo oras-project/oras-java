@@ -97,7 +97,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
             boolean unqualified,
             @Nullable String namespace,
             String repository,
-            String tag,
+            @Nullable String tag,
             @Nullable String digest) {
         super(tag);
         this.unqualified = unqualified;
@@ -210,7 +210,8 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     @Override
     public ContainerRef withDigest(String digest) {
-        return new ContainerRef(registry, unqualified, namespace, repository, tag, digest);
+        // Ensure to set tag to null when setting digest
+        return new ContainerRef(registry, unqualified, namespace, repository, null, digest);
     }
 
     /**
