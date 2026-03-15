@@ -74,7 +74,7 @@ public final class CopyUtils {
      * @param sourceRef The source reference
      * @param target The target OCI
      * @param targetRef The target reference
-     * @param recursive Copy refferers
+     * @param recursive Copy referers
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
@@ -185,7 +185,7 @@ public final class CopyUtils {
 
             // Write manifest as any blob
             Manifest manifest = source.getManifest(effectiveSourceRef);
-            String tag = effectiveSourceRef.getTag();
+            String targetTag = effectiveTargetRef.getTag();
 
             Objects.requireNonNull(manifest.getDigest(), "Manifest digest is required for streaming copy");
 
@@ -194,8 +194,8 @@ public final class CopyUtils {
 
             // Push the manifest
             LOG.debug("Copying manifest {}", manifestDigest);
-            target.pushManifest(effectiveTargetRef.withDigest(tag), manifest);
-            LOG.debug("Copied manifest {}", manifestDigest);
+            target.pushManifest(effectiveTargetRef.withDigest(targetTag), manifest);
+            LOG.debug("Copied manifest {} with tag {}", manifestDigest, targetTag);
 
             if (includeReferrers) {
                 LOG.debug("Including referrers on copy of manifest {}", manifestDigest);
@@ -206,7 +206,7 @@ public final class CopyUtils {
                             source,
                             effectiveSourceRef.withDigest(referer.getDigest()),
                             target,
-                            effectiveTargetRef,
+                            effectiveTargetRef.withDigest(referer.getDigest()),
                             options);
                 }
             } else {
@@ -218,7 +218,7 @@ public final class CopyUtils {
         else if (source.isIndexMediaType(contentType)) {
 
             Index index = source.getIndex(effectiveSourceRef);
-            String tag = effectiveSourceRef.getTag();
+            String targetTag = effectiveTargetRef.getTag();
 
             // Write all manifests and their config
             for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
@@ -260,8 +260,8 @@ public final class CopyUtils {
             }
 
             LOG.debug("Copying index {}", manifestDigest);
-            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(tag), index);
-            LOG.debug("Copied index {} with tag {}", pushedIndex, tag);
+            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(targetTag), index);
+            LOG.debug("Copied index {} with tag {}", pushedIndex, targetTag);
 
         } else {
             throw new OrasException("Unsupported content type: %s".formatted(contentType));

@@ -1090,7 +1090,7 @@ class RegistryTest {
         assertNotNull(index1.getDescriptor(), "Index 1 descriptor should not be null");
 
         Index index2 = Index.fromManifests(List.of(manifest2.getDescriptor(), index1.getDescriptor()));
-        index2 = registry.pushIndex(containerSource.withTag("index2"), index2);
+        registry.pushIndex(containerSource.withTag("index2"), index2);
 
         // Copy to other registry
         ContainerRef containerTarget =
@@ -1163,7 +1163,37 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/artifact-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse("%s/library/artifact-source:foo".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("source.txt");
+        Files.writeString(file1, "foobar");
+
+        // Push
+        Manifest manifest = registry.pushArtifact(containerSource, LocalPath.of(file1));
+        assertNotNull(manifest);
+
+        // Copy to other registry
+        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+            otherRegistryContainer.start();
+            ContainerRef containerTarget = ContainerRef.parse(
+                    "%s/library/artifact-target:bar".formatted(otherRegistryContainer.getRegistry()));
+            CopyUtils.copy(registry, containerSource, registry, containerTarget, CopyUtils.CopyOptions.shallow());
+            registry.pullArtifact(containerTarget, artifactDir, true);
+            assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+            Manifest manifest2 = registry.getManifest(containerTarget);
+            assertNotNull(manifest2.getDescriptor(), "Manifest descriptor should not be null");
+        }
+    }
+
+    @Test
+    void testShouldCopySingleFromDigest() throws IOException {
+        // Copy to same registry
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/artifact-source:foo".formatted(this.registry.getRegistry()));
         Path file1 = blobDir.resolve("source.txt");
         Files.writeString(file1, "foobar");
 
@@ -1176,9 +1206,16 @@ class RegistryTest {
             otherRegistryContainer.start();
             ContainerRef containerTarget =
                     ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
-            CopyUtils.copy(registry, containerSource, registry, containerTarget, CopyUtils.CopyOptions.shallow());
-            registry.pullArtifact(containerTarget, artifactDir, true);
+            CopyUtils.copy(
+                    registry,
+                    containerSource.withDigest(manifest.getDigest()),
+                    registry,
+                    containerTarget.withDigest(manifest.getDigest()),
+                    CopyUtils.CopyOptions.shallow());
+            registry.pullArtifact(containerTarget.withDigest(manifest.getDigest()), artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
+            Manifest manifest2 = registry.getManifest(containerTarget.withDigest(manifest.getDigest()));
+            assertNotNull(manifest2.getDescriptor(), "Manifest descriptor should not be null");
         }
     }
 
@@ -1321,12 +1358,9 @@ class RegistryTest {
     void testShouldCopyFromOciLayoutToRegistryRecursive() throws IOException {
 
         // Registry to copy
-        Registry registry = Registry.builder()
-                .defaults("myuser", "mypass")
-                .withInsecure(true)
-                .build();
+        Registry registry = Registry.builder().withInsecure(true).build();
         ContainerRef targetRef = ContainerRef.parse(
-                "%s/library/copied-from-oci-layout-recursive".formatted(this.registry.getRegistry()));
+                "%s/library/copied-from-oci-layout-recursive".formatted(this.unsecureRegistry.getRegistry()));
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
         OCILayout ociLayout =
