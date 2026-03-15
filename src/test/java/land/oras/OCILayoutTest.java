@@ -425,6 +425,10 @@ class OCILayoutTest {
         assertTrue(
                 index.getManifests().get(1).getAnnotations().containsKey(Const.ANNOTATION_CREATED),
                 "Should have created annotation");
+
+        // Check if we can mount blobs
+        assertTrue(ociLayout.canMount(ociLayout, layoutRef, layoutRef));
+        assertFalse(ociLayout.canMount(ociLayout, layoutRef, layoutRef.forTarget("other")));
     }
 
     @Test

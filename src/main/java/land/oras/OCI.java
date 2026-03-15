@@ -107,6 +107,15 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     }
 
     /**
+     * Return whether this OCI instance supports mounting blobs from the given source OCI instance.
+     * @param other The source OCI instance to check compatibility with
+     * @param sourceRef The source reference
+     * @param targetRef The target reference
+     * @return {@code true} if mounting from {@code other} is supported
+     */
+    public abstract boolean canMount(OCI<?> other, T sourceRef, T targetRef);
+
+    /**
      * Push a blob stream. Creates a temporary file to store the blob and push the file. The temporary file will be deleted after pushing
      * @param ref The ref
      * @param input The input stream

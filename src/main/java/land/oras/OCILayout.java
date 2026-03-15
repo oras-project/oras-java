@@ -59,6 +59,15 @@ public final class OCILayout extends OCI<LayoutRef> {
      */
     private OCILayout() {}
 
+    @Override
+    public boolean canMount(OCI<?> other, LayoutRef sourceRef, LayoutRef targetRef) {
+        if (!(other instanceof OCILayout)) {
+            return false;
+        }
+        // They reference the same layout
+        return sourceRef.getFolder().equals(targetRef.getFolder());
+    }
+
     /**
      * Return a new builder for this oci layout
      * @return The builder
