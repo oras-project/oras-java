@@ -68,6 +68,37 @@ public final class OCILayout extends OCI<LayoutRef> {
         return sourceRef.getFolder().equals(targetRef.getFolder());
     }
 
+    @Override
+    public boolean mountBlob(LayoutRef sourceRef, LayoutRef targetRef) {
+        String digest = sourceRef.getTag();
+        if (digest == null || !SupportedAlgorithm.isSupported(digest)) {
+            throw new OrasException("Digest is required to mount blob");
+        }
+        ensureAlgorithmPath(digest);
+        Path targetBlobPath = getBlobPath(targetRef);
+        if (Files.exists(targetBlobPath)) {
+            LOG.info("Blob already exists: {}", digest);
+            return true;
+        }
+        // Compute source blob path from the source layout folder
+        SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(digest);
+        Path sourceBlobPath = sourceRef
+                .getFolder()
+                .resolve(Const.OCI_LAYOUT_BLOBS)
+                .resolve(algorithm.getPrefix())
+                .resolve(SupportedAlgorithm.getDigest(digest));
+        if (!Files.exists(sourceBlobPath)) {
+            throw new OrasException("Source blob not found at: %s".formatted(sourceBlobPath));
+        }
+        try {
+            Files.copy(sourceBlobPath, targetBlobPath);
+            LOG.info("Blob mounted from {}: {}", sourceRef.getFolder(), digest);
+        } catch (IOException e) {
+            throw new OrasException("Failed to mount blob", e);
+        }
+        return true;
+    }
+
     /**
      * Return a new builder for this oci layout
      * @return The builder

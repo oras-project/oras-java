@@ -251,7 +251,7 @@ class RegistryTest {
     }
 
     @Test
-    void shouldCheckIfCanMount() {
+    void shouldCheckIfCanMount() throws IOException {
         Registry registry = Registry.builder()
                 .insecure(this.registry.getRegistry(), "myuser", "mypass")
                 .build();
@@ -273,6 +273,48 @@ class RegistryTest {
         assertFalse(
                 registry.canMount(otherAuth, containerRef, containerRef),
                 "Should not mount if different authentication");
+        assertFalse(
+                registry.canMount(
+                        OCILayout.builder()
+                                .defaults(Files.createTempDirectory("oras"))
+                                .build(),
+                        containerRef,
+                        containerRef),
+                "Should not mount if different reference type");
+    }
+
+    @Test
+    void shouldMount() {
+        Registry registry = Registry.builder()
+                .insecure(this.registry.getRegistry(), "myuser", "mypass")
+                .build();
+        byte[] content = "foo".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.getDefault().digest(content);
+        ContainerRef sourceRef = ContainerRef.parse("library/artifact-mount-source");
+        ContainerRef targetRef = ContainerRef.parse("library/artifact-mount-target");
+        Layer layer = registry.pushBlob(sourceRef.withDigest(digest), content);
+        registry.mountBlob(sourceRef.withDigest(digest), targetRef.withDigest(digest));
+
+        // Ensure we can reference from both artifact
+        Manifest manifestSource = Manifest.empty().withLayers(List.of(layer));
+        Manifest manifestTarget = Manifest.empty().withLayers(List.of(layer));
+
+        // Push the empty config
+        registry.pushConfig(sourceRef, Config.empty());
+
+        // Mount also the config
+        String configDigest = Config.empty().getDigest();
+        assertNotNull(configDigest, "Config digest should not be null");
+        registry.mountBlob(sourceRef.withDigest(configDigest), targetRef.withDigest(configDigest));
+
+        registry.pushManifest(sourceRef, manifestSource);
+        registry.pushManifest(targetRef, manifestTarget);
+        assertThrows(
+                OrasException.class,
+                () -> {
+                    registry.mountBlob(sourceRef, targetRef.withDigest(configDigest));
+                },
+                "Missing digest");
     }
 
     @Test
@@ -967,6 +1009,52 @@ class RegistryTest {
                             ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry())), null);
                 },
                 "Digest is required to get referrers");
+    }
+
+    @Test
+    void testShouldCopyIndexOfIndexAndUseMounting() throws IOException {
+        // Copy to same registry
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/artifact-mount-source".formatted(this.registry.getRegistry()));
+
+        // Create files
+        Path file1 = blobDir.resolve("source1.txt");
+        Files.writeString(file1, "foobar");
+        Path file2 = blobDir.resolve("source2.txt");
+        Files.writeString(file2, "barfoo");
+
+        // Push individual manifests
+        Manifest manifest1 = registry.pushArtifact(containerSource.withTag("manifest1"), LocalPath.of(file1));
+        Manifest manifest2 = registry.pushArtifact(containerSource.withTag("manifest2"), LocalPath.of(file2));
+
+        assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
+        assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
+
+        Index index1 = Index.fromManifests(List.of(manifest1.getDescriptor()));
+
+        // Push first index
+        index1 = registry.pushIndex(containerSource.withTag("index1"), index1);
+        assertNotNull(index1.getDescriptor(), "Index 1 descriptor should not be null");
+
+        Index index2 = Index.fromManifests(List.of(manifest2.getDescriptor(), index1.getDescriptor()));
+        index2 = registry.pushIndex(containerSource.withTag("index2"), index2);
+
+        // Copy to other registry
+        ContainerRef containerTarget =
+                ContainerRef.parse("%s/library/artifact-mount-target".formatted(this.registry.getRegistry()));
+        CopyUtils.copy(
+                registry,
+                containerSource.withTag("index2"),
+                registry,
+                containerTarget.withTag("index2"),
+                CopyUtils.CopyOptions.deep());
+        Index index = registry.getIndex(containerTarget.withTag("index2"));
+        assertEquals(2, index.getManifests().size(), "Index should have 1 manifests due to shallow copy");
     }
 
     @Test
