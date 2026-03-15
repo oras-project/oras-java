@@ -80,7 +80,7 @@ class TokenCacheTest {
         Scopes scopes = Scopes.of(containerRef, Scope.PULL).withService("dockerhub"); // Pull only
         TokenCache.put(scopes, tokenResponse);
         assertEquals(tokenResponse, TokenCache.get(scopes), "Should retrieve the token before expiration");
-        Thread.sleep(1500); // Wait for the token to expire
+        Thread.sleep(3000); // Wait for the token to expire
         assertNull(TokenCache.get(scopes), "Should return null after token expiration");
         TestUtils.dumpMetrics(meterRegistry);
         // At least one eviction

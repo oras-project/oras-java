@@ -99,6 +99,7 @@ public final class CopyUtils {
      * @param <SourceRefType> The source reference type
      * @param <TargetRefType> The target reference type
      */
+    @SuppressWarnings("unchecked")
     private static <
                     SourceRefType extends Ref<@NonNull SourceRefType>,
                     TargetRefType extends Ref<@NonNull TargetRefType>>
@@ -113,11 +114,25 @@ public final class CopyUtils {
                             Objects.requireNonNull(layer.getDigest(), "Layer digest is required for streaming copy");
                             Objects.requireNonNull(layer.getSize(), "Layer size is required for streaming copy");
                             return CompletableFuture.runAsync(
-                                    () -> target.pushBlob(
-                                            targetRef.withDigest(layer.getDigest()),
-                                            layer.getSize(),
-                                            () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
-                                            layer.getAnnotations()),
+                                    () -> {
+                                        if (canMount(source, sourceRef, target, targetRef)) {
+                                            boolean result = target.mountBlob(
+                                                    (TargetRefType) sourceRef.withDigest(layer.getDigest()),
+                                                    targetRef.withDigest(layer.getDigest()));
+                                            if (result) {
+                                                LOG.debug(
+                                                        "Copied layer (mounted from {}) {}",
+                                                        sourceRef.getRepository(),
+                                                        layer.getDigest());
+                                                return;
+                                            }
+                                        }
+                                        target.pushBlob(
+                                                targetRef.withDigest(layer.getDigest()),
+                                                layer.getSize(),
+                                                () -> source.fetchBlob(sourceRef.withDigest(layer.getDigest())),
+                                                layer.getAnnotations());
+                                    },
                                     source.getExecutorService());
                         })
                         .toArray(CompletableFuture[]::new))
@@ -253,6 +268,23 @@ public final class CopyUtils {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static <
+                    SourceRefType extends Ref<@NonNull SourceRefType>,
+                    TargetRefType extends Ref<@NonNull TargetRefType>>
+            boolean canMount(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef) {
+        if (!source.getClass().equals(target.getClass())) {
+            return false;
+        }
+        // Safe due to class comparison before
+        return source.canMount(target, sourceRef, (SourceRefType) targetRef);
+    }
+
+    @SuppressWarnings("unchecked")
     private static <
                     SourceRefType extends Ref<@NonNull SourceRefType>,
                     TargetRefType extends Ref<@NonNull TargetRefType>>
@@ -267,8 +299,18 @@ public final class CopyUtils {
         Config config = manifest.getConfig();
         Objects.requireNonNull(config.getDigest(), "Config digest is required for streaming copy");
         Objects.requireNonNull(config.getSize(), "Config size is required for streaming copy");
+        TargetRefType configTargetRef =
+                targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest());
+        if (canMount(source, sourceRef, target, targetRef)) {
+            target.mountBlob((TargetRefType) sourceRef.withDigest(config.getDigest()), configTargetRef);
+            LOG.debug(
+                    "Copied config (mounted from {}) {}",
+                    sourceRef.getRepository(),
+                    manifest.getConfig().getDigest());
+            return;
+        }
         target.pushBlob(
-                targetRef.forTarget(target).withDigest(manifest.getConfig().getDigest()),
+                configTargetRef,
                 config.getSize(),
                 () -> source.pullConfig(sourceRef, manifest.getConfig()),
                 config.getAnnotations());

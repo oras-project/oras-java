@@ -22,6 +22,7 @@ package land.oras;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -132,6 +133,30 @@ class RegistryWireMockTest {
                 ContainerRef.parse("localhost:%d/library/artifact-text".formatted(wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
+    }
+
+    @Test
+    void mountBlobShouldReturnFalseOn202(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
+
+        // Return data from wiremock
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+
+        // Return location without domain when pushing blob
+        wireMock.register(WireMock.post(WireMock.urlPathMatching("/.*"))
+                .willReturn(WireMock.status(202).withHeader("Location", "/foobar")));
+
+        // Push is on foobar
+        wireMock.register(WireMock.put(WireMock.urlPathMatching("/foobar.*")).willReturn(WireMock.status(201)));
+
+        // Insecure registry
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/test@sha512:12345".formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")));
+        assertFalse(registry.mountBlob(containerRef, containerRef), "Mount blob should return false");
     }
 
     @Test

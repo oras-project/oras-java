@@ -147,6 +147,36 @@ public final class Registry extends OCI<ContainerRef> {
         return true;
     }
 
+    @Override
+    public boolean mountBlob(ContainerRef sourceRef, ContainerRef targetRef) {
+        String digest = sourceRef.getDigest();
+        if (digest == null) {
+            throw new OrasException("Digest is required to mount blob");
+        }
+        ContainerRef ref = targetRef.forRegistry(this).checkBlocked(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return asInsecure().mountBlob(targetRef, sourceRef);
+        }
+        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
+        HttpClient.ResponseWrapper<String> response = client.post(
+                uri,
+                new byte[0],
+                Map.of(Const.CONTENT_TYPE_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
+                Scopes.of(ref),
+                authProvider);
+        logResponse(response);
+        if (response.statusCode() == 201) {
+            LOG.info("Blob mounted successfully from {}: {}", sourceRef.getFullRepository(), digest);
+            return true;
+        }
+        if (response.statusCode() == 202) {
+            LOG.info("Mount not supported by registry. Need to process with push {}", digest);
+            return false;
+        }
+        handleError(response);
+        return false;
+    }
+
     /**
      * Get the registries configuration
      * @return The registries configuration

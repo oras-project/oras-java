@@ -429,6 +429,32 @@ class OCILayoutTest {
         // Check if we can mount blobs
         assertTrue(ociLayout.canMount(ociLayout, layoutRef, layoutRef));
         assertFalse(ociLayout.canMount(ociLayout, layoutRef, layoutRef.forTarget("other")));
+        assertFalse(ociLayout.canMount(Registry.builder().build(), layoutRef, layoutRef.forTarget("other")));
+    }
+
+    @Test
+    void shouldMount() {
+        Path pathSource = layoutPath.resolve("shouldMountSource");
+        Path pathTarget = layoutPath.resolve("shouldMountTarget");
+        byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.getDefault().digest(content);
+        OCILayout ociLayoutSource =
+                OCILayout.Builder.builder().defaults(pathSource).build();
+        OCILayout ociLayoutTarget =
+                OCILayout.Builder.builder().defaults(pathTarget).build();
+        LayoutRef layoutRef = LayoutRef.of(ociLayoutSource, digest);
+        ociLayoutSource.pushBlob(layoutRef, "hi".getBytes(StandardCharsets.UTF_8));
+        Manifest manifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(digest, 2L)));
+        ociLayoutSource.pushManifest(layoutRef.withTag("latest"), manifest);
+        ociLayoutTarget.mountBlob(layoutRef, layoutRef);
+        ociLayoutTarget.mountBlob(layoutRef, layoutRef);
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> {
+                    ociLayoutTarget.mountBlob(LayoutRef.of(ociLayoutSource), layoutRef);
+                },
+                "Missing digest");
+        assertEquals("Digest is required to mount blob", e.getMessage());
     }
 
     @Test

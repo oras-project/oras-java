@@ -116,6 +116,14 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract boolean canMount(OCI<?> other, T sourceRef, T targetRef);
 
     /**
+     * Mount a blob from another repository in the same OCI target.
+     * @param targetRef The target reference containing the digest to mount
+     * @param sourceRef The source reference containing the source repository or layout path
+     * @return {@code true} if the blob is successfully mounted, {@code false} otherwise (not supported by registry)
+     */
+    public abstract boolean mountBlob(T sourceRef, T targetRef);
+
+    /**
      * Push a blob stream. Creates a temporary file to store the blob and push the file. The temporary file will be deleted after pushing
      * @param ref The ref
      * @param input The input stream
