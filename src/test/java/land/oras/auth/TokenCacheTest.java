@@ -20,13 +20,14 @@
 
 package land.oras.auth;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.concurrent.TimeUnit;
 import land.oras.ContainerRef;
 import land.oras.TestUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -80,16 +81,13 @@ class TokenCacheTest {
         Scopes scopes = Scopes.of(containerRef, Scope.PULL).withService("dockerhub"); // Pull only
         TokenCache.put(scopes, tokenResponse);
         assertEquals(tokenResponse, TokenCache.get(scopes), "Should retrieve the token before expiration");
-        Thread.sleep(3000); // Wait for the token to expire
-        assertNull(TokenCache.get(scopes), "Should return null after token expiration");
+        await().atMost(10, TimeUnit.SECONDS)
+                .until(() -> TokenCache.get(scopes) == null
+                        && meterRegistry.find("cache.evictions").functionCounters().stream()
+                                        .mapToDouble(FunctionCounter::count)
+                                        .sum()
+                                >= 1);
         TestUtils.dumpMetrics(meterRegistry);
-        // At least one eviction
-        assertTrue(
-                meterRegistry.find("cache.evictions").functionCounters().stream()
-                                .mapToDouble(FunctionCounter::count)
-                                .sum()
-                        >= 1,
-                "Should have at least one eviction");
     }
 
     @Test
