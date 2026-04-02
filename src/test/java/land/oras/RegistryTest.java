@@ -284,6 +284,7 @@ class RegistryTest {
     }
 
     @Test
+    @Execution(ExecutionMode.SAME_THREAD)
     void shouldMountWithInsecureRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
