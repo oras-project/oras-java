@@ -48,6 +48,14 @@ public final class BearerTokenProvider implements AuthProvider {
     public BearerTokenProvider() {}
 
     /**
+     * Create a new bearer token provider
+     * @param token The token
+     */
+    public BearerTokenProvider(String token) {
+        setToken(new HttpClient.TokenResponse(token, null, null, null, null));
+    }
+
+    /**
      * Get the token
      * @return The token
      */
