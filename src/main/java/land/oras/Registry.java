@@ -42,6 +42,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
+import land.oras.auth.BearerTokenProvider;
 import land.oras.auth.HttpClient;
 import land.oras.auth.NoAuthProvider;
 import land.oras.auth.RegistriesConf;
@@ -292,6 +293,15 @@ public final class Registry extends OCI<ContainerRef> {
      */
     public Registry copy(String newRegistry) {
         return new Builder().from(this).withRegistry(newRegistry).build();
+    }
+
+    /**
+     * Return a new registry with a new auth external token and same settings
+     * @param authToken The new refreshed token
+     * @return The new registry
+     */
+    public Registry withAuthToken(String authToken) {
+        return new Builder().from(this).withAuthToken(authToken).build();
     }
 
     /**
@@ -1278,6 +1288,18 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withAuthProvider(AuthProvider authProvider) {
             registry.setAuthProvider(authProvider);
+            return this;
+        }
+
+        /**
+         * Use given auth token for the registry.
+         * Useful when the auth token is obtained by other mean (like a token exchange).
+         * Caller are responsible to handle token expiration if any
+         * @param authToken The auth token
+         * @return The builder
+         */
+        public Builder withAuthToken(String authToken) {
+            registry.setAuthProvider(new BearerTokenProvider(authToken));
             return this;
         }
 

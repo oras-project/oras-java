@@ -84,6 +84,34 @@ class RegistryWireMockTest {
     private static Path homeDir3;
 
     @Test
+    void shouldPassBearerTokenWithExternalRequestedToken(WireMockRuntimeInfo wmRuntimeInfo) {
+        Registry registry = Registry.Builder.builder()
+                .insecure()
+                .withAuthToken("insecure-token")
+                .build();
+
+        // Ensure WireMock accept only our token
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/tags/list"))
+                .withHeader("Authorization", equalTo("Bearer insecure-token"))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(new Tags("artifact-text", List.of("latest", "0.1.1"))))));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/tags/list"))
+                .withHeader("Authorization", equalTo("Bearer invalid-token"))
+                .willReturn(WireMock.unauthorized()));
+
+        registry.getTags(ContainerRef.parse("%s/library/artifact-text"
+                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))));
+
+        // Ensure it fail with invalid token
+        final Registry newRegistry = registry.withAuthToken("invalid-token");
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> newRegistry.getTags(ContainerRef.parse("%s/library/artifact-text"
+                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))));
+        assertEquals(401, e.getStatusCode());
+    }
+
+    @Test
     void shouldFailToGetManifestOn403(WireMockRuntimeInfo wmRuntimeInfo) {
 
         // Return data from wiremock
