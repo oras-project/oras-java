@@ -29,26 +29,17 @@ conditions:
     name: zot image must exists
     kind: dockerimage
     spec:
-      image: ghcr.io/project-zot/zot-linux-amd64
+      image: ghcr.io/project-zot/zot-minimal
 
 targets:
-  updateZotContainer:
-    name: "Update the value in the ZotContainer.java file"
+  updateZotImages:
+    name: "Update the value in the TestImages.java file"
     kind: file
     sourceid: zotLatestVersion
     spec:
-      file: src/test/java/land/oras/utils/ZotContainer.java
-      matchPattern: "ghcr.io/project-zot/zot-linux-amd64:v(\\d.\\d.\\d{1,2})"
-      replacePattern: 'ghcr.io/project-zot/zot-linux-amd64:{{ source "zotLatestVersion" }}'
-    scmid: default
-  updateZotUnsecureContainer:
-    name: "Update the value in the ZotUnsecureContainer.java file"
-    kind: file
-    sourceid: zotLatestVersion
-    spec:
-      file: src/test/java/land/oras/utils/ZotUnsecureContainer.java
-      matchPattern: "ghcr.io/project-zot/zot-linux-amd64:v(\\d.\\d.\\d{1,2})"
-      replacePattern: 'ghcr.io/project-zot/zot-linux-amd64:{{ source "zotLatestVersion" }}'
+      file: src/test/java/land/oras/utils/TestImages.java
+      matchPattern: "ghcr.io/project-zot/zot-minimal:v(\\d.\\d.\\d{1,2})"
+      replacePattern: 'ghcr.io/project-zot/zot-minimal:{{ source "zotLatestVersion" }}'
     scmid: default
 
 actions:

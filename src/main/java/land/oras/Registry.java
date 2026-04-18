@@ -103,6 +103,16 @@ public final class Registry extends OCI<ContainerRef> {
     private boolean skipTlsVerify;
 
     /**
+     * Path to a PEM-encoded CA certificate or bundle for TLS verification
+     */
+    private @Nullable Path caFilePath;
+
+    /**
+     * PEM-encoded CA certificate or bundle content for TLS verification
+     */
+    private @Nullable String caContent;
+
+    /**
      * The meter registry for metrics
      */
     private @Nullable MeterRegistry meterRegistry;
@@ -251,6 +261,22 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Set the CA file path for TLS verification
+     * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+     */
+    private void setCaFilePath(Path caFilePath) {
+        this.caFilePath = caFilePath;
+    }
+
+    /**
+     * Set the CA certificate content for TLS verification
+     * @param caContent The PEM-encoded CA certificate or bundle content
+     */
+    private void setCaContent(String caContent) {
+        this.caContent = caContent;
+    }
+
+    /**
      * Set the meter registry for metrics
      * @param meterRegistry The meter registry
      */
@@ -264,6 +290,12 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private Registry build() {
         HttpClient.Builder clientBuilder = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify);
+        if (caFilePath != null) {
+            clientBuilder = clientBuilder.withCaFile(caFilePath);
+        }
+        if (caContent != null) {
+            clientBuilder = clientBuilder.withCaContent(caContent);
+        }
         if (meterRegistry != null) {
             clientBuilder = clientBuilder.withMeterRegistry(meterRegistry);
         }
@@ -1341,6 +1373,35 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withSkipTlsVerify(boolean skipTlsVerify) {
             registry.setSkipTlsVerify(skipTlsVerify);
+            return this;
+        }
+
+        /**
+         * Set the CA file for TLS verification
+         * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+         * @return The builder
+         */
+        public Builder withCaFile(Path caFilePath) {
+            registry.setCaFilePath(caFilePath);
+            return this;
+        }
+
+        /**
+         * Set the CA file for TLS verification
+         * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+         * @return The builder
+         */
+        public Builder withCaFile(String caFilePath) {
+            return withCaFile(Path.of(caFilePath));
+        }
+
+        /**
+         * Set the CA certificates from PEM-encoded content
+         * @param caContent The PEM-encoded CA certificate or bundle content
+         * @return The builder
+         */
+        public Builder withCaContent(String caContent) {
+            registry.setCaContent(caContent);
             return this;
         }
 

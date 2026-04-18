@@ -23,17 +23,24 @@ package land.oras.auth;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.*;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +53,7 @@ import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedTrustManager;
 import land.oras.ContainerRef;
 import land.oras.OrasModel;
@@ -91,6 +99,16 @@ public final class HttpClient {
     private boolean skipTlsVerify;
 
     /**
+     * Path to a PEM-encoded CA certificate or bundle
+     */
+    private @Nullable Path caFilePath;
+
+    /**
+     * PEM-encoded CA certificate or bundle content
+     */
+    private @Nullable String caContent;
+
+    /**
      * Timeout in seconds
      */
     private Integer timeout;
@@ -128,16 +146,93 @@ public final class HttpClient {
      * Skip the TLS verification
      * @param skipTlsVerify Skip TLS verification
      */
-    private void setTlsVerify(boolean skipTlsVerify) {
+    private void setSkipTlsVerify(boolean skipTlsVerify) {
         this.skipTlsVerify = skipTlsVerify;
-        if (skipTlsVerify) {
-            try {
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(null, new TrustManager[] {new InsecureTrustManager()}, new SecureRandom());
-                builder.sslContext(sslContext);
-            } catch (Exception e) {
-                throw new OrasException("Unable to skip TLS verification", e);
-            }
+    }
+
+    /**
+     * Set the CA certificates for TLS verification from a file
+     * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+     */
+    private void setCaFile(Path caFilePath) {
+        this.caFilePath = caFilePath;
+    }
+
+    /**
+     * Set the CA certificates for TLS verification from PEM-encoded content
+     * @param caContent The PEM-encoded CA certificate or bundle content
+     */
+    private void setCaContent(String caContent) {
+        this.caContent = caContent;
+    }
+
+    /**
+     * Configure SSL context from a PEM-encoded CA file
+     * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+     */
+    private void configureTlsFromFile(Path caFilePath) {
+        try (InputStream inputStream = new BufferedInputStream(Files.newInputStream(caFilePath))) {
+            configureCaCertificates(inputStream, "CA file: " + caFilePath);
+        } catch (OrasException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new OrasException("Unable to configure CA file: " + caFilePath, e);
+        }
+    }
+
+    /**
+     * Configure SSL context from PEM-encoded CA content
+     * @param caContent The PEM-encoded CA certificate or bundle content
+     */
+    private void configureTlsFromContent(String caContent) {
+        try (InputStream inputStream = new ByteArrayInputStream(caContent.getBytes(StandardCharsets.UTF_8))) {
+            configureCaCertificates(inputStream, "CA content");
+        } catch (OrasException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new OrasException("Unable to configure CA certificates from content", e);
+        }
+    }
+
+    /**
+     * Configure SSL context from PEM-encoded CA certificates read from the given input stream.
+     * @param inputStream The input stream containing PEM-encoded certificates
+     * @param source A description of the certificate source for error messages
+     */
+    private void configureCaCertificates(InputStream inputStream, String source) throws Exception {
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+
+        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        trustStore.load(null, null);
+
+        int certificateIndex = 0;
+        Collection<? extends Certificate> certificates = certificateFactory.generateCertificates(inputStream);
+        if (certificates.isEmpty()) {
+            throw new OrasException("No certificates found in the provided " + source);
+        }
+        for (var certificate : certificates) {
+            trustStore.setCertificateEntry("ca-" + certificateIndex++, certificate);
+        }
+
+        TrustManagerFactory trustManagerFactory =
+                TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(trustStore);
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustManagerFactory.getTrustManagers(), new SecureRandom());
+        builder.sslContext(sslContext);
+    }
+
+    /**
+     * Configure SSL context to skip TLS verification
+     */
+    private void configureInsecureTls() {
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(null, new TrustManager[] {new InsecureTrustManager()}, new SecureRandom());
+            builder.sslContext(sslContext);
+        } catch (Exception e) {
+            throw new OrasException("Unable to skip TLS verification", e);
         }
     }
 
@@ -146,6 +241,23 @@ public final class HttpClient {
      * @return The client
      */
     public HttpClient build() {
+        if (caFilePath != null && caContent != null) {
+            throw new OrasException(
+                    "Cannot configure both a CA file and CA content. Use either withCaFile() or withCaContent(), not both");
+        }
+        if (skipTlsVerify && (caFilePath != null || caContent != null)) {
+            throw new OrasException(
+                    "Cannot combine skipTlsVerify with a CA file or CA content. Use either withSkipTlsVerify() or withCaFile()/withCaContent(), not both");
+        }
+
+        if (skipTlsVerify) {
+            configureInsecureTls();
+        } else if (caFilePath != null) {
+            configureTlsFromFile(caFilePath);
+        } else if (caContent != null) {
+            configureTlsFromContent(caContent);
+        }
+
         this.client = this.builder.build();
         return this;
     }
@@ -778,7 +890,7 @@ public final class HttpClient {
          * @return The builder
          */
         public Builder withSkipTlsVerify(boolean skipTlsVerify) {
-            client.setTlsVerify(skipTlsVerify);
+            client.setSkipTlsVerify(skipTlsVerify);
             return this;
         }
 
@@ -789,6 +901,35 @@ public final class HttpClient {
          */
         public Builder withMeterRegistry(MeterRegistry meterRegistry) {
             client.meterRegistry = meterRegistry;
+            return this;
+        }
+
+        /**
+         * Set the CA file for TLS verification
+         * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+         * @return The builder
+         */
+        public Builder withCaFile(Path caFilePath) {
+            client.setCaFile(caFilePath);
+            return this;
+        }
+
+        /**
+         * Set the CA file for TLS verification
+         * @param caFilePath The path to a PEM-encoded CA certificate or bundle
+         * @return The builder
+         */
+        public Builder withCaFile(String caFilePath) {
+            return withCaFile(Path.of(caFilePath));
+        }
+
+        /**
+         * Set the CA certificates from PEM-encoded content
+         * @param caContent The PEM-encoded CA certificate or bundle content
+         * @return The builder
+         */
+        public Builder withCaContent(String caContent) {
+            client.setCaContent(caContent);
             return this;
         }
 

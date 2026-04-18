@@ -20,21 +20,39 @@
 
 package land.oras.auth;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import land.oras.exception.OrasException;
+import land.oras.utils.TlsUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 @Execution(ExecutionMode.CONCURRENT)
 class HttpClientTest {
+
+    private static final String ROOT_CA_PEM;
+    private static final String ISSUING_CA_PEM;
+
+    static {
+        var rootKeyPair = TlsUtils.generateKeyPair();
+        var rootCaCert = TlsUtils.generateCaCertificate("test-root-ca", rootKeyPair);
+        ROOT_CA_PEM = TlsUtils.toPem(rootCaCert);
+
+        var issuingKeyPair = TlsUtils.generateKeyPair();
+        var issuingCaCert = TlsUtils.generateSignedCertificate(
+                "test-issuing-ca", issuingKeyPair, rootCaCert, rootKeyPair.getPrivate());
+        ISSUING_CA_PEM = TlsUtils.toPem(issuingCaCert);
+    }
 
     @Test
     void testIsSameOriginSame() {
@@ -108,5 +126,114 @@ class HttpClientTest {
         HttpResponse<?> response = mock(HttpResponse.class);
         when(response.statusCode()).thenReturn(200);
         assertFalse(HttpClient.shouldRedirect(response));
+    }
+
+    @Test
+    void whenCaFileFromPathThenSucceed(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("ca.pem");
+        Files.writeString(caFile, ROOT_CA_PEM);
+        assertDoesNotThrow(() -> HttpClient.Builder.builder().withCaFile(caFile).build());
+    }
+
+    @Test
+    void whenCaFileFromStringThenSucceed(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("ca.pem");
+        Files.writeString(caFile, ROOT_CA_PEM);
+        assertDoesNotThrow(
+                () -> HttpClient.Builder.builder().withCaFile(caFile.toString()).build());
+    }
+
+    @Test
+    void whenCaFileDoesNotExistThenThrow() {
+        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
+                .withCaFile(Path.of("/nonexistent/ca.pem"))
+                .build());
+        assertTrue(exception.getMessage().contains("Unable to configure CA file"));
+    }
+
+    @Test
+    void whenCaFileNotValidCertificateThenThrow(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("bad.pem");
+        Files.writeString(caFile, "not a certificate");
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder().withCaFile(caFile).build());
+        assertTrue(exception.getMessage().contains("Unable to configure CA file"));
+    }
+
+    @Test
+    void whenCaFileIsEmptyThenThrow(@TempDir Path tempDir) throws IOException {
+        Path caFile = Files.createFile(tempDir.resolve("empty.pem"));
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder().withCaFile(caFile).build());
+        assertTrue(exception.getMessage().contains("No certificates found in the provided CA file"));
+    }
+
+    @Test
+    void whenCaContentThenSucceed() {
+        assertDoesNotThrow(
+                () -> HttpClient.Builder.builder().withCaContent(ROOT_CA_PEM).build());
+    }
+
+    @Test
+    void whenCaContentIsEmptyThenThrow() {
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder().withCaContent("").build());
+        assertTrue(exception.getMessage().contains("No certificates found in the provided CA content"));
+    }
+
+    @Test
+    void whenCaContentNotValidCertificateThenThrow() {
+        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
+                .withCaContent("not a certificate")
+                .build());
+        assertTrue(exception.getMessage().contains("Unable to configure CA certificates from content"));
+    }
+
+    @Test
+    void whenBothCaFileAndCaContentConfiguredThenThrow(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("ca.pem");
+        Files.writeString(caFile, ROOT_CA_PEM);
+        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
+                .withCaFile(caFile)
+                .withCaContent(ROOT_CA_PEM)
+                .build());
+        assertTrue(exception.getMessage().contains("Cannot configure both a CA file and CA content"));
+    }
+
+    @Test
+    void whenSkipTlsVerifyAndCaFileThenThrow(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("ca.pem");
+        Files.writeString(caFile, ROOT_CA_PEM);
+        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
+                .withSkipTlsVerify(true)
+                .withCaFile(caFile)
+                .build());
+        assertTrue(exception.getMessage().contains("Cannot combine skipTlsVerify"));
+    }
+
+    @Test
+    void whenSkipTlsVerifyAndCaContentThenThrow() {
+        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
+                .withSkipTlsVerify(true)
+                .withCaContent(ROOT_CA_PEM)
+                .build());
+        assertTrue(exception.getMessage().contains("Cannot combine skipTlsVerify"));
+    }
+
+    @Test
+    void whenCaBundleFromFileThenSucceed(@TempDir Path tempDir) throws IOException {
+        Path caFile = tempDir.resolve("ca-bundle.pem");
+        Files.writeString(caFile, ROOT_CA_PEM + ISSUING_CA_PEM);
+        assertDoesNotThrow(() -> HttpClient.Builder.builder().withCaFile(caFile).build());
+    }
+
+    @Test
+    void whenCaBundleFromContentThenSucceed() {
+        assertDoesNotThrow(() -> HttpClient.Builder.builder()
+                .withCaContent(ROOT_CA_PEM + ISSUING_CA_PEM)
+                .build());
     }
 }
