@@ -49,7 +49,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(25, modelClasses.size());
+            assertEquals(26, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
@@ -83,7 +83,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(7, modelClasses.size());
+            assertEquals(8, modelClasses.size());
         }
     }
 }
