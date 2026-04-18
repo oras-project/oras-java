@@ -341,6 +341,7 @@ public class AuthStore {
      * @param username The username
      * @param secret The secret (password or token)
      */
+    @OrasModel
     public record CredentialHelperResponse(
             @JsonProperty("ServerURL") String serverUrl,
             @JsonProperty("Username") String username,
