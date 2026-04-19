@@ -25,7 +25,7 @@ package land.oras.utils;
  */
 public final class TestImages {
 
-    public static final String ZOT = "ghcr.io/project-zot/zot-minimal:v2.1.15";
+    public static final String ZOT = "ghcr.io/project-zot/zot-minimal:v2.1.16";
 
     private TestImages() {}
 }
