@@ -186,13 +186,23 @@ class RegistryConfTest {
         originalRef = ContainerRef.parse("example.com/foo/library/test:latest");
         rewrittenRef = conf.rewrite(originalRef);
         assertEquals("internal-registry-for-example.com/bar/library/test:latest", rewrittenRef.toString());
+    }
 
-        // With tag only
-        // registry = new RegistriesConf.RegistryConfig("example.com/foo:latest", "example.com/foo:othertag", null,
-        // null);
-        // conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
-        // originalRef = ContainerRef.parse("example.com/foo:latest");
-        // rewrittenRef = conf.rewrite(originalRef);
-        // assertEquals("example.com/foo:othertag", rewrittenRef.toString());
+    @Test
+    void shouldRewriteUnqualifiedContainerRef() {
+
+        RegistriesConf.RegistryConfig registry =
+                new RegistriesConf.RegistryConfig("docker.io", "internal-registry-for-example.com", null, null);
+        RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
+
+        // Without tag
+        ContainerRef originalRef = ContainerRef.parse("alpine");
+        ContainerRef rewrittenRef = conf.rewrite(originalRef);
+        assertEquals("internal-registry-for-example.com/library/alpine:latest", rewrittenRef.toString());
+
+        // Ensure to keep tag
+        originalRef = ContainerRef.parse("alpine:1.0.0");
+        rewrittenRef = conf.rewrite(originalRef);
+        assertEquals("internal-registry-for-example.com/library/alpine:1.0.0", rewrittenRef.toString());
     }
 }

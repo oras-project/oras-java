@@ -295,11 +295,33 @@ public class RegistriesConf {
             }
 
             rewrittenRefString = location + remainder;
-        }
+        } else {
 
-        // Just replace the prefix with the location (e.g., docker.io/library → my-registry.com/library)
-        else {
-            rewrittenRefString = location + currentRefString.substring(prefix.length());
+            // For unqualified references, we need to construct the rewritten reference properly
+            // by replacing the registry component and preserving the namespace/repository/tag structure
+            if (ref.isUnqualified()) {
+                // For unqualified references, build the new reference with the location as the new registry
+                String namespace = ref.getNamespace();
+                String repository = ref.getRepository();
+                String tag = ref.getTag();
+                String digest = ref.getDigest();
+
+                StringBuilder rewritten = new StringBuilder(location);
+                if (namespace != null && !namespace.isEmpty()) {
+                    rewritten.append("/").append(namespace);
+                }
+                rewritten.append("/").append(repository);
+                rewritten.append(":").append(tag);
+                if (digest != null && !digest.isEmpty()) {
+                    rewritten.append("@").append(digest);
+                }
+                rewrittenRefString = rewritten.toString();
+            }
+
+            // For qualified references, use the original string manipulation approach
+            else {
+                rewrittenRefString = location + currentRefString.substring(prefix.length());
+            }
         }
 
         LOG.debug(
