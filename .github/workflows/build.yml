@@ -66,3 +66,26 @@ jobs:
         with:
           files: target/site/jacoco/jacoco.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  maven-build-windows:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read Maven version
+        id: maven-version
+        run: echo "version=$(cat .github/vars/maven-version.txt)" >> $env:GITHUB_OUTPUT
+
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@ba34de01b7f4ba2ab8e2860df8993a29f4477056 # v1.20.0
+        with:
+          checkout-enabled: false
+          java-distribution: 'temurin'
+          java-version: 17
+          maven-version: ${{ steps.maven-version.outputs.version }}
+          cache-enabled: true
+
+      - name: Maven build
+        run: mvn --batch-mode --update-snapshots verify

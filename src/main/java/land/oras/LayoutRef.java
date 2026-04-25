@@ -22,7 +22,6 @@ package land.oras;
 
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullMarked;
@@ -36,10 +35,6 @@ import org.jspecify.annotations.Nullable;
 public final class LayoutRef extends Ref<LayoutRef> {
 
     private final Path folder;
-
-    private static final Pattern NAME_REGEX = Pattern.compile(
-            "^(.+?)(?::([^:@]+))?(?:@(.+))?$" // folder[:tag][@digest]
-            );
 
     /**
      * Private constructor
@@ -78,13 +73,31 @@ public final class LayoutRef extends Ref<LayoutRef> {
      * @return The container object with the registry, repository and tag.
      */
     public static LayoutRef parse(String name) {
-        var matcher = NAME_REGEX.matcher(name);
-        if (!matcher.matches()) {
+        if (name.isEmpty()) {
             throw new OrasException("Invalid layout ref: " + name);
         }
-        Path path = Path.of(matcher.group(1)); // Folder path
-        String tag = matcher.group(2) != null ? matcher.group(2) : matcher.group(3); // Tag or digest
-        return new LayoutRef(path, tag);
+        String folder;
+        String tag = null;
+        int atIndex = name.indexOf('@');
+
+        // digest form: <path>@<digest>
+        if (atIndex != -1) {
+            folder = name.substring(0, atIndex);
+            tag = name.substring(atIndex + 1);
+        }
+
+        // tag form: use lastIndexOf(':'), but skip a Windows drive-letter colon at index 1 (e.g. C:)
+        else {
+
+            int colonIndex = name.lastIndexOf(':');
+            if (colonIndex > 1) {
+                folder = name.substring(0, colonIndex);
+                tag = name.substring(colonIndex + 1);
+            } else {
+                folder = name;
+            }
+        }
+        return new LayoutRef(Path.of(folder), tag);
     }
 
     /**

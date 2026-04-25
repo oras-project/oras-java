@@ -21,6 +21,7 @@
 package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Files;
@@ -163,6 +164,9 @@ class AuthStoreTest {
     @Test
     void testShouldReadCredentialsFromCredentialHelperFake() throws Exception {
 
+        assumeFalse(
+                System.getProperty("os.name").toLowerCase().contains("win"),
+                "Skipping test: docker-credential-fake is not supported on Windows");
         assumeTrue(
                 Files.exists(Path.of("/usr/bin/docker-credential-fake")),
                 "Skipping test: /usr/bin/docker-credential-fake not found");
@@ -191,6 +195,9 @@ class AuthStoreTest {
     @Test
     void testShouldReadCredentialsFromCredentialHelperHandleNonZeroReturnCode() throws Exception {
 
+        assumeFalse(
+                System.getProperty("os.name").toLowerCase().contains("win"),
+                "Skipping test: docker-credential-fake is not supported on Windows");
         assumeTrue(
                 Files.exists(Path.of("/usr/bin/docker-credential-fake")),
                 "Skipping test: /usr/bin/docker-credential-fake not found");

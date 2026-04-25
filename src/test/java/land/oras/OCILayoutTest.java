@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @Execution(ExecutionMode.CONCURRENT)
 class OCILayoutTest {
 
