@@ -93,22 +93,24 @@ class ArchiveUtilsTest {
         Files.writeString(file4, "file4");
 
         // Create one symlink file3 -> file1
-        Path file3 = dir1.resolve("file3");
-        Files.createSymbolicLink(file3, file1);
+        if (OsUtils.isPosixFileSystemSupported()) {
+            Path file3 = dir1.resolve("file3");
+            Files.createSymbolicLink(file3, file1);
 
-        // Add 777 permission to file2
-        Files.setPosixFilePermissions(
-                file2,
-                Set.of(
-                        PosixFilePermission.OWNER_READ,
-                        PosixFilePermission.OWNER_WRITE,
-                        PosixFilePermission.OWNER_EXECUTE,
-                        PosixFilePermission.GROUP_READ,
-                        PosixFilePermission.GROUP_WRITE,
-                        PosixFilePermission.GROUP_EXECUTE,
-                        PosixFilePermission.OTHERS_READ,
-                        PosixFilePermission.OTHERS_WRITE,
-                        PosixFilePermission.OTHERS_EXECUTE));
+            // Add 777 permission to file2
+            Files.setPosixFilePermissions(
+                    file2,
+                    Set.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE,
+                            PosixFilePermission.GROUP_READ,
+                            PosixFilePermission.GROUP_WRITE,
+                            PosixFilePermission.GROUP_EXECUTE,
+                            PosixFilePermission.OTHERS_READ,
+                            PosixFilePermission.OTHERS_WRITE,
+                            PosixFilePermission.OTHERS_EXECUTE));
+        }
     }
 
     @Test
@@ -175,7 +177,9 @@ class ArchiveUtilsTest {
         assertTrue(Files.exists(extractedDir.resolve("dir2")), "dir2 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file1")), "file1 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("file2")), "file2 should exist");
-        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        if (OsUtils.isPosixFileSystemSupported()) {
+            assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        }
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
 
@@ -218,7 +222,9 @@ class ArchiveUtilsTest {
         assertTrue(Files.exists(extractedDir.resolve("dir2")), "dir2 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file1")), "file1 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("file2")), "file2 should exist");
-        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        if (OsUtils.isPosixFileSystemSupported()) {
+            assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        }
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
 
@@ -238,7 +244,9 @@ class ArchiveUtilsTest {
                 "file4 content should match");
 
         // Ensure symlink is extracted
-        assertTrue(Files.isSymbolicLink(extractedDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+        if (OsUtils.isPosixFileSystemSupported()) {
+            assertTrue(Files.isSymbolicLink(extractedDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+        }
 
         // To temporary
         Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
@@ -290,7 +298,9 @@ class ArchiveUtilsTest {
         assertTrue(Files.exists(extractedDir.resolve("dir2")), "dir2 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file1")), "file1 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("file2")), "file2 should exist");
-        assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        if (OsUtils.isPosixFileSystemSupported()) {
+            assertTrue(Files.exists(extractedDir.resolve("dir1").resolve("file3")), "file3 should exist");
+        }
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3")), "dir3 should exist");
         assertTrue(Files.exists(extractedDir.resolve("dir2").resolve("dir3").resolve("file4")), "file4 should exist");
 
@@ -310,7 +320,9 @@ class ArchiveUtilsTest {
                 "file4 content should match");
 
         // Ensure symlink is extracted
-        assertTrue(Files.isSymbolicLink(extractedDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+        if (OsUtils.isPosixFileSystemSupported()) {
+            assertTrue(Files.isSymbolicLink(extractedDir.resolve("dir1").resolve("file3")), "file3 should be symlink");
+        }
 
         // To temporary
         Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());

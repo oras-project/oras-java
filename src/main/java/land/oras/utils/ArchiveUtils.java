@@ -205,9 +205,14 @@ public final class ArchiveUtils {
                         }
 
                         // Get posix permissions
-                        Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path);
-                        int mode = permissionsToMode(permissions);
-                        LOG.trace("Permissions: {}", permissions);
+                        int mode;
+                        if (OsUtils.isPosixFileSystemSupported()) {
+                            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path);
+                            mode = permissionsToMode(permissions);
+                            LOG.trace("Permissions: {}", permissions);
+                        } else {
+                            mode = Files.isDirectory(path) || Files.isExecutable(path) ? 0755 : 0644;
+                        }
                         LOG.trace("Mode: {}", mode);
 
                         // Set UID, GID, Uname, Gname to zero or empty
@@ -371,7 +376,7 @@ public final class ArchiveUtils {
                             String linkStr = asiField != null
                                     ? asiField.getLinkedFile()
                                     : new String(zais.readAllBytes(), StandardCharsets.UTF_8);
-                            Files.createSymbolicLink(outputPath, Paths.get(linkStr));
+                            createSymbolicLink(outputPath, Paths.get(linkStr));
                         } else {
                             LOG.debug("Extracting file: {}", entry.getName());
                             Files.createDirectories(outputPath.getParent());
@@ -420,13 +425,14 @@ public final class ArchiveUtils {
 
                         // Restore file permissions (optional, based on your need)
                         if (entry.isSymbolicLink()) {
-                            LOG.trace("Extracting symlink {} to: {}", outputPath, entry.getLinkName());
-                            Files.createSymbolicLink(outputPath, Paths.get(entry.getLinkName()));
+                            createSymbolicLink(outputPath, Paths.get(entry.getLinkName()));
                         } else {
                             try (OutputStream out = Files.newOutputStream(outputPath)) {
                                 tais.transferTo(out);
                             }
-                            Files.setPosixFilePermissions(outputPath, convertToPosixPermissions(entry.getMode()));
+                            if (OsUtils.isPosixFileSystemSupported()) {
+                                Files.setPosixFilePermissions(outputPath, convertToPosixPermissions(entry.getMode()));
+                            }
                         }
                     }
                 }
@@ -516,6 +522,24 @@ public final class ArchiveUtils {
             throw new OrasException("Failed to uncompress tar.zstd file", e);
         }
         return LocalPath.of(tarFile, Const.DEFAULT_BLOB_MEDIA_TYPE);
+    }
+
+    /**
+     * Create a symbolic link, logging a warning if the operation is not supported.
+     * Symlink creation may fail on systems that do not support symbolic links (e.g. Windows
+     * without Developer Mode enabled or without administrator privileges).
+     * @param link The link to create
+     * @param target The target of the link
+     */
+    private static void createSymbolicLink(Path link, Path target) {
+        try {
+            LOG.trace("Creating symlink {} -> {}", link, target);
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | SecurityException e) {
+            LOG.warn("Cannot create symlink {}: {}", link.getFileName(), e.getMessage());
+        } catch (IOException e) {
+            throw new OrasException("Failed to create symlink: " + link.getFileName(), e);
+        }
     }
 
     /**
