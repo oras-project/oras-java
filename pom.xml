@@ -58,7 +58,7 @@
     <jspecify.version>1.0.0</jspecify.version>
     <jackson.version>3.1.3</jackson.version>
     <apache.common-compress.version>1.28.0</apache.common-compress.version>
-    <zstd-jni.version>1.5.7-7</zstd-jni.version>
+    <zstd-jni.version>1.5.7-8</zstd-jni.version>
     <bcprov-jdk18on.version>1.84</bcprov-jdk18on.version>
     <caffeine.version>3.2.4</caffeine.version>
     <micrometer.version>1.16.5</micrometer.version>
