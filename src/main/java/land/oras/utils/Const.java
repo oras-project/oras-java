@@ -449,7 +449,7 @@ public final class Const {
     /**
      * Metric name for HTTP request
      */
-    public static final String METRIC_HTTP_REQUESTS = "http.client.requests";
+    public static final String METRIC_HTTP_REQUESTS = "land.oras.http.client.requests";
 
     /**
      * Metric name for token refresh duration
