@@ -1149,4 +1149,64 @@ class OCILayoutTest {
                         .resolve(SupportedAlgorithm.getDigest(digest))),
                 "Expect blob content to match");
     }
+
+    @Test
+    void pullArtifactShouldRejectInvalidTitleAnnotation() throws IOException {
+
+        // Create a valid OCI layout via the normal push API
+        Path ociLayoutPath = layoutPath.resolve("traversal-test");
+        Path artifactFile = blobDir.resolve("safe.txt");
+        Files.writeString(artifactFile, "safe content");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(artifactFile, "text/plain"));
+
+        // 2. Read the manifest stored on disk and replace the title annotation with a traversal path
+        Index index = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+        String originalManifestDigest = index.getManifests().get(0).getDigest(); // e.g. sha256:abc...
+        Path manifestBlobPath = ociLayoutPath
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(originalManifestDigest));
+
+        String originalManifestJson = Files.readString(manifestBlobPath);
+
+        // Invalid path
+        String tamperedManifestJson = originalManifestJson.replace("\"safe.txt\"", "\"../traversed-file.txt\"");
+
+        // Write tampered manifest as a new blob and update index.json
+        byte[] tamperedBytes = tamperedManifestJson.getBytes(StandardCharsets.UTF_8);
+        String tamperedDigest = SupportedAlgorithm.SHA256.digest(tamperedBytes);
+        Path tamperedBlobPath =
+                ociLayoutPath.resolve("blobs").resolve("sha256").resolve(SupportedAlgorithm.getDigest(tamperedDigest));
+        Files.write(tamperedBlobPath, tamperedBytes);
+
+        // Rewrite index.json to reference the tampered manifest digest
+        String updatedIndexJson = Files.readString(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX))
+                .replace(
+                        SupportedAlgorithm.getDigest(originalManifestDigest),
+                        SupportedAlgorithm.getDigest(tamperedDigest));
+        Files.writeString(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX), updatedIndexJson);
+
+        // Attempt to pull — must be rejected because the title escapes the output directory
+        Path outputDir = extractDir.resolve("traversal-output");
+        Files.createDirectories(outputDir);
+
+        OCILayout tampered = OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> tampered.pullArtifact(layoutRef, outputDir, true),
+                "Expected OrasException for title annotation");
+        assertTrue(
+                exception.getMessage().contains("is not withing folder"),
+                "Exception message should mention is not withing folder but was: " + exception.getMessage());
+
+        // 5. The file must NOT have been written outside the output directory
+        assertFalse(
+                Files.exists(outputDir.getParent().resolve("traversed-file.txt")),
+                "Blob must not be written outside the output directory");
+    }
 }
