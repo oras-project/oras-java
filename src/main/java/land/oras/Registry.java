@@ -1109,7 +1109,13 @@ public final class Registry extends OCI<ContainerRef> {
                 ArchiveUtils.untar(Files.newInputStream(tempArchive.getPath()), path);
 
             } else {
-                Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE));
+                Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE))
+                        .normalize();
+                if (!targetPath.startsWith(path.normalize())) {
+                    throw new OrasException(
+                            "Refusing to pull layer: path is not withing folder in title annotation '%s'"
+                                    .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+                }
                 if (Files.exists(targetPath) && !overwrite) {
                     LOG.info("File already exists: {}", targetPath);
                     return;

@@ -166,7 +166,13 @@ public final class OCILayout extends OCI<LayoutRef> {
 
         // Copy the blob to the target path
         try {
-            Files.copy(blobPath, path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+            Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE))
+                    .normalize();
+            if (!targetPath.startsWith(path.normalize())) {
+                throw new OrasException("Refusing to pull layer: title annotation is not withing folder '%s'"
+                        .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+            }
+            Files.copy(blobPath, targetPath);
         } catch (IOException e) {
             throw new OrasException("Failed to copy blob", e);
         }

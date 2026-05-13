@@ -23,8 +23,10 @@ package land.oras;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -1071,5 +1073,77 @@ class RegistryWireMockTest {
         ContainerRef containerRef =
                 ContainerRef.parse("localhost:%d/library/%s".formatted(wmRuntimeInfo.getHttpPort(), registryName));
         return registry.getBlob(containerRef.withDigest(digest));
+    }
+
+    @Test
+    void pullArtifactShouldRejectInvalidTitleAnnotation(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Craft a blob and build a manifest whose layer title contains a invalid sequence
+        byte[] blobContent = "malicious content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String blobDigest = SupportedAlgorithm.SHA256.digest(blobContent);
+
+        Layer maliciousLayer = Layer.fromDigest(blobDigest, blobContent.length)
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "../traversed-file.txt"));
+
+        Manifest manifest = Manifest.empty().withLayers(List.of(maliciousLayer));
+        String manifestJson = JsonUtils.toJson(manifest);
+        String manifestDigest =
+                SupportedAlgorithm.SHA256.digest(manifestJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Stub HEAD manifest
+        wireMock.register(head(urlEqualTo("/v2/library/malicious-artifact/manifests/latest"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, manifestDigest)));
+
+        // Stub GET manifest
+        wireMock.register(get(urlEqualTo("/v2/library/malicious-artifact/manifests/latest"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, manifestDigest)
+                        .withBody(manifestJson)));
+
+        // Stub GET blob
+        wireMock.register(get(urlEqualTo("/v2/library/malicious-artifact/blobs/%s".formatted(blobDigest)))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody(blobContent)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, blobDigest)));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerRef = ContainerRef.parse("%s/library/malicious-artifact:latest".formatted(registryUrl));
+
+        Path outputDir = configDir.resolve("pull-output");
+        Files.createDirectories(outputDir);
+
+        // Check exception
+        Throwable cause = assertThrows(
+                Exception.class,
+                () -> registry.pullArtifact(containerRef, outputDir, true),
+                "Expected an exception for title annotation");
+        while (cause.getCause() != null && !(cause instanceof OrasException)) {
+            cause = cause.getCause();
+        }
+        assertInstanceOf(
+                OrasException.class,
+                cause,
+                "Root cause should be OrasException but was: "
+                        + cause.getClass().getName());
+        assertTrue(
+                cause.getMessage().contains("is not withing folder"),
+                "Exception message should mention is not withing folder but was: " + cause.getMessage());
+
+        // The file must NOT have been written outside the output directory
+        assertFalse(
+                Files.exists(outputDir.getParent().resolve("traversed-file.txt")),
+                "Blob must not be written outside the output directory");
     }
 }
