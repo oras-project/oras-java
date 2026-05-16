@@ -21,6 +21,7 @@
 package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Objects;
@@ -38,6 +39,7 @@ import org.jspecify.annotations.NullMarked;
     Const.JSON_PROPERTY_DIGEST,
     Const.JSON_PROPERTY_SIZE,
 })
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public final class Subject {
 
     private final String mediaType;

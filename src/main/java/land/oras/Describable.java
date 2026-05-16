@@ -20,10 +20,13 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Interface for describable objects
  */
 @OrasModel
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public interface Describable {
 
     /**
