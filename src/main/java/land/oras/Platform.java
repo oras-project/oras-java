@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.List;
@@ -46,6 +47,7 @@ import org.jspecify.annotations.Nullable;
     Const.PLATFORM_OS_VERSION,
     Const.PLATFORM_OS_FEATURES
 })
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record Platform(
         @Nullable @JsonProperty(Const.PLATFORM_OS) String os,
         @Nullable @JsonProperty(Const.PLATFORM_ARCHITECTURE) String architecture,

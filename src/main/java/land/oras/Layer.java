@@ -22,6 +22,7 @@ package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.io.IOException;
@@ -49,6 +50,7 @@ import org.jspecify.annotations.Nullable;
     Const.JSON_PROPERTY_ANNOTATIONS,
     Const.JSON_PROPERTY_DATA
 })
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public final class Layer extends Descriptor {
 
     /**

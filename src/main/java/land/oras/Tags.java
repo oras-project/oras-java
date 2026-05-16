@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +33,7 @@ import org.jspecify.annotations.Nullable;
  */
 @NullMarked
 @OrasModel
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record Tags(String name, List<String> tags, @Nullable String last) {
 
     /**

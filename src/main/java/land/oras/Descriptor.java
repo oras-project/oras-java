@@ -21,6 +21,7 @@
 package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Collections;
@@ -35,6 +36,7 @@ import org.jspecify.annotations.Nullable;
  */
 @OrasModel
 @JsonPropertyOrder({Const.JSON_PROPERTY_MEDIA_TYPE, Const.JSON_PROPERTY_DIGEST, Const.JSON_PROPERTY_SIZE})
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public sealed class Descriptor permits Config, Manifest, Layer, Index {
 
     /**
