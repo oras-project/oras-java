@@ -49,8 +49,6 @@ class FluxCDITCase {
 
         // The compressed manifests
         Path archive = Paths.get("src/test/resources/archives").resolve("flux-manifests.tgz");
-        String configMediaType = "application/vnd.cncf.flux.config.v1+json";
-        String contentMediaType = "application/vnd.cncf.flux.content.v1.tar+gzip";
 
         Map<String, String> annotations = Map.of(
                 Const.ANNOTATION_REVISION, "@sha1:6d63912ed9a9443dd01fbfd2991173a246050079",
@@ -58,8 +56,8 @@ class FluxCDITCase {
                 Const.ANNOTATION_CREATED, Const.currentTimestamp());
 
         // Create objects
-        Config config = Config.empty().withMediaType(configMediaType);
-        Layer layer = Layer.fromFile(archive).withMediaType(contentMediaType);
+        Config config = Config.empty().withMediaType(Const.FLUX_CD_CONFIG_MEDIA_TYPE);
+        Layer layer = Layer.fromFile(archive).withMediaType(Const.FLUX_CD_CONTENT_MEDIA_TYPE);
         Manifest manifest =
                 Manifest.empty().withConfig(config).withLayers(List.of(layer)).withAnnotations(annotations);
 
