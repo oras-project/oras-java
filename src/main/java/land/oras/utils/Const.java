@@ -460,4 +460,24 @@ public final class Const {
      * Metric name for token refresh duration
      */
     public static final String METRIC_TAG_REALM = "realm";
+
+    /**
+     * Flux CD config media type
+     */
+    public static final String FLUX_CD_CONFIG_MEDIA_TYPE = "application/vnd.cncf.flux.config.v1+json";
+
+    /**
+     * Flux CD content media type
+     */
+    public static final String FLUX_CD_CONTENT_MEDIA_TYPE = "application/vnd.cncf.flux.content.v1.tar+gzip";
+
+    /**
+     * Helm config media type
+     */
+    public static final String HELM_CONFIG_MEDIA_TYPE = "application/vnd.cncf.helm.config.v1+json";
+
+    /**
+     * Helm content media type
+     */
+    public static final String HELM_CONTENT_MEDIA_TYPE = "application/vnd.cncf.helm.chart.content.v1.tar+gzip";
 }

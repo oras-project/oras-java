@@ -49,8 +49,6 @@ class HelmITCase {
 
         // The compressed manifests
         Path archive = Paths.get("src/test/resources/archives").resolve("jenkins-chart.tgz");
-        String configMediaType = "application/vnd.cncf.helm.config.v1+json";
-        String contentMediaType = "application/vnd.cncf.helm.chart.content.v1.tar+gzip";
 
         Map<String, String> annotations = Map.of(
                 Const.ANNOTATION_DESCRIPTION, "Test helm chart",
@@ -58,8 +56,8 @@ class HelmITCase {
                 Const.ANNOTATION_CREATED, Const.currentTimestamp());
 
         // Create objects
-        Config config = Config.empty().withMediaType(configMediaType);
-        Layer layer = Layer.fromFile(archive).withMediaType(contentMediaType);
+        Config config = Config.empty().withMediaType(Const.HELM_CONFIG_MEDIA_TYPE);
+        Layer layer = Layer.fromFile(archive).withMediaType(Const.HELM_CONTENT_MEDIA_TYPE);
         Manifest manifest =
                 Manifest.empty().withConfig(config).withLayers(List.of(layer)).withAnnotations(annotations);
 
