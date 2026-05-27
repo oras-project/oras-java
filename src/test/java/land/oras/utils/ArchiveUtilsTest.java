@@ -33,6 +33,7 @@ import java.util.Set;
 import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -92,10 +93,11 @@ class ArchiveUtilsTest {
         Files.writeString(file2, "file2");
         Files.writeString(file4, "file4");
 
-        // Create one symlink file3 -> file1
+        // Create one symlink file3 -> file1 (use a relative target so the extracted
+        // symlink stays inside the extraction directory; absolute targets would escape)
         if (OsUtils.isPosixFileSystemSupported()) {
             Path file3 = dir1.resolve("file3");
-            Files.createSymbolicLink(file3, file1);
+            Files.createSymbolicLink(file3, Paths.get("file1"));
 
             // Add 777 permission to file2
             Files.setPosixFilePermissions(
@@ -327,5 +329,44 @@ class ArchiveUtilsTest {
         // To temporary
         Path temp = ArchiveUtils.uncompressuntar(compressedArchive, directory.getMediaType());
         assertTrue(Files.exists(temp), "Temp should exist");
+    }
+
+    /**
+     * Verify that untar rejects a tar that plants a symlink whose target escapes
+     * the extraction directory, even when the entry name itself stays under target.
+     * A second regular-file entry whose name traverses through the planted symlink
+     * would otherwise resolve to a path outside target.
+     */
+    @Test
+    void shouldRejectSymlinkEscapingTargetOnUntar(@TempDir Path tmp) throws IOException {
+        if (!OsUtils.isPosixFileSystemSupported()) {
+            return;
+        }
+        Path target = tmp.resolve("safe-output");
+        Files.createDirectories(target);
+        Path escapeFile = tmp.resolve("ESCAPED.txt");
+        Files.deleteIfExists(escapeFile);
+
+        Path mtar = tmp.resolve("malicious.tar");
+        try (TarArchiveOutputStream tout = new TarArchiveOutputStream(Files.newOutputStream(mtar))) {
+            tout.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+
+            TarArchiveEntry symlinkEntry = new TarArchiveEntry("evil-link", TarArchiveEntry.LF_SYMLINK);
+            symlinkEntry.setLinkName(tmp.toAbsolutePath().toString());
+            symlinkEntry.setMode(0777);
+            tout.putArchiveEntry(symlinkEntry);
+            tout.closeArchiveEntry();
+
+            byte[] data = "should not land outside target\n".getBytes();
+            TarArchiveEntry fileEntry = new TarArchiveEntry("evil-link/ESCAPED.txt");
+            fileEntry.setSize(data.length);
+            fileEntry.setMode(0644);
+            tout.putArchiveEntry(fileEntry);
+            tout.write(data);
+            tout.closeArchiveEntry();
+        }
+
+        assertThrows(OrasException.class, () -> ArchiveUtils.untar(mtar, target));
+        assertFalse(Files.exists(escapeFile), "Symlink-target escape must not create a file outside target");
     }
 }

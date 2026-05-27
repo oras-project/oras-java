@@ -27,8 +27,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.EnumSet;
@@ -268,6 +270,25 @@ public final class ArchiveUtils {
     }
 
     /**
+     * Ensure that a symlink entry's link target resolves inside the extraction directory.
+     * Stops an archive from planting a symlink that points outside the target tree, which
+     * would otherwise let subsequent regular-file entries write outside the target dir.
+     * @param outputPath The on-disk path where the symlink will be created
+     * @param linkTarget The raw link target string from the archive entry
+     * @param target The extraction root
+     * @throws IOException if the link target escapes the extraction root
+     */
+    static void ensureSafeSymlinkTarget(Path outputPath, Path linkTarget, Path target) throws IOException {
+        Path normalizedTarget = target.toAbsolutePath().normalize();
+        Path resolved =
+                (linkTarget.isAbsolute() ? linkTarget : outputPath.getParent().resolve(linkTarget)).normalize();
+        if (!resolved.startsWith(normalizedTarget)) {
+            throw new IOException(
+                    "Refusing to create symlink that escapes target dir: " + outputPath + " -> " + linkTarget);
+        }
+    }
+
+    /**
      * Extract a tar file to a target directory
      * @param path The tar file
      * @param target The target directory
@@ -376,11 +397,17 @@ public final class ArchiveUtils {
                             String linkStr = asiField != null
                                     ? asiField.getLinkedFile()
                                     : new String(zais.readAllBytes(), StandardCharsets.UTF_8);
-                            createSymbolicLink(outputPath, Paths.get(linkStr));
+                            Path linkPath = Paths.get(linkStr);
+                            ensureSafeSymlinkTarget(outputPath, linkPath, target);
+                            createSymbolicLink(outputPath, linkPath);
                         } else {
                             LOG.debug("Extracting file: {}", entry.getName());
                             Files.createDirectories(outputPath.getParent());
-                            try (OutputStream out = Files.newOutputStream(outputPath)) {
+                            try (OutputStream out = Files.newOutputStream(
+                                    outputPath,
+                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.WRITE,
+                                    LinkOption.NOFOLLOW_LINKS)) {
                                 zais.transferTo(out);
                             }
                         }
@@ -425,9 +452,15 @@ public final class ArchiveUtils {
 
                         // Restore file permissions (optional, based on your need)
                         if (entry.isSymbolicLink()) {
-                            createSymbolicLink(outputPath, Paths.get(entry.getLinkName()));
+                            Path linkPath = Paths.get(entry.getLinkName());
+                            ensureSafeSymlinkTarget(outputPath, linkPath, target);
+                            createSymbolicLink(outputPath, linkPath);
                         } else {
-                            try (OutputStream out = Files.newOutputStream(outputPath)) {
+                            try (OutputStream out = Files.newOutputStream(
+                                    outputPath,
+                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.WRITE,
+                                    LinkOption.NOFOLLOW_LINKS)) {
                                 tais.transferTo(out);
                             }
                             if (OsUtils.isPosixFileSystemSupported()) {
