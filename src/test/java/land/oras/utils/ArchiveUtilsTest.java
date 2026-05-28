@@ -369,4 +369,62 @@ class ArchiveUtilsTest {
         assertThrows(OrasException.class, () -> ArchiveUtils.untar(mtar, target));
         assertFalse(Files.exists(escapeFile), "Symlink-target escape must not create a file outside target");
     }
+
+    @Test
+    void shouldUntarOverwriteExistingFiles(@TempDir Path tmp) throws IOException {
+        Path target = tmp.resolve("output");
+        Files.createDirectories(target);
+
+        byte[] firstContent = "first".getBytes();
+        byte[] secondContent = "second-overwritten".getBytes();
+
+        Path tar1 = tmp.resolve("first.tar");
+        try (TarArchiveOutputStream tout = new TarArchiveOutputStream(Files.newOutputStream(tar1))) {
+            TarArchiveEntry e = new TarArchiveEntry("file.txt");
+            e.setSize(firstContent.length);
+            tout.putArchiveEntry(e);
+            tout.write(firstContent);
+            tout.closeArchiveEntry();
+        }
+        ArchiveUtils.untar(tar1, target);
+        assertEquals("first", Files.readString(target.resolve("file.txt")));
+
+        Path tar2 = tmp.resolve("second.tar");
+        try (TarArchiveOutputStream tout = new TarArchiveOutputStream(Files.newOutputStream(tar2))) {
+            TarArchiveEntry e = new TarArchiveEntry("file.txt");
+            e.setSize(secondContent.length);
+            tout.putArchiveEntry(e);
+            tout.write(secondContent);
+            tout.closeArchiveEntry();
+        }
+        ArchiveUtils.untar(tar2, target);
+        assertEquals("second-overwritten", Files.readString(target.resolve("file.txt")));
+    }
+
+    @Test
+    void shouldUnzipOverwriteExistingFiles(@TempDir Path tmp) throws IOException {
+        Path target = tmp.resolve("output");
+        Files.createDirectories(target);
+
+        byte[] firstContent = "first".getBytes();
+        byte[] secondContent = "second-overwritten".getBytes();
+
+        Path zip1 = tmp.resolve("first.zip");
+        try (java.util.zip.ZipOutputStream zout = new java.util.zip.ZipOutputStream(Files.newOutputStream(zip1))) {
+            zout.putNextEntry(new java.util.zip.ZipEntry("file.txt"));
+            zout.write(firstContent);
+            zout.closeEntry();
+        }
+        ArchiveUtils.unzip(zip1, target);
+        assertEquals("first", Files.readString(target.resolve("file.txt")));
+
+        Path zip2 = tmp.resolve("second.zip");
+        try (java.util.zip.ZipOutputStream zout = new java.util.zip.ZipOutputStream(Files.newOutputStream(zip2))) {
+            zout.putNextEntry(new java.util.zip.ZipEntry("file.txt"));
+            zout.write(secondContent);
+            zout.closeEntry();
+        }
+        ArchiveUtils.unzip(zip2, target);
+        assertEquals("second-overwritten", Files.readString(target.resolve("file.txt")));
+    }
 }
