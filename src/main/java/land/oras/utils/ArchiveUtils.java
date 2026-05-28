@@ -405,7 +405,8 @@ public final class ArchiveUtils {
                             Files.createDirectories(outputPath.getParent());
                             try (OutputStream out = Files.newOutputStream(
                                     outputPath,
-                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.CREATE,
+                                    StandardOpenOption.TRUNCATE_EXISTING,
                                     StandardOpenOption.WRITE,
                                     LinkOption.NOFOLLOW_LINKS)) {
                                 zais.transferTo(out);
@@ -458,7 +459,8 @@ public final class ArchiveUtils {
                         } else {
                             try (OutputStream out = Files.newOutputStream(
                                     outputPath,
-                                    StandardOpenOption.CREATE_NEW,
+                                    StandardOpenOption.CREATE,
+                                    StandardOpenOption.TRUNCATE_EXISTING,
                                     StandardOpenOption.WRITE,
                                     LinkOption.NOFOLLOW_LINKS)) {
                                 tais.transferTo(out);
