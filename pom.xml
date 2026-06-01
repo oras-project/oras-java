@@ -64,7 +64,7 @@
     <micrometer.version>1.16.5</micrometer.version>
 
     <!-- Test dependencies version -->
-    <logback.version>1.5.33</logback.version>
+    <logback.version>1.5.34</logback.version>
     <junit.version>6.1.0</junit.version>
     <testcontainer.version>2.0.5</testcontainer.version>
     <wiremock.version>3.13.2</wiremock.version>
