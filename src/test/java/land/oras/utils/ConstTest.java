@@ -36,5 +36,7 @@ class ConstTest {
         assertEquals("org.opencontainers.image.revision", Const.ANNOTATION_REVISION);
         assertEquals("org.opencontainers.image.created", Const.ANNOTATION_CREATED);
         assertEquals("org.opencontainers.image.ref.name", Const.ANNOTATION_REF);
+        assertEquals("application/vnd.oci.image.config.v1+json", Const.CONFIG_RUNNING_CONTAINER_MEDIA_TYPE);
+        assertEquals("application/vnd.docker.container.image.v1+json", Const.CONFIG_RUNNING_DOCKER_MEDIA_TYPE);
     }
 }
