@@ -195,6 +195,16 @@ public final class Const {
     public static final String DEFAULT_MANIFEST_MEDIA_TYPE = "application/vnd.oci.image.manifest.v1+json";
 
     /**
+     * Media type for config of running container
+     */
+    public static final String CONFIG_RUNNING_CONTAINER_MEDIA_TYPE = "application/vnd.oci.image.config.v1+json";
+
+    /**
+     * Media type for config of running docker
+     */
+    public static final String CONFIG_RUNNING_DOCKER_MEDIA_TYPE = "application/vnd.docker.container.image.v1+json";
+
+    /**
      * The default accept type for the manifest
      */
     public static final String MANIFEST_ACCEPT_TYPE = "%s, %s, %s, %s, %s"
