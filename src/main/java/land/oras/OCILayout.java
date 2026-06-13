@@ -26,10 +26,13 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -336,7 +339,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         Path blobPath = getBlobPath(ref);
         String digest = ref.getAlgorithm().digest(blob);
         ensureAlgorithmPath(digest);
-        LOG.debug("Digest: {}", digest);
+        LOG.trace("Digest: {}", digest);
         try {
             if (Files.exists(blobPath)) {
                 LOG.info("Blob already exists: {}", digest);
@@ -345,6 +348,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             Files.copy(blob, blobPath);
             Layer layer = Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             packToTar();
+            LOG.debug("Blob pushed to OCI layout: {}", digest);
             return layer;
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);
@@ -453,11 +457,85 @@ public final class OCILayout extends OCI<LayoutRef> {
         return Referrers.from(manifestDescriptors);
     }
 
+    /**
+     * Remove all blobs that are not referenced by any manifest reachable from the root {@code index.json}.
+     * @return the list of digests (in {@code <algorithm>:<hex>} format) that were removed
+     */
+    public List<String> garbageCollect() {
+        Set<String> referencedDigests = new HashSet<>();
+        Index rootIndex = Index.fromPath(getIndexPath());
+        collectReferencedDigests(rootIndex, referencedDigests);
+
+        List<String> removed = new ArrayList<>();
+        Path blobsRoot = getBlobPath();
+        try {
+            if (!Files.exists(blobsRoot)) {
+                return removed;
+            }
+            // Iterate over algorithm directories (e.g. blobs/sha256/)
+            try (var algoDirs = Files.newDirectoryStream(blobsRoot)) {
+                for (Path algoDir : algoDirs) {
+                    String algoPrefix = algoDir.getFileName().toString();
+                    try (var blobFiles = Files.newDirectoryStream(algoDir)) {
+                        for (Path blobFile : blobFiles) {
+                            String hex = blobFile.getFileName().toString();
+                            String digest = algoPrefix + ":" + hex;
+                            if (!referencedDigests.contains(digest)) {
+                                LOG.info("Removing unreferenced blob: {}", digest);
+                                Files.delete(blobFile);
+                                removed.add(digest);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new OrasException("Failed to garbage collect OCI layout", e);
+        }
+        if (!removed.isEmpty()) {
+            packToTar();
+        }
+        return removed;
+    }
+
+    /**
+     * Recursively collect all blob digests that are reachable from the given index.
+     *
+     * @param index the index to traverse
+     * @param referencedDigests the set to populate with reachable digests
+     */
+    private void collectReferencedDigests(Index index, Set<String> referencedDigests) {
+        for (ManifestDescriptor entry : index.getManifests()) {
+            String entryDigest = entry.getDigest();
+            referencedDigests.add(entryDigest);
+            Path blobPath = getBlobPath(entry);
+
+            // Nested index
+            if (isIndexMediaType(entry.getMediaType())) {
+                Index nestedIndex = Index.fromPath(blobPath);
+                collectReferencedDigests(nestedIndex, referencedDigests);
+            }
+            // Manifest
+            else {
+                Manifest manifest = Manifest.fromPath(blobPath);
+                Config config = manifest.getConfig();
+                if (config != null && config.getDigest() != null) {
+                    referencedDigests.add(config.getDigest());
+                }
+                for (Layer layer : manifest.getLayers()) {
+                    if (layer.getDigest() != null && layer.getData() == null) {
+                        referencedDigests.add(layer.getDigest());
+                    }
+                }
+            }
+        }
+    }
+
     private void setPath(Path path) {
         this.path = path;
     }
 
-    private void setTarPath(Path tarPath) {
+    private void setTarPath(@Nullable Path tarPath) {
         this.tarPath = tarPath;
     }
 

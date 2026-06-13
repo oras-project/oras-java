@@ -1443,4 +1443,240 @@ class OCILayoutTest {
         assertBlobExists(workDir, SupportedAlgorithm.SHA256.digest(file3));
         assertBlobContent(workDir, SupportedAlgorithm.SHA256.digest(file3), "linked-file2-tar");
     }
+
+    @Test
+    void shouldGarbageCollectReturnEmptyWhenNoBlobsAreOrphaned() throws IOException {
+        Path ociLayoutPath = layoutPath.resolve("gc-no-orphan");
+        Path artifactFile = blobDir.resolve("gc-no-orphan.txt");
+        Files.writeString(artifactFile, "no-orphan");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(artifactFile, "text/plain"));
+
+        List<String> removed = ociLayout.garbageCollect();
+
+        // No orphaned blobs — nothing should be removed
+        assertTrue(removed.isEmpty(), "Expected no blobs to be garbage collected");
+
+        // Original blobs still present
+        assertBlobExists(ociLayoutPath, Config.empty().getDigest());
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactFile));
+    }
+
+    @Test
+    void shouldGarbageCollectRemoveOrphanedBlob() throws IOException {
+        Path ociLayoutPath = layoutPath.resolve("gc-orphan");
+        Path artifactFile = blobDir.resolve("gc-orphan.txt");
+        Files.writeString(artifactFile, "referenced");
+        Path orphanFile = blobDir.resolve("gc-orphan-extra.txt");
+        Files.writeString(orphanFile, "orphaned-blob-content");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(artifactFile, "text/plain"));
+
+        // Inject an orphaned blob directly into the blobs/sha256/ directory
+        String orphanDigest = SupportedAlgorithm.SHA256.digest(orphanFile);
+        Path orphanBlobPath = ociLayoutPath
+                .resolve(Const.OCI_LAYOUT_BLOBS)
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(orphanDigest));
+        Files.copy(orphanFile, orphanBlobPath);
+        assertBlobExists(ociLayoutPath, orphanDigest);
+
+        List<String> removed = ociLayout.garbageCollect();
+
+        // Exactly the orphaned blob should be removed
+        assertEquals(1, removed.size(), "Expected exactly one blob to be garbage collected");
+        assertEquals(orphanDigest, removed.get(0));
+
+        // The orphaned blob must no longer exist
+        assertBlobAbsent(ociLayoutPath, orphanDigest);
+
+        // Referenced blobs must still be present
+        assertBlobExists(ociLayoutPath, Config.empty().getDigest());
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactFile));
+    }
+
+    @Test
+    void shouldGarbageCollectMultipleOrphanedBlobs() throws IOException {
+        Path ociLayoutPath = layoutPath.resolve("gc-multi-orphan");
+        Path artifactFile = blobDir.resolve("gc-multi-orphan.txt");
+        Files.writeString(artifactFile, "referenced-multi");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(artifactFile, "text/plain"));
+
+        // Inject two orphaned blobs
+        Path orphan1 = blobDir.resolve("gc-orphan1.txt");
+        Path orphan2 = blobDir.resolve("gc-orphan2.txt");
+        Files.writeString(orphan1, "orphan-one");
+        Files.writeString(orphan2, "orphan-two");
+
+        String orphanDigest1 = SupportedAlgorithm.SHA256.digest(orphan1);
+        String orphanDigest2 = SupportedAlgorithm.SHA256.digest(orphan2);
+
+        Path algoDir = ociLayoutPath.resolve(Const.OCI_LAYOUT_BLOBS).resolve("sha256");
+        Files.copy(orphan1, algoDir.resolve(SupportedAlgorithm.getDigest(orphanDigest1)));
+        Files.copy(orphan2, algoDir.resolve(SupportedAlgorithm.getDigest(orphanDigest2)));
+
+        List<String> removed = ociLayout.garbageCollect();
+
+        assertEquals(2, removed.size(), "Expected two blobs to be garbage collected");
+        assertTrue(removed.contains(orphanDigest1), "orphanDigest1 should be in removed list");
+        assertTrue(removed.contains(orphanDigest2), "orphanDigest2 should be in removed list");
+
+        assertBlobAbsent(ociLayoutPath, orphanDigest1);
+        assertBlobAbsent(ociLayoutPath, orphanDigest2);
+
+        // Referenced blobs must still be present
+        assertBlobExists(ociLayoutPath, Config.empty().getDigest());
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(artifactFile));
+    }
+
+    @Test
+    void shouldGarbageCollectKeepAllBlobsAfterMultipleManifests() throws IOException {
+        Path ociLayoutPath = layoutPath.resolve("gc-multi-manifest");
+        Path file1 = blobDir.resolve("gc-multi-manifest-1.txt");
+        Path file2 = blobDir.resolve("gc-multi-manifest-2.txt");
+        Files.writeString(file1, "first-artifact");
+        Files.writeString(file2, "second-artifact");
+
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        LayoutRef ref1 = LayoutRef.parse("%s:v1".formatted(ociLayoutPath.toString()));
+        LayoutRef ref2 = LayoutRef.parse("%s:v2".formatted(ociLayoutPath.toString()));
+
+        ociLayout.pushArtifact(ref1, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file1));
+        ociLayout.pushArtifact(ref2, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file2));
+
+        List<String> removed = ociLayout.garbageCollect();
+
+        // Nothing should be removed — both artifacts are fully referenced
+        assertTrue(removed.isEmpty(), "Expected no blobs to be garbage collected with two valid manifests");
+
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(file1));
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(file2));
+    }
+
+    @Test
+    void shouldGarbageCollectKeepReferrerBlobsWhenCopiedDeep() throws IOException {
+        Path ociLayoutPath = layoutPath.resolve("gc-referrer");
+        Path mainFile = blobDir.resolve("gc-referrer-main.txt");
+        Path attachFile = blobDir.resolve("gc-referrer-attach.txt");
+        Files.writeString(mainFile, "main-artifact");
+        Files.writeString(attachFile, "attached-artifact");
+
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        // Push main artifact
+        ociLayout.pushArtifact(
+                layoutRef, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(mainFile, "text/plain"));
+
+        // Attach a referrer to the main artifact
+        ociLayout.attachArtifact(
+                layoutRef,
+                ArtifactType.from("application/referrer"),
+                Annotations.empty(),
+                LocalPath.of(attachFile, "text/plain"));
+
+        // No orphans — both main and referrer blobs are valid
+        List<String> removed = ociLayout.garbageCollect();
+
+        assertTrue(removed.isEmpty(), "Expected no blobs to be removed when referrers are properly referenced");
+
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(mainFile));
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(attachFile));
+    }
+
+    @Test
+    void shouldGarbageCollectOnEmptyLayout() {
+        Path ociLayoutPath = layoutPath.resolve("gc-empty");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        // An empty layout has no blobs at all — GC must return empty list without error
+        List<String> removed = ociLayout.garbageCollect();
+
+        assertTrue(removed.isEmpty(), "Expected no blobs to be removed from an empty layout");
+    }
+
+    @Test
+    void shouldGarbageCollectWithNestedIndex() throws IOException {
+
+        // Build a layout
+        Path ociLayoutPath = layoutPath.resolve("gc-nested-index");
+        Path file1 = blobDir.resolve("gc-nested-index-1.txt");
+        Path file2 = blobDir.resolve("gc-nested-index-2.txt");
+        Path orphanFile = blobDir.resolve("gc-nested-index-orphan.txt");
+        Files.writeString(file1, "nested-index-artifact-one");
+        Files.writeString(file2, "nested-index-artifact-two");
+        Files.writeString(orphanFile, "nested-index-orphan-content");
+
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+
+        // Push two independent manifests (without a top-level tag so they get digest-only entries)
+        LayoutRef ref1 = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        LayoutRef ref2 = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        Manifest manifest1 = ociLayout.pushArtifact(
+                ref1, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file1, "text/plain"));
+        Manifest manifest2 = ociLayout.pushArtifact(
+                ref2, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file2, "text/plain"));
+
+        // Group the two manifests into a nested index and push it.
+        assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
+        assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
+        Index nestedIndex = Index.fromManifests(List.of(manifest1.getDescriptor(), manifest2.getDescriptor()));
+        LayoutRef indexRef = LayoutRef.parse("%s:multi".formatted(ociLayoutPath.toString()));
+        Index pushedIndex = ociLayout.pushIndex(indexRef, nestedIndex);
+
+        // Collect the digests that must survive GC
+        assertNotNull(pushedIndex.getDescriptor(), "Pushed index descriptor should not be null");
+        String nestedIndexDigest = pushedIndex.getDescriptor().getDigest();
+        String manifest1Digest = manifest1.getDescriptor().getDigest();
+        String manifest2Digest = manifest2.getDescriptor().getDigest();
+        String layer1Digest = SupportedAlgorithm.SHA256.digest(file1);
+        String layer2Digest = SupportedAlgorithm.SHA256.digest(file2);
+        String configDigest = Config.empty().getDigest();
+
+        // Inject an orphaned blob directly on disk
+        Layer orphanedLayer =
+                ociLayout.pushBlob(indexRef.withDigest(SupportedAlgorithm.SHA256.digest(orphanFile)), orphanFile);
+        String orphanDigest = orphanedLayer.getDigest();
+        assertBlobExists(ociLayoutPath, orphanDigest);
+
+        // Run GC
+        List<String> removed = ociLayout.garbageCollect();
+
+        // Only the orphan must have been removed
+        assertEquals(1, removed.size(), "Expected exactly one blob to be garbage collected");
+        assertEquals(orphanDigest, removed.get(0));
+        assertBlobAbsent(ociLayoutPath, orphanDigest);
+
+        // The nested index blob itself must be kept (it is referenced from root index.json)
+        assertBlobExists(ociLayoutPath, nestedIndexDigest);
+
+        // Both manifests reachable via the nested index must be kept
+        assertBlobExists(ociLayoutPath, manifest1Digest);
+        assertBlobExists(ociLayoutPath, manifest2Digest);
+
+        // All layer blobs reached by recursing into the nested index must be kept
+        assertBlobExists(ociLayoutPath, layer1Digest);
+        assertBlobExists(ociLayoutPath, layer2Digest);
+
+        // Shared config blob must be kept
+        assertBlobExists(ociLayoutPath, configDigest);
+    }
 }
