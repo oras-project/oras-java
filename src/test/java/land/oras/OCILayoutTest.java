@@ -1209,4 +1209,238 @@ class OCILayoutTest {
                 Files.exists(outputDir.getParent().resolve("traversed-file.txt")),
                 "Blob must not be written outside the output directory");
     }
+
+    @Test
+    void shouldCreateNewTarBackedLayout() {
+        // Arrange: a path ending in .tar that does not yet exist
+        Path tarFile = layoutPath.resolve("new-layout.tar");
+        assertFalse(Files.exists(tarFile), "Tar file should not exist before build()");
+
+        // Act
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+
+        // Assert: tar file was created on disk
+        assertTrue(Files.exists(tarFile), "Tar file must be created by build()");
+        assertEquals(tarFile, ociLayout.getTarPath());
+
+        // The working directory should contain the minimal OCI layout structure
+        Path workDir = ociLayout.getPath();
+        assertTrue(Files.exists(workDir.resolve(Const.OCI_LAYOUT_INDEX)));
+        assertTrue(Files.exists(workDir.resolve(Const.OCI_LAYOUT_FILE)));
+        assertTrue(Files.isDirectory(workDir.resolve(Const.OCI_LAYOUT_BLOBS)));
+    }
+
+    @Test
+    void shouldPushManifestToTarBackedLayout() {
+        // Arrange
+        Path tarFile = layoutPath.resolve("push-manifest.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef ref = LayoutRef.parse(tarFile.toString());
+
+        // Act
+        Manifest manifest = Manifest.empty().withConfig(Config.empty());
+        manifest = ociLayout.pushManifest(ref, manifest);
+
+        // Assert: tar file is updated
+        assertTrue(Files.exists(tarFile), "Tar must be re-packed after pushManifest");
+
+        // Open from the tar again and verify the manifest is present
+        Path reopenedWorkDir = ociLayout.getPath();
+        Index index = Index.fromPath(reopenedWorkDir.resolve(Const.OCI_LAYOUT_INDEX));
+        assertEquals(1, index.getManifests().size());
+        assertNotNull(manifest.getDescriptor());
+    }
+
+    @Test
+    void shouldPushAndPullArtifactViaTagInTarBackedLayout() throws IOException {
+        // Arrange
+        Path tarFile = layoutPath.resolve("push-pull.tar");
+        Path artifactFile = blobDir.resolve("hello-tar.txt");
+        Files.writeString(artifactFile, "hello from tar");
+
+        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+
+        // Act: push
+        ociLayout.pushArtifact(
+                ref, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(artifactFile, "text/plain"));
+
+        // Assert tar was updated
+        assertTrue(Files.exists(tarFile));
+
+        // Re-open the layout from the same tar (simulate a second process)
+        OCILayout reopened = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef reopenedRef = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+
+        // Pull the artifact
+        Path pullDir = extractDir.resolve("tar-pull-out");
+        Files.createDirectories(pullDir);
+        reopened.pullArtifact(reopenedRef, pullDir, false);
+
+        // Verify the file was extracted correctly
+        Path extracted = pullDir.resolve("hello-tar.txt");
+        assertTrue(Files.exists(extracted), "Extracted file must exist");
+        assertEquals("hello from tar", Files.readString(extracted));
+    }
+
+    @Test
+    void shouldListTagsFromTarBackedLayout() throws IOException {
+        // Open the pre-built artifact.tar fixture
+        Path tarFile = Path.of("src/test/resources/oci/artifact.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+
+        Tags tags = ociLayout.getTags(ref);
+        assertEquals(1, tags.tags().size());
+        assertEquals("latest", tags.tags().get(0));
+    }
+
+    @Test
+    void shouldGetReferrersFromTarBackedLayout() throws IOException {
+        // Open the pre-built subject.tar fixture (has one referrer)
+        Path tarFile = Path.of("src/test/resources/oci/subject.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+
+        Referrers referrers = ociLayout.getReferrers(ref, null);
+        assertEquals(1, referrers.getManifests().size());
+        assertEquals(
+                "sha256:ccec2a2be7ce7c6aadc8ed0dc03df8f91cbd3534272dd1f8284226a8d3516dd6",
+                referrers.getManifests().get(0).getDigest());
+    }
+
+    @Test
+    void shouldPullArtifactFromTarFixture() throws IOException {
+        // Open the pre-built artifact.tar fixture
+        Path tarFile = Path.of("src/test/resources/oci/artifact.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+
+        Path pullDir = extractDir.resolve("tar-fixture-pull");
+        Files.createDirectories(pullDir);
+        ociLayout.pullArtifact(ref, pullDir, false);
+
+        assertTrue(Files.exists(pullDir.resolve("hi.txt")));
+        assertEquals("hi\n", Files.readString(pullDir.resolve("hi.txt")));
+    }
+
+    @Test
+    void shouldReopenExistingTarAndPushAdditionalManifest() throws IOException {
+        // First session: create a tar-backed layout and push one manifest
+        Path tarFile = layoutPath.resolve("reopen-test.tar");
+        LayoutRef ref1 = LayoutRef.parse("%s:v1".formatted(tarFile.toString()));
+        OCILayout session1 = OCILayout.Builder.builder().defaults(tarFile).build();
+        session1.pushManifest(ref1, Manifest.empty().withConfig(Config.empty()));
+
+        // Second session: reopen the same tar and push another manifest
+        LayoutRef ref2 = LayoutRef.parse("%s:v2".formatted(tarFile.toString()));
+        OCILayout session2 = OCILayout.Builder.builder().defaults(tarFile).build();
+        Manifest m2 = Manifest.empty().withConfig(Config.empty()).withAnnotations(Map.of("version", "2"));
+        session2.pushManifest(ref2, m2);
+
+        // Third session: verify both tags are present
+        OCILayout session3 = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef refAny = LayoutRef.parse(tarFile.toString());
+        Tags tags = session3.getTags(refAny);
+        assertEquals(2, tags.tags().size(), "Both v1 and v2 tags must be present after reopening");
+        assertTrue(tags.tags().contains("v1"));
+        assertTrue(tags.tags().contains("v2"));
+    }
+
+    @Test
+    void shouldReportTarFileNameAsRepository() throws IOException {
+        Path tarFile = layoutPath.resolve("my-layout.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        Repositories repos = ociLayout.getRepositories();
+        assertEquals(1, repos.repositories().size());
+        assertEquals("my-layout.tar", repos.repositories().get(0));
+    }
+
+    @Test
+    void testShouldCopyArtifactFromRegistryIntoTarBackedOciLayout() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        Path tarFile = layoutPath.resolve("copy-shallow.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef layoutRef = LayoutRef.of(ociLayout);
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-oci-layout-tar".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("artifact-oci-layout-tar.txt");
+        Files.writeString(file1, "artifact-oci-layout-tar");
+
+        // Push to registry
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
+
+        // Shallow copy to tar-backed OCI layout
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.shallow());
+
+        // The tar file must exist and contain a valid layout
+        assertTrue(Files.exists(tarFile), "Tar file must exist after copy");
+
+        // Re-open from the tar to verify contents are persisted correctly
+        OCILayout reopened = OCILayout.Builder.builder().defaults(tarFile).build();
+        Path workDir = reopened.getPath();
+
+        assertOciLayout(workDir);
+        assertIndex(workDir, manifest, 1, 0);
+        assertBlobContent(workDir, Config.empty().getDigest(), "{}");
+        assertBlobExists(workDir, SupportedAlgorithm.SHA256.digest(file1));
+        assertBlobContent(workDir, SupportedAlgorithm.SHA256.digest(file1), "artifact-oci-layout-tar");
+    }
+
+    @Test
+    void testShouldCopyArtifactRecursivelyFromRegistryIntoTarBackedOciLayout() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        Path tarFile = layoutPath.resolve("copy-deep.tar");
+        OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-recursive-oci-layout-tar".formatted(this.registry.getRegistry()));
+        Path file1 = blobDir.resolve("artifact-recursive-oci-layout-tar.txt");
+        Path file2 = blobDir.resolve("artifact-recursive-oci-attached-tar.txt");
+        Path file3 = blobDir.resolve("artifact-recursive-oci-attached2-tar.txt");
+        Files.writeString(file1, "artifact-oci-layout-tar");
+        Files.writeString(file2, "linked-file-tar");
+        Files.writeString(file3, "linked-file2-tar");
+
+        // Push to registry with referrer chain
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(file1));
+        Manifest attached =
+                registry.attachArtifact(containerRef, ArtifactType.from("application/foo"), LocalPath.of(file2));
+        registry.attachArtifact(
+                containerRef.withDigest(attached.getDescriptor().getDigest()),
+                ArtifactType.from("application/bar"),
+                LocalPath.of(file3));
+
+        // Deep copy to tar-backed OCI layout
+        CopyUtils.copy(registry, containerRef, ociLayout, layoutRef, CopyUtils.CopyOptions.deep());
+
+        // The tar file must exist
+        assertTrue(Files.exists(tarFile), "Tar file must exist after copy");
+
+        // Re-open from the tar to verify the full referrer chain is present
+        OCILayout reopened = OCILayout.Builder.builder().defaults(tarFile).build();
+        Path workDir = reopened.getPath();
+
+        assertOciLayout(workDir);
+        assertIndex(workDir, manifest, 3, 0);
+        assertBlobContent(workDir, Config.empty().getDigest(), "{}");
+        assertBlobExists(workDir, SupportedAlgorithm.SHA256.digest(file1));
+        assertBlobContent(workDir, SupportedAlgorithm.SHA256.digest(file1), "artifact-oci-layout-tar");
+        assertBlobExists(workDir, SupportedAlgorithm.SHA256.digest(file2));
+        assertBlobContent(workDir, SupportedAlgorithm.SHA256.digest(file2), "linked-file-tar");
+        assertBlobExists(workDir, SupportedAlgorithm.SHA256.digest(file3));
+        assertBlobContent(workDir, SupportedAlgorithm.SHA256.digest(file3), "linked-file2-tar");
+    }
 }

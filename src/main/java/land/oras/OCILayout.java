@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import land.oras.exception.OrasException;
+import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
@@ -53,6 +55,14 @@ public final class OCILayout extends OCI<LayoutRef> {
      * Path on the file system of the OCI Layout
      */
     private Path path;
+
+    /**
+     * When non-null the layout is backed by a tar file.
+     * {@code path} then points to a temporary directory that holds the extracted contents.
+     * Every mutating operation re-packs that temporary directory back into this tar file.
+     */
+    @Nullable
+    private Path tarPath;
 
     /**
      * Private constructor
@@ -96,6 +106,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         } catch (IOException e) {
             throw new OrasException("Failed to mount blob", e);
         }
+        packToTar();
         return true;
     }
 
@@ -214,6 +225,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         } catch (IOException e) {
             throw new OrasException("Failed to write manifest", e);
         }
+        packToTar();
         return manifest;
     }
 
@@ -249,6 +261,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         } catch (IOException e) {
             throw new OrasException("Failed to write manifest", e);
         }
+        packToTar();
         return index;
     }
 
@@ -330,7 +343,9 @@ public final class OCILayout extends OCI<LayoutRef> {
                 return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             }
             Files.copy(blob, blobPath);
-            return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+            Layer layer = Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+            packToTar();
+            return layer;
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);
         }
@@ -357,7 +372,9 @@ public final class OCILayout extends OCI<LayoutRef> {
                 Files.copy(is, blobPath);
             }
             ensureDigest(ref, blobPath);
-            return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+            Layer layer = Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
+            packToTar();
+            return layer;
         } catch (IOException e) {
             throw new OrasException("Failed to push blob", e);
         }
@@ -406,7 +423,9 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @Override
     public Repositories getRepositories() {
-        return new Repositories(List.of(path.getFileName().toString()));
+        // When tar-backed, report the tar file name rather than the temp-dir name
+        Path reportPath = tarPath != null ? tarPath : path;
+        return new Repositories(List.of(reportPath.getFileName().toString()));
     }
 
     @Override
@@ -436,6 +455,29 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     private void setPath(Path path) {
         this.path = path;
+    }
+
+    private void setTarPath(Path tarPath) {
+        this.tarPath = tarPath;
+    }
+
+    /**
+     * Re-pack the working directory back into the backing tar file.
+     * Called after every mutating operation when {@link #tarPath} is non-null.
+     */
+    private void packToTar() {
+        if (tarPath == null) {
+            return;
+        }
+        try {
+            // Pack without directory-name prefix so entries sit at the root of the tar,
+            // matching the OCI Image Layout tar format (blobs/, index.json, oci-layout …).
+            LocalPath packed = ArchiveUtils.tar(LocalPath.of(path), false);
+            // Atomically replace the backing tar file
+            Files.move(packed.getPath(), tarPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new OrasException("Failed to repack OCI layout tar: " + tarPath, e);
+        }
     }
 
     /**
@@ -674,12 +716,24 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     /**
-     * Return the path to the OCI layout
+     * Return the path to the OCI layout working directory.
+     * <p>When the layout is tar-backed this is the temporary directory into which the tar
+     * was extracted; use {@link #getTarPath()} to obtain the path of the backing tar file.</p>
      * @return The path to the OCI layout
      */
     @JsonIgnore
     public Path getPath() {
         return path;
+    }
+
+    /**
+     * Return the path to the backing tar file, or {@code null} if the layout is directory-backed.
+     * @return The tar file path, or {@code null}
+     */
+    @JsonIgnore
+    @Nullable
+    public Path getTarPath() {
+        return tarPath;
     }
 
     /**
@@ -697,12 +751,30 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
 
         /**
-         * Return a new builder with default path
-         * @param path The path
+         * Return a new builder with default path.
+         * <p>If {@code path} ends with {@code .tar} the layout is considered to be tar-backed.
+         * When the tar file already exists it is extracted to a temporary directory; that
+         * temporary directory is used as the working {@code path} for all operations.
+         * After every mutating operation the working directory is re-packed into the original
+         * tar file.  If the tar file does not yet exist a fresh, empty layout is created in
+         * the temporary directory and packed once on the first mutation.</p>
+         * @param path The path (directory or {@code .tar} file)
          * @return The builder
          */
         public OCILayout.Builder defaults(Path path) {
-            layout.setPath(path);
+            String name = path.getFileName().toString();
+            if (name.endsWith(".tar")) {
+                // Tar-backed layout: work in a temp directory
+                Path workDir = ArchiveUtils.createTempDir();
+                if (Files.exists(path)) {
+                    // Extract existing tar into the temp working directory
+                    ArchiveUtils.untar(path, workDir);
+                }
+                layout.setPath(workDir);
+                layout.setTarPath(path);
+            } else {
+                layout.setPath(path);
+            }
             return this;
         }
 
@@ -727,6 +799,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                 }
             }
             layout.ensureMinimalLayout();
+            layout.packToTar();
             return layout;
         }
     }

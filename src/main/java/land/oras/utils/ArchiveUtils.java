@@ -165,11 +165,28 @@ public final class ArchiveUtils {
     }
 
     /**
-     * Create a tar.gz file from a directory
+     * Create a tar file from a directory, prefixing every entry with the source directory's own name.
+     * <p>Equivalent to calling {@link #tar(LocalPath, boolean) tar(sourceDir, true)}.</p>
      * @param sourceDir The source directory
-     * @return The path to the tar.gz file
+     * @return The local path to the temporary tar file
      */
     public static LocalPath tar(LocalPath sourceDir) {
+        return tar(sourceDir, true);
+    }
+
+    /**
+     * Create a tar file from a directory.
+     * <p>When {@code includeDirectoryName} is {@code true} (the default behaviour) every entry
+     * is prefixed with the source directory's own name, e.g. {@code mydir/blobs/sha256/...}.
+     * When {@code false}, entries are stored relative to the source directory itself, e.g.
+     * {@code blobs/sha256/...} — which is the format required by the OCI Image Layout
+     * specification when packaging a layout as a plain tar archive.</p>
+     * @param sourceDir The source directory
+     * @param includeDirectoryName {@code true} to prefix entries with the directory name,
+     *                             {@code false} for root-relative entry names
+     * @return The local path to the temporary tar file
+     */
+    public static LocalPath tar(LocalPath sourceDir, boolean includeDirectoryName) {
         Path tarFile = createTempTar();
         boolean isAbsolute = sourceDir.getPath().isAbsolute();
         try (OutputStream fos = Files.newOutputStream(tarFile);
@@ -183,8 +200,13 @@ public final class ArchiveUtils {
                 paths.forEach(path -> {
                     LOG.trace("Visiting path: {}", path);
                     try {
-                        Path baseName = isAbsolute ? sourceDir.getPath().getFileName() : sourceDir.getPath();
-                        Path relativePath = baseName.resolve(sourceDir.getPath().relativize(path));
+                        Path relativePath;
+                        if (includeDirectoryName) {
+                            Path baseName = isAbsolute ? sourceDir.getPath().getFileName() : sourceDir.getPath();
+                            relativePath = baseName.resolve(sourceDir.getPath().relativize(path));
+                        } else {
+                            relativePath = sourceDir.getPath().relativize(path);
+                        }
                         if (relativePath.toString().isEmpty()) {
                             LOG.trace("Skipping root directory: {}", path);
                             return;
