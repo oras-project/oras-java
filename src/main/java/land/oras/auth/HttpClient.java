@@ -476,6 +476,35 @@ public final class HttpClient {
     }
 
     /**
+     * Upload a chunk of data from an input stream using PATCH.
+     * @param uri The URI
+     * @param chunkSize The size of the chunk in bytes
+     * @param headers The headers (should include Content-Range)
+     * @param stream A supplier providing the input stream for this chunk
+     * @param scopes The scopes
+     * @param authProvider The authentication provider
+     * @return The response
+     */
+    public ResponseWrapper<String> patch(
+            URI uri,
+            long chunkSize,
+            Map<String, String> headers,
+            Supplier<InputStream> stream,
+            Scopes scopes,
+            AuthProvider authProvider) {
+        return executeRequest(
+                "PATCH",
+                uri,
+                true,
+                headers,
+                new byte[0],
+                HttpResponse.BodyHandlers.ofString(),
+                HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), chunkSize),
+                scopes,
+                authProvider);
+    }
+
+    /**
      * Perform a PUT request
      * @param uri The URI
      * @param body The body
