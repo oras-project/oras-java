@@ -1146,4 +1146,50 @@ class RegistryWireMockTest {
                 Files.exists(outputDir.getParent().resolve("traversed-file.txt")),
                 "Blob must not be written outside the output directory");
     }
+
+    @Test
+    void shouldFailChunkedUploadWhenInitiationReturnsNon202(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // The POST that opens a chunked-upload session returns 500 instead of 202.
+        wireMock.register(post(urlPathMatching("/v2/library/chunked-init-error/blobs/uploads/"))
+                .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
+
+        // HEAD for the prior-existence check returns 404 (blob does not exist yet).
+        wireMock.register(head(urlPathMatching("/v2/library/chunked-init-error/blobs/.*"))
+                .willReturn(aResponse().withStatus(404)));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        byte[] content = "hello".getBytes(StandardCharsets.UTF_8);
+        String digest = SupportedAlgorithm.SHA256.digest(content);
+
+        // Path overload
+        Path blobFile = configDir.resolve("chunked-init-error.txt");
+        Files.write(blobFile, content);
+        ContainerRef refPath = ContainerRef.parse("%s/library/chunked-init-error".formatted(registryUrl));
+
+        OrasException exPath = assertThrows(OrasException.class, () -> registry.pushBlobChunked(refPath, blobFile, 4L));
+        assertEquals(
+                "Failed to initiate chunked blob upload: status 500",
+                exPath.getMessage(),
+                "Exception message should include the unexpected status code");
+
+        // InputStream overload
+        ContainerRef refStream = ContainerRef.parse("%s/library/chunked-init-error".formatted(registryUrl))
+                .withDigest(digest);
+
+        OrasException exStream = assertThrows(
+                OrasException.class,
+                () -> registry.pushBlobChunked(
+                        refStream, new java.io.ByteArrayInputStream(content), content.length, 4L));
+        assertEquals(
+                "Failed to initiate chunked blob upload: status 500",
+                exStream.getMessage(),
+                "Exception message should include the unexpected status code");
+    }
 }

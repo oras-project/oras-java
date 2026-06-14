@@ -41,7 +41,6 @@ import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.SupportedCompression;
 import land.oras.utils.ZotContainer;
 import land.oras.utils.ZotUnsecureContainer;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -1946,7 +1945,7 @@ class RegistryTest {
         // Create test file
         Path testFile = Files.createTempFile("test-data-", ".tmp");
         Files.writeString(testFile, "Test Content");
-        long fileSize = Files.size(testFile);
+        Files.size(testFile);
         String expectedDigest = containerRef.getAlgorithm().digest(testFile);
 
         // First push
@@ -1965,10 +1964,6 @@ class RegistryTest {
         assertEquals(expectedDigest, firstLayer.getDigest());
         assertEquals(expectedDigest, secondLayer.getDigest());
         assertEquals(firstLayer.getSize(), secondLayer.getSize());
-
-        // Clean up
-        Files.delete(testFile);
-        registry.deleteBlob(containerRef.withDigest(firstLayer.getDigest()));
     }
 
     @Test
@@ -1988,7 +1983,6 @@ class RegistryTest {
             }
         };
 
-        // Verify exception is wrapped in OrasException
         OrasException exception =
                 assertThrows(OrasException.class, () -> registry.pushBlob(containerRef, failingStream));
         assertEquals("Failed to push blob", exception.getMessage());
@@ -2052,11 +2046,233 @@ class RegistryTest {
         // Verify content with stream
         try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(layer.getDigest()))) {
             byte[] result = resultStream.readAllBytes();
-            Assertions.assertArrayEquals(largeData, result);
+            assertArrayEquals(largeData, result);
         }
+    }
 
-        // Clean up
-        Files.delete(largeFile);
-        registry.deleteBlob(containerRef.withDigest(layer.getDigest()));
+    @Test
+    void shouldPushBlobChunkedFromPath() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-path".formatted(this.registry.getRegistry()));
+
+        // Create a file with known content
+        byte[] content = "hello chunked world".getBytes(StandardCharsets.UTF_8);
+        Path blobFile = blobDir.resolve("chunked.txt");
+        Files.write(blobFile, content);
+
+        String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+
+        // Upload in 5-byte chunks
+        Layer layer = registry.pushBlobChunked(containerRef, blobFile, 5L);
+
+        assertEquals(expectedDigest, layer.getDigest());
+        assertEquals(content.length, layer.getSize());
+
+        // Verify the blob can be retrieved
+        byte[] blob = registry.getBlob(containerRef.withDigest(expectedDigest));
+        assertEquals(new String(content), new String(blob));
+
+        // Idempotent: second call should short-circuit (blob already exists)
+        Layer layerAgain = registry.pushBlobChunked(containerRef, blobFile, 5L);
+        assertEquals(expectedDigest, layerAgain.getDigest());
+    }
+
+    @Test
+    void shouldPushBlobChunkedFromPathWithSingleChunk() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-path-single".formatted(this.registry.getRegistry()));
+
+        // Content that fits in one chunk
+        byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
+        Path blobFile = blobDir.resolve("single-chunk.txt");
+        Files.write(blobFile, content);
+
+        String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+
+        // chunk size larger than the content — only one PATCH is issued
+        Layer layer = registry.pushBlobChunked(containerRef, blobFile, 1024L);
+
+        assertEquals(expectedDigest, layer.getDigest());
+    }
+
+    @Test
+    void shouldPushBlobChunkedFromInputStream() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-stream".formatted(this.registry.getRegistry()));
+
+        byte[] content = "hello chunked stream".getBytes(StandardCharsets.UTF_8);
+        String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+
+        ContainerRef refWithDigest = containerRef.withDigest(expectedDigest);
+
+        // Upload in 4-byte chunks
+        Layer layer = registry.pushBlobChunked(refWithDigest, new ByteArrayInputStream(content), content.length, 4L);
+
+        assertEquals(expectedDigest, layer.getDigest());
+        assertEquals(content.length, layer.getSize());
+
+        // Verify the blob can be retrieved
+        byte[] blob = registry.getBlob(containerRef.withDigest(expectedDigest));
+        assertEquals(new String(content), new String(blob));
+
+        // Idempotent: second call should short-circuit (blob already exists)
+        Layer layerAgain =
+                registry.pushBlobChunked(refWithDigest, new ByteArrayInputStream(content), content.length, 4L);
+        assertEquals(expectedDigest, layerAgain.getDigest());
+    }
+
+    @Test
+    void shouldPushLargeBlobChunkedFromPath() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-large".formatted(this.registry.getRegistry()));
+
+        // 1 MB of random content
+        byte[] content = new byte[1024 * 1024];
+        new Random().nextBytes(content);
+        Path blobFile = blobDir.resolve("large-chunked.bin");
+        Files.write(blobFile, content);
+
+        String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+
+        // 256 KB chunks → 4 PATCH requests
+        Layer layer = registry.pushBlobChunked(containerRef, blobFile, 256 * 1024L);
+
+        assertEquals(expectedDigest, layer.getDigest());
+        assertEquals(content.length, layer.getSize());
+
+        // Verify the blob can be retrieved
+        try (InputStream resultStream = registry.getBlobStream(containerRef.withDigest(expectedDigest))) {
+            byte[] result = resultStream.readAllBytes();
+            assertArrayEquals(content, result);
+        }
+    }
+
+    @Test
+    void shouldFailChunkedUploadWithMissingDigestOnInputStream() {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-err".formatted(this.registry.getRegistry()));
+
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> registry.pushBlobChunked(
+                        containerRef, new ByteArrayInputStream("data".getBytes(StandardCharsets.UTF_8)), 4L, 4L));
+        assertEquals("Digest is required to push blob with chunked stream upload", e.getMessage());
+    }
+
+    @Test
+    void shouldFailChunkedUploadWithInvalidChunkSize() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-chunked-err".formatted(this.registry.getRegistry()));
+
+        byte[] content = "data".getBytes(StandardCharsets.UTF_8);
+        Path blobFile = blobDir.resolve("err.txt");
+        Files.write(blobFile, content);
+
+        OrasException e1 =
+                assertThrows(OrasException.class, () -> registry.pushBlobChunked(containerRef, blobFile, 0L));
+        assertEquals("chunkSize must be greater than 0", e1.getMessage());
+
+        String digest = SupportedAlgorithm.SHA256.digest(content);
+        OrasException e2 = assertThrows(
+                OrasException.class,
+                () -> registry.pushBlobChunked(
+                        containerRef.withDigest(digest), new ByteArrayInputStream(content), content.length, 0L));
+        assertEquals("chunkSize must be greater than 0", e2.getMessage());
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldPushBlobChunkedFromPathViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
+
+        // Insecure config
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder()
+                    .defaults(this.unsecureRegistry.getRegistry())
+                    .build();
+
+            byte[] content = "hello chunked insecure path".getBytes(StandardCharsets.UTF_8);
+            Path blobFile = blobDir.resolve("chunked-insecure-path.txt");
+            try {
+                Files.write(blobFile, content);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+            String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+            ContainerRef containerRef = ContainerRef.parse("library/artifact-chunked-insecure-path");
+
+            Layer layer = registry.pushBlobChunked(containerRef, blobFile, 8L);
+
+            assertEquals(expectedDigest, layer.getDigest());
+            assertEquals(content.length, layer.getSize());
+
+            registry.deleteBlob(containerRef.withDigest(expectedDigest));
+        });
+    }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldPushBlobChunkedFromStreamViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
+
+        // Insecure config
+        String config =
+                """
+            [[registry]]
+            location = "%s"
+            insecure = true
+            """
+                        .formatted(this.unsecureRegistry.getRegistry());
+        TestUtils.createRegistriesConfFile(homeDir, config);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder()
+                    .defaults(this.unsecureRegistry.getRegistry())
+                    .build();
+
+            byte[] content = "hello chunked insecure stream".getBytes(StandardCharsets.UTF_8);
+            String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
+            ContainerRef containerRef = ContainerRef.parse("library/artifact-chunked-insecure-stream")
+                    .withDigest(expectedDigest);
+
+            Layer layer = registry.pushBlobChunked(containerRef, new ByteArrayInputStream(content), content.length, 8L);
+
+            assertEquals(expectedDigest, layer.getDigest());
+            assertEquals(content.length, layer.getSize());
+
+            registry.deleteBlob(containerRef.withDigest(expectedDigest));
+        });
     }
 }
