@@ -32,6 +32,7 @@ import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import land.oras.exception.OrasException;
@@ -2274,5 +2275,97 @@ class RegistryTest {
 
             registry.deleteBlob(containerRef.withDigest(expectedDigest));
         });
+    }
+
+    @Test
+    void testShouldCopyIndexWithPlatformFilter() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/multi-platform-source".formatted(this.registry.getRegistry()));
+
+        // Push two manifests with different content
+        Path fileAmd64 = blobDir.resolve("amd64.txt");
+        Files.writeString(fileAmd64, "content-amd64");
+        Path fileArm64 = blobDir.resolve("arm64.txt");
+        Files.writeString(fileArm64, "content-arm64");
+
+        Manifest manifestAmd64 = registry.pushArtifact(containerSource.withTag("amd64"), LocalPath.of(fileAmd64));
+        Manifest manifestArm64 = registry.pushArtifact(containerSource.withTag("arm64"), LocalPath.of(fileArm64));
+
+        assertNotNull(manifestAmd64.getDescriptor());
+        assertNotNull(manifestArm64.getDescriptor());
+
+        // Build a multi-platform index
+        ManifestDescriptor descAmd64 = manifestAmd64.getDescriptor().withPlatform(Platform.linuxAmd64());
+        ManifestDescriptor descArm64 = manifestArm64.getDescriptor().withPlatform(Platform.linuxArm64V8());
+
+        Index sourceIndex = Index.fromManifests(List.of(descAmd64, descArm64));
+        registry.pushIndex(containerSource.withTag("latest"), sourceIndex);
+
+        // Copy only linux/amd64 to target
+        ContainerRef containerTarget =
+                ContainerRef.parse("%s/library/multi-platform-target:latest".formatted(this.registry.getRegistry()));
+        CopyUtils.copy(
+                registry,
+                containerSource.withTag("latest"),
+                registry,
+                containerTarget,
+                CopyUtils.CopyOptions.shallow().withPlatformFilter(Set.of(Platform.linuxAmd64())));
+
+        // Verify the target index only contains the amd64 manifest
+        Index targetIndex = registry.getIndex(containerTarget);
+        assertEquals(1, targetIndex.getManifests().size(), "Filtered index should contain exactly one manifest");
+        assertEquals(
+                Platform.linuxAmd64(),
+                targetIndex.getManifests().get(0).getPlatform(),
+                "The single manifest should be linux/amd64");
+
+        // The target index digest must differ from the source index digest
+        assertNotEquals(
+                sourceIndex.getDescriptor() != null
+                        ? sourceIndex.getDescriptor().getDigest()
+                        : null,
+                targetIndex.getDescriptor() != null
+                        ? targetIndex.getDescriptor().getDigest()
+                        : null,
+                "Partial copy must produce a different index digest");
+    }
+
+    @Test
+    void testShouldThrowWhenPlatformFilterMatchesNothing() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        ContainerRef containerSource =
+                ContainerRef.parse("%s/library/no-match-source".formatted(this.registry.getRegistry()));
+
+        // Push a single manifest and build an index with linux/amd64
+        Path file = blobDir.resolve("no-match.txt");
+        Files.writeString(file, "no-match");
+        Manifest manifest = registry.pushArtifact(containerSource.withTag("v1"), LocalPath.of(file));
+        assertNotNull(manifest.getDescriptor());
+
+        Index sourceIndex = Index.fromManifests(List.of(manifest.getDescriptor().withPlatform(Platform.linuxAmd64())));
+        registry.pushIndex(containerSource.withTag("latest"), sourceIndex);
+
+        ContainerRef containerTarget =
+                ContainerRef.parse("%s/library/no-match-target:latest".formatted(this.registry.getRegistry()));
+
+        // Filtering for a platform not present in the index must throw
+        assertThrows(
+                OrasException.class,
+                () -> CopyUtils.copy(
+                        registry,
+                        containerSource.withTag("latest"),
+                        registry,
+                        containerTarget,
+                        CopyUtils.CopyOptions.shallow().withPlatformFilter(Set.of(Platform.linuxArm64V8()))),
+                "Copy with non-matching platform filter should throw OrasException");
     }
 }

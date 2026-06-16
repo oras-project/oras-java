@@ -337,6 +337,16 @@ public final class Index extends Descriptor implements Describable {
     }
 
     /**
+     * Return a new index with the given manifests
+     * @param manifests The manifests
+     * @return The index
+     */
+    public Index withManifests(List<ManifestDescriptor> manifests) {
+        return new Index(
+                schemaVersion, mediaType, artifactType, manifests, annotations, subject, descriptor, registry, null);
+    }
+
+    /**
      * Return a new index with the given subject
      * @param subject The subject
      * @return The index

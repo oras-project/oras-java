@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
@@ -778,6 +779,85 @@ class OCILayoutTest {
 
         // Blob is absent
         assertBlobAbsent(layoutPath, SupportedAlgorithm.SHA256.digest(file2));
+    }
+
+    @Test
+    void testShouldCopyIndexWithPlatformFilterFromRegistryIntoOciLayout() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+
+        Path ociLayoutPath = layoutPath.resolve("testShouldCopyIndexWithPlatformFilterFromRegistryIntoOciLayout");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(ociLayoutPath).build();
+        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/platform-filter-source".formatted(this.registry.getRegistry()));
+
+        // Push two manifests with different content, one per platform
+        Path fileAmd64 = blobDir.resolve("platform-filter-amd64.txt");
+        Path fileArm64 = blobDir.resolve("platform-filter-arm64.txt");
+        Files.writeString(fileAmd64, "content-amd64");
+        Files.writeString(fileArm64, "content-arm64");
+
+        Manifest manifestAmd64 = registry.pushArtifact(containerRef.withTag("amd64"), LocalPath.of(fileAmd64));
+        Manifest manifestArm64 = registry.pushArtifact(containerRef.withTag("arm64"), LocalPath.of(fileArm64));
+
+        assertNotNull(manifestAmd64.getDescriptor());
+        assertNotNull(manifestArm64.getDescriptor());
+
+        // Build a multi-platform index and push it
+        ManifestDescriptor descAmd64 = manifestAmd64.getDescriptor().withPlatform(Platform.linuxAmd64());
+        ManifestDescriptor descArm64 = manifestArm64.getDescriptor().withPlatform(Platform.linuxArm64V8());
+        Index sourceIndex = Index.fromManifests(List.of(descAmd64, descArm64));
+        registry.pushIndex(containerRef.withTag("latest"), sourceIndex);
+
+        // Copy only linux/amd64 into the OCI layout
+        CopyUtils.copy(
+                registry,
+                containerRef.withTag("latest"),
+                ociLayout,
+                layoutRef,
+                CopyUtils.CopyOptions.shallow().withPlatformFilter(Set.of(Platform.linuxAmd64())));
+
+        // The layout must be a valid OCI layout
+        assertOciLayout(ociLayoutPath);
+
+        // The OCI layout root index.json has two entries:
+        //   1. the amd64 manifest blob (pushed individually, no tag)
+        //   2. the filtered index blob (tagged "latest")
+        Index ociIndex = Index.fromPath(ociLayoutPath.resolve(Const.OCI_LAYOUT_INDEX));
+        assertEquals(2, ociIndex.getManifests().size(), "OCI layout index.json must have two entries");
+
+        // Find the filtered-index entry by its tag annotation
+        ManifestDescriptor filteredIndexDescriptor = ociIndex.getManifests().stream()
+                .filter(d -> d.getAnnotations() != null
+                        && "latest".equals(d.getAnnotations().get(Const.ANNOTATION_REF)))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No entry with tag 'latest' found in OCI layout index.json"));
+        assertBlobExists(ociLayoutPath, filteredIndexDescriptor.getDigest());
+
+        // The filtered index blob itself contains only the amd64 manifest descriptor
+        Index filteredIndex = Index.fromJson(Files.readString(ociLayoutPath
+                .resolve("blobs")
+                .resolve("sha256")
+                .resolve(SupportedAlgorithm.getDigest(filteredIndexDescriptor.getDigest()))));
+        assertEquals(1, filteredIndex.getManifests().size(), "Filtered index must contain exactly one manifest");
+        assertEquals(
+                Platform.linuxAmd64(),
+                filteredIndex.getManifests().get(0).getPlatform(),
+                "The single manifest in the filtered index must be linux/amd64");
+
+        // The amd64 layer blob and its config must be present
+        assertBlobExists(ociLayoutPath, SupportedAlgorithm.SHA256.digest(fileAmd64));
+        assertBlobContent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(fileAmd64), "content-amd64");
+        assertBlobContent(ociLayoutPath, Config.empty().getDigest(), "{}");
+
+        // The arm64 layer blob must be absent — it was filtered out
+        assertBlobAbsent(ociLayoutPath, SupportedAlgorithm.SHA256.digest(fileArm64));
     }
 
     @Test
