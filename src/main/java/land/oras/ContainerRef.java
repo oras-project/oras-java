@@ -484,7 +484,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
                     ? target.getRegistry()
                     : determineFirstUnqualifiedSearchRegistry(target);
         }
-        // The effective registry can we rewrotten by the registry configuration.
+        // The effective registry can be rewritten by the registry configuration.
         // Ensure to return it
         ContainerRef rewrite = target.getRegistriesConf().rewrite(this);
         return rewrite.getRegistry();
@@ -506,14 +506,15 @@ public final class ContainerRef extends Ref<ContainerRef> {
     public boolean isInsecure(Registry registry) {
         String effectiveRegistry = getEffectiveRegistry(registry);
         ContainerRef effectiveRef = forRegistry(effectiveRegistry);
-        if (registry.getRegistriesConf().isInsecure(effectiveRef)) {
+        // Configuration is authoritative over the current registry
+        if (registry.getRegistriesConf().isInsecure(registry, effectiveRef)) {
             LOG.debug(
                     "Access to container reference {} is insecure by location configuration for registry {}",
                     this,
                     effectiveRegistry);
             return true;
         }
-        return registry.isInsecure();
+        return false;
     }
 
     /**
