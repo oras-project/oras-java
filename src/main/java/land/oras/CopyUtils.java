@@ -20,10 +20,13 @@ package land.oras;
  * =LICENSEEND=
  */
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,15 +50,18 @@ public final class CopyUtils {
     /**
      * Options for copy.
      * @param includeReferrers Whether to include referrers in the copy
+     * @param platformFilter Optional platform filter. When set on an index copy, only manifests matching
+     *                       one of the given platforms are copied and the resulting index contains only
+     *                       those manifests. The resulting index digest will differ from the source index.
      */
-    public record CopyOptions(boolean includeReferrers) {
+    public record CopyOptions(boolean includeReferrers, @Nullable Set<Platform> platformFilter) {
 
         /**
          * The default copy options with includeReferrers to false
          * @return The default copy options
          */
         public static CopyOptions shallow() {
-            return new CopyOptions(false);
+            return new CopyOptions(false, null);
         }
 
         /**
@@ -63,7 +69,18 @@ public final class CopyUtils {
          * @return The copy options with includeReferrers and recursive set to true
          */
         public static CopyOptions deep() {
-            return new CopyOptions(true);
+            return new CopyOptions(true, null);
+        }
+
+        /**
+         * Return a new CopyOptions with the given platform filter.
+         * When copying an index, only manifests matching one of the given platforms will be copied.
+         * The resulting index will contain only the filtered manifests and will have a different digest.
+         * @param platforms The platforms to filter by
+         * @return New CopyOptions with the platform filter set
+         */
+        public CopyOptions withPlatformFilter(Set<Platform> platforms) {
+            return new CopyOptions(includeReferrers, platforms);
         }
     }
 
@@ -220,8 +237,32 @@ public final class CopyUtils {
             Index index = source.getIndex(effectiveSourceRef);
             String targetTag = effectiveTargetRef.getTag();
 
+            // Apply platform filter if set — partial copy produces a new index with fewer manifests
+            List<ManifestDescriptor> manifestsToCopy;
+            Index indexToPush;
+            if (options.platformFilter() != null) {
+                List<ManifestDescriptor> filtered = index.getManifests().stream()
+                        .filter(d ->
+                                options.platformFilter().stream().anyMatch(p -> Platform.matches(d.getPlatform(), p)))
+                        .toList();
+                if (filtered.isEmpty()) {
+                    throw new OrasException(
+                            "No manifests found in index matching platform filter: " + options.platformFilter());
+                }
+                manifestsToCopy = filtered;
+                indexToPush = index.withManifests(filtered);
+                LOG.debug(
+                        "Platform filter {} matched {}/{} manifests",
+                        options.platformFilter(),
+                        filtered.size(),
+                        index.getManifests().size());
+            } else {
+                manifestsToCopy = index.getManifests();
+                indexToPush = index;
+            }
+
             // Write all manifests and their config
-            for (ManifestDescriptor manifestDescriptor : index.getManifests()) {
+            for (ManifestDescriptor manifestDescriptor : manifestsToCopy) {
 
                 // Copy manifest
                 if (source.isManifestMediaType(manifestDescriptor.getMediaType())) {
@@ -260,7 +301,7 @@ public final class CopyUtils {
             }
 
             LOG.debug("Copying index {}", manifestDigest);
-            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(targetTag), index);
+            Index pushedIndex = target.pushIndex(effectiveTargetRef.withDigest(targetTag), indexToPush);
             LOG.debug("Copied index {} with tag {}", pushedIndex, targetTag);
 
         } else {
