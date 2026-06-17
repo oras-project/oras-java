@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import land.oras.ContainerRef;
 import land.oras.OrasModel;
+import land.oras.Registry;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.TomlUtils;
@@ -100,22 +101,49 @@ public class RegistriesConf {
     }
 
     /**
+     * The model of a mirror entry within a [[registry]] table.
+     * @param location The mirror registry location (host[:port][/path]).
+     * @param insecure Whether the mirror is insecure.
+     */
+    @OrasModel
+    public record MirrorConfig(
+            @Nullable @JsonProperty("location") String location, @Nullable @JsonProperty("insecure") Boolean insecure) {
+        /**
+         * Return true if this mirror should be accessed over plain HTTP or with unverified TLS.
+         * @return true if insecure
+         */
+        public boolean isInsecure() {
+            return insecure != null && insecure;
+        }
+    }
+
+    /**
      * The model of the registry configuration
      * @param prefix The prefix to match against container references.
      * @param location The registry location
      * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
      * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
+     * @param mirrors Ordered list of mirror entries to try before the registry location.
      */
     @OrasModel
     record RegistryConfig(
             @Nullable @JsonProperty("prefix") String prefix,
             @Nullable @JsonProperty("location") String location,
             @Nullable @JsonProperty("blocked") Boolean blocked,
-            @Nullable @JsonProperty("insecure") Boolean insecure) {
+            @Nullable @JsonProperty("insecure") Boolean insecure,
+            @Nullable @JsonProperty("mirror") List<MirrorConfig> mirrors) {
+        /**
+         * Return true if this registry is blocked and cannot be used for pulling or pushing images.
+         * @return true if blocked
+         */
         public boolean isBlocked() {
             return blocked != null && blocked;
         }
 
+        /**
+         * Return true if this registry should be accessed over plain HTTP or with unverified TLS.
+         * @return true if insecure
+         */
         public boolean isInsecure() {
             return insecure != null && insecure;
         }
@@ -254,11 +282,14 @@ public class RegistriesConf {
 
     /**
      * Check if the given registry is marked as insecure in the configuration.
+     * If no entry found, we fall back to Registry configuration
+     * If the entry is found we use the insecure flag (or default true)
+     * @param registry The registry object
      * @param location the registry location to check for insecurity.
      * @return true if the registry is marked as insecure, false otherwise.
      */
-    public boolean isInsecure(ContainerRef location) {
-        return selectMatchingTable(location).map(RegistryConfig::isInsecure).orElse(false);
+    public boolean isInsecure(Registry registry, ContainerRef location) {
+        return selectMatchingTable(location).map(RegistryConfig::isInsecure).orElse(registry.isInsecure());
     }
 
     /**
@@ -330,6 +361,58 @@ public class RegistriesConf {
                 rewrittenRefString,
                 prefix,
                 location);
+        return ContainerRef.parse(rewrittenRefString);
+    }
+
+    /**
+     * Return the ordered list of mirrors configured for the registry that matches the given reference.
+     * @param ref the container reference to look up mirrors for.
+     * @return an unmodifiable list of mirror configs (may be empty).
+     */
+    public List<MirrorConfig> getMirrors(ContainerRef ref) {
+        Optional<RegistryConfig> matchingConfig = selectMatchingTable(ref);
+        if (matchingConfig.isEmpty() || matchingConfig.get().mirrors() == null) {
+            return Collections.emptyList();
+        }
+        return Collections.unmodifiableList(matchingConfig.get().mirrors());
+    }
+
+    /**
+     * Rewrite the given container reference to use the mirror's location, replacing the registry host.
+     * @param ref the original container reference.
+     * @param mirror the mirror configuration to apply.
+     * @return the rewritten reference pointing at the mirror.
+     */
+    public ContainerRef rewriteForMirror(ContainerRef ref, MirrorConfig mirror) {
+        String mirrorLocation = mirror.location();
+        if (mirrorLocation == null || mirrorLocation.isBlank()) {
+            return ref;
+        }
+        // Strip trailing slashes to prevent double-slash segments in the rewritten ref
+        mirrorLocation = mirrorLocation.replaceAll("/+$", "");
+        if (mirrorLocation.isBlank()) {
+            return ref;
+        }
+        // Always build from components to correctly handle:
+        // - unqualified refs (toString() omits the registry)
+        // - digest-only refs (tag is null, toString() would produce ":null")
+        String namespace = ref.getNamespace();
+        String repository = ref.getRepository();
+        String tag = ref.getTag();
+        String digest = ref.getDigest();
+        StringBuilder sb = new StringBuilder(mirrorLocation);
+        if (namespace != null && !namespace.isEmpty()) {
+            sb.append("/").append(namespace);
+        }
+        sb.append("/").append(repository);
+        if (tag != null && !tag.isEmpty()) {
+            sb.append(":").append(tag);
+        }
+        if (digest != null && !digest.isEmpty()) {
+            sb.append("@").append(digest);
+        }
+        String rewrittenRefString = sb.toString();
+        LOG.debug("Rewriting '{}' to mirror '{}'", ref, rewrittenRefString);
         return ContainerRef.parse(rewrittenRefString);
     }
 
