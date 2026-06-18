@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import land.oras.ContainerRef;
 import land.oras.OrasModel;
 import land.oras.Registry;
@@ -104,16 +105,27 @@ public class RegistriesConf {
      * The model of a mirror entry within a [[registry]] table.
      * @param location The mirror registry location (host[:port][/path]).
      * @param insecure Whether the mirror is insecure.
+     * @param pullFromMirror Controls which pull operations may use this mirror (default: {@link PullFromMirror#ALL}).
      */
     @OrasModel
     public record MirrorConfig(
-            @Nullable @JsonProperty("location") String location, @Nullable @JsonProperty("insecure") Boolean insecure) {
+            @Nullable @JsonProperty("location") String location,
+            @Nullable @JsonProperty("insecure") Boolean insecure,
+            @Nullable @JsonProperty("pull-from-mirror") PullFromMirror pullFromMirror) {
         /**
          * Return true if this mirror should be accessed over plain HTTP or with unverified TLS.
          * @return true if insecure
          */
         public boolean isInsecure() {
             return insecure != null && insecure;
+        }
+
+        /**
+         * Return the effective pull-from-mirror setting, defaulting to {@link PullFromMirror#ALL}.
+         * @return the pull-from-mirror setting
+         */
+        public PullFromMirror effectivePullFromMirror() {
+            return pullFromMirror != null ? pullFromMirror : PullFromMirror.ALL;
         }
     }
 
@@ -123,6 +135,7 @@ public class RegistriesConf {
      * @param location The registry location
      * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
      * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
+     * @param mirrorByDigestOnly If true, all mirrors for this registry are treated as digest-only (equivalent to setting pull-from-mirror=digest-only on every mirror).
      * @param mirrors Ordered list of mirror entries to try before the registry location.
      */
     @OrasModel
@@ -131,6 +144,7 @@ public class RegistriesConf {
             @Nullable @JsonProperty("location") String location,
             @Nullable @JsonProperty("blocked") Boolean blocked,
             @Nullable @JsonProperty("insecure") Boolean insecure,
+            @Nullable @JsonProperty("mirror-by-digest-only") Boolean mirrorByDigestOnly,
             @Nullable @JsonProperty("mirror") List<MirrorConfig> mirrors) {
         /**
          * Return true if this registry is blocked and cannot be used for pulling or pushing images.
@@ -146,6 +160,14 @@ public class RegistriesConf {
          */
         public boolean isInsecure() {
             return insecure != null && insecure;
+        }
+
+        /**
+         * Return true if all mirrors for this registry should only be used when the reference includes a digest.
+         * @return true if mirror-by-digest-only is set
+         */
+        public boolean isMirrorByDigestOnly() {
+            return mirrorByDigestOnly != null && mirrorByDigestOnly;
         }
     }
 
@@ -203,6 +225,55 @@ public class RegistriesConf {
         }
 
         private String value;
+    }
+
+    /**
+     * Controls which pull operations may use a mirror.
+     * <ul>
+     *   <li>{@link #ALL} – the mirror is used for all pull operations (default)</li>
+     *   <li>{@link #DIGEST_ONLY} – mirror is only used when the reference includes a digest</li>
+     *   <li>{@link #TAG_ONLY} – mirror is only used when the reference includes a tag</li>
+     * </ul>
+     */
+    @OrasModel
+    public enum PullFromMirror {
+
+        /** Use this mirror for all pull operations (default). */
+        ALL("all"),
+
+        /** Use this mirror only when the image reference includes a digest. */
+        DIGEST_ONLY("digest-only"),
+
+        /** Use this mirror only when the image reference includes a tag. */
+        TAG_ONLY("tag-only");
+
+        PullFromMirror(String value) {
+            this.value = value;
+        }
+
+        /**
+         * Deserialize from the TOML string value (e.g. {@code "digest-only"}).
+         * @param key the string value from the configuration file.
+         * @return the matching enum constant.
+         */
+        @JsonCreator
+        public static PullFromMirror fromString(String key) {
+            for (PullFromMirror v : values()) {
+                if (v.value.equalsIgnoreCase(key)) return v;
+            }
+            throw new IllegalArgumentException("Unknown pull-from-mirror value: " + key);
+        }
+
+        /**
+         * Return the TOML string value for this constant.
+         * @return the string value.
+         */
+        @JsonValue
+        public String getKey() {
+            return value;
+        }
+
+        private final String value;
     }
 
     /**
@@ -375,6 +446,35 @@ public class RegistriesConf {
             return Collections.emptyList();
         }
         return Collections.unmodifiableList(matchingConfig.get().mirrors());
+    }
+
+    /**
+     * Return the ordered list of mirrors that are applicable for the given reference, filtering out mirrors
+     * whose {@code pull-from-mirror} setting does not match the reference type (tag vs. digest).
+     * The registry-level {@code mirror-by-digest-only} flag, when true, overrides all per-mirror settings
+     * and restricts every mirror to digest-only pulls.
+     * @param ref the container reference to look up applicable mirrors for.
+     * @return an unmodifiable list of applicable mirror configs (may be empty).
+     */
+    public List<MirrorConfig> getApplicableMirrors(ContainerRef ref) {
+        Optional<RegistryConfig> matchingConfig = selectMatchingTable(ref);
+        if (matchingConfig.isEmpty() || matchingConfig.get().mirrors() == null) {
+            return Collections.emptyList();
+        }
+        boolean registryDigestOnly = matchingConfig.get().isMirrorByDigestOnly();
+        boolean refHasDigest = ref.getDigest() != null && !ref.getDigest().isEmpty();
+        boolean refHasTag = ref.getTag() != null && !ref.getTag().isEmpty();
+        return matchingConfig.get().mirrors().stream()
+                .filter(mirror -> {
+                    PullFromMirror effective =
+                            registryDigestOnly ? PullFromMirror.DIGEST_ONLY : mirror.effectivePullFromMirror();
+                    return switch (effective) {
+                        case DIGEST_ONLY -> refHasDigest;
+                        case TAG_ONLY -> refHasTag;
+                        case ALL -> true;
+                    };
+                })
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**

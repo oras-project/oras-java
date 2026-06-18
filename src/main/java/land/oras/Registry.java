@@ -1218,7 +1218,7 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The result from the first successful invocation
      */
     private <T> T withMirrorFallback(ContainerRef containerRef, BiFunction<Registry, ContainerRef, T> operation) {
-        List<RegistriesConf.MirrorConfig> mirrors = registriesConf.getMirrors(containerRef);
+        List<RegistriesConf.MirrorConfig> mirrors = registriesConf.getApplicableMirrors(containerRef);
         for (RegistriesConf.MirrorConfig mirror : mirrors) {
             String mirrorLocation = mirror.location();
             if (mirrorLocation == null || mirrorLocation.isBlank()) continue;
