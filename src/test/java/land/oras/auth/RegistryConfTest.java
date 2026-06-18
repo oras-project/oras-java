@@ -56,7 +56,7 @@ class RegistryConfTest {
 
         // With null
         RegistriesConf.RegistryConfig registryConfig =
-                new RegistriesConf.RegistryConfig(null, "localhost:5000", null, null, null);
+                new RegistriesConf.RegistryConfig(null, "localhost:5000", null, null, null, null);
         assertEquals("localhost:5000", registryConfig.location());
         assertNull(registryConfig.blocked(), "Blocked should be null when not set");
         assertNull(registryConfig.insecure(), "Insecure should be null when not set");
@@ -70,7 +70,7 @@ class RegistryConfTest {
         assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked true
-        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", true, null, null);
+        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", true, null, null, null);
         assertTrue(registryConfig.isBlocked(), "Registry should be blocked when blocked is true");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertTrue(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
@@ -78,7 +78,7 @@ class RegistryConfTest {
         assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With insecure true
-        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, true, null);
+        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, true, null, null);
         assertTrue(registryConfig.isInsecure(), "Registry should be insecure when insecure is true");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertTrue(conf.isInsecure(registry, ContainerRef.parse("localhost:5000/library/test:latest")));
@@ -86,7 +86,7 @@ class RegistryConfTest {
         assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked false
-        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", false, null, null);
+        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", false, null, null, null);
         assertFalse(registryConfig.isBlocked(), "Registry should not be blocked when blocked is false");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
@@ -94,7 +94,7 @@ class RegistryConfTest {
         assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With insecure false
-        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, false, null);
+        registryConfig = new RegistriesConf.RegistryConfig(null, "localhost:5000", null, false, null, null);
         assertFalse(registryConfig.isInsecure(), "Registry should be insecure when insecure is false");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertFalse(conf.isInsecure(registry, ContainerRef.parse("localhost:5000/library/test:latest")));
@@ -109,7 +109,7 @@ class RegistryConfTest {
 
         // With null
         RegistriesConf.RegistryConfig registryConfig =
-                new RegistriesConf.RegistryConfig("localhost:5000", null, null, null, null);
+                new RegistriesConf.RegistryConfig("localhost:5000", null, null, null, null, null);
         assertEquals("localhost:5000", registryConfig.prefix());
         assertNull(registryConfig.blocked(), "Blocked should be null when not set");
         assertNull(registryConfig.insecure(), "Insecure should be null when not set");
@@ -123,28 +123,28 @@ class RegistryConfTest {
         assertDoesNotThrow(conf::enforceShortNameMode);
 
         // With blocked true
-        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, true, null, null);
+        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, true, null, null, null);
         assertTrue(registryConfig.isBlocked(), "Registry should be blocked when blocked is true");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertTrue(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
 
         // With insecure true
-        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, null, true, null);
+        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, null, true, null, null);
         assertTrue(registryConfig.isInsecure(), "Registry should be insecure when insecure is true");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertTrue(conf.isInsecure(registry, ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isInsecure(registry, ContainerRef.parse("localhost:5001/library/test:latest")));
 
         // With blocked false
-        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, false, null, null);
+        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, false, null, null, null);
         assertFalse(registryConfig.isBlocked(), "Registry should not be blocked when blocked is false");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5000/library/test:latest")));
         assertFalse(conf.isBlocked(ContainerRef.parse("localhost:5001/library/test:latest")));
 
         // With insecure false
-        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, null, false, null);
+        registryConfig = new RegistriesConf.RegistryConfig("localhost:5000", null, null, false, null, null);
         assertFalse(registryConfig.isInsecure(), "Registry should be secure when insecure is false");
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registryConfig)));
         assertFalse(conf.isInsecure(registry, ContainerRef.parse("localhost:5000/library/test:latest")));
@@ -154,7 +154,7 @@ class RegistryConfTest {
     @Test
     void checkWithHostNamePrefix() {
         RegistriesConf.RegistryConfig registry =
-                new RegistriesConf.RegistryConfig("*.example.com", null, true, null, null);
+                new RegistriesConf.RegistryConfig("*.example.com", null, true, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         assertTrue(conf.isBlocked(ContainerRef.parse("registry.example.com/library/test:latest")));
         assertTrue(conf.isBlocked(ContainerRef.parse("foobar.example.com/library/test:latest")));
@@ -167,9 +167,9 @@ class RegistryConfTest {
         Registry registry = Registry.builder().build();
 
         RegistriesConf.RegistryConfig registry1 =
-                new RegistriesConf.RegistryConfig("*.internal.local", null, false, true, null);
+                new RegistriesConf.RegistryConfig("*.internal.local", null, false, true, null, null);
         RegistriesConf.RegistryConfig registry2 =
-                new RegistriesConf.RegistryConfig("*.internal.local/public", null, true, null, null);
+                new RegistriesConf.RegistryConfig("*.internal.local/public", null, true, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry1, registry2)));
         assertTrue(conf.isInsecure(registry, ContainerRef.parse("registry.internal.local/library/test:latest")));
         assertFalse(conf.isInsecure(
@@ -184,7 +184,7 @@ class RegistryConfTest {
     void shouldRewriteContainerRef() {
         // Just the domain
         RegistriesConf.RegistryConfig registry =
-                new RegistriesConf.RegistryConfig("localhost:5000", "registry.example.com", null, null, null);
+                new RegistriesConf.RegistryConfig("localhost:5000", "registry.example.com", null, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         ContainerRef originalRef = ContainerRef.parse("localhost:5000/library/test:latest");
         ContainerRef rewrittenRef = conf.rewrite(originalRef);
@@ -194,7 +194,7 @@ class RegistryConfTest {
         // prefix = "example.com/foo"
         // location = "internal-registry-for-example.com/bar"
         registry = new RegistriesConf.RegistryConfig(
-                "example.com/foo", "internal-registry-for-example.com/bar", null, null, null);
+                "example.com/foo", "internal-registry-for-example.com/bar", null, null, null, null);
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
         originalRef = ContainerRef.parse("example.com/foo/library/test:latest");
         rewrittenRef = conf.rewrite(originalRef);
@@ -204,8 +204,8 @@ class RegistryConfTest {
     @Test
     void shouldRewriteUnqualifiedContainerRef() {
 
-        RegistriesConf.RegistryConfig registry =
-                new RegistriesConf.RegistryConfig("docker.io", "internal-registry-for-example.com", null, null, null);
+        RegistriesConf.RegistryConfig registry = new RegistriesConf.RegistryConfig(
+                "docker.io", "internal-registry-for-example.com", null, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
 
         // Without tag
@@ -252,7 +252,7 @@ class RegistryConfTest {
     @Test
     void shouldReturnEmptyMirrorsWhenNoneConfigured() {
         RegistriesConf.RegistryConfig registry =
-                new RegistriesConf.RegistryConfig("docker.io", "docker.io", null, null, null);
+                new RegistriesConf.RegistryConfig("docker.io", "docker.io", null, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
 
         ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");
@@ -266,7 +266,8 @@ class RegistryConfTest {
                 "other-registry.example.com",
                 null,
                 null,
-                List.of(new RegistriesConf.MirrorConfig("mirror.example.com", false)));
+                null,
+                List.of(new RegistriesConf.MirrorConfig("mirror.example.com", false, null)));
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(registry)));
 
         ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");
@@ -282,19 +283,19 @@ class RegistryConfTest {
 
         // Secure by default
         RegistriesConf.RegistryConfig noInsecureField =
-                new RegistriesConf.RegistryConfig("localhost:5000", null, null, null, null);
+                new RegistriesConf.RegistryConfig("localhost:5000", null, null, null, null, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of(noInsecureField)));
         assertFalse(conf.isInsecure(registry, ref), "No insecure field means secure by default");
 
         // Secure
         RegistriesConf.RegistryConfig explicitFalse =
-                new RegistriesConf.RegistryConfig("localhost:5000", null, null, false, null);
+                new RegistriesConf.RegistryConfig("localhost:5000", null, null, false, null, null);
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(explicitFalse)));
         assertFalse(conf.isInsecure(registry, ref), "Registry must be secure by default");
 
         // Insecure
         RegistriesConf.RegistryConfig explicitTrue =
-                new RegistriesConf.RegistryConfig("localhost:5000", null, null, true, null);
+                new RegistriesConf.RegistryConfig("localhost:5000", null, null, true, null, null);
         conf = new RegistriesConf(new RegistriesConf.Config(List.of(explicitTrue)));
         assertTrue(conf.isInsecure(registry, ref), "Registry is insecure");
 
@@ -305,7 +306,7 @@ class RegistryConfTest {
 
     @Test
     void shouldRewriteForMirror() {
-        RegistriesConf.MirrorConfig mirror = new RegistriesConf.MirrorConfig("mirror.example.com", false);
+        RegistriesConf.MirrorConfig mirror = new RegistriesConf.MirrorConfig("mirror.example.com", false, null);
         RegistriesConf conf = new RegistriesConf(new RegistriesConf.Config(List.of()));
 
         // Qualified ref
@@ -347,17 +348,172 @@ class RegistryConfTest {
         ContainerRef original = ContainerRef.parse("docker.io/library/alpine:latest");
 
         // Single trailing slash
-        RegistriesConf.MirrorConfig trailingSlash = new RegistriesConf.MirrorConfig("mirror.example.com/", false);
+        RegistriesConf.MirrorConfig trailingSlash = new RegistriesConf.MirrorConfig("mirror.example.com/", false, null);
         assertEquals(
                 "mirror.example.com/library/alpine:latest",
                 conf.rewriteForMirror(original, trailingSlash).toString());
 
         // Multiple trailing slashes
         RegistriesConf.MirrorConfig multiTrailingSlash =
-                new RegistriesConf.MirrorConfig("mirror.example.com/prefix//", false);
+                new RegistriesConf.MirrorConfig("mirror.example.com/prefix//", false, null);
         assertEquals(
                 "mirror.example.com/prefix/library/alpine:latest",
                 conf.rewriteForMirror(original, multiTrailingSlash).toString());
+    }
+
+    @Test
+    void shouldParsePullFromMirrorFromToml() {
+        // language=toml
+        String toml =
+                """
+                [[registry]]
+                prefix = "docker.io"
+                location = "docker.io"
+
+                [[registry.mirror]]
+                location = "mirror-digest.example.com"
+                pull-from-mirror = "digest-only"
+
+                [[registry.mirror]]
+                location = "mirror-tag.example.com"
+                pull-from-mirror = "tag-only"
+
+                [[registry.mirror]]
+                location = "mirror-all.example.com"
+                pull-from-mirror = "all"
+
+                [[registry.mirror]]
+                location = "mirror-default.example.com"
+                """;
+
+        RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
+        ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");
+        List<RegistriesConf.MirrorConfig> mirrors = conf.getMirrors(ref);
+
+        assertEquals(4, mirrors.size());
+        assertEquals(RegistriesConf.PullFromMirror.DIGEST_ONLY, mirrors.get(0).effectivePullFromMirror());
+        assertEquals(RegistriesConf.PullFromMirror.TAG_ONLY, mirrors.get(1).effectivePullFromMirror());
+        assertEquals(RegistriesConf.PullFromMirror.ALL, mirrors.get(2).effectivePullFromMirror());
+        assertEquals(RegistriesConf.PullFromMirror.ALL, mirrors.get(3).effectivePullFromMirror());
+    }
+
+    @Test
+    void shouldFilterMirrorsByPullFromMirrorForTagRef() {
+        // language=toml
+        String toml =
+                """
+                [[registry]]
+                prefix = "docker.io"
+                location = "docker.io"
+
+                [[registry.mirror]]
+                location = "mirror-digest.example.com"
+                pull-from-mirror = "digest-only"
+
+                [[registry.mirror]]
+                location = "mirror-tag.example.com"
+                pull-from-mirror = "tag-only"
+
+                [[registry.mirror]]
+                location = "mirror-all.example.com"
+                """;
+
+        RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
+
+        // Tag-only ref: digest-only mirror is excluded
+        ContainerRef tagRef = ContainerRef.parse("docker.io/library/alpine:latest");
+        assertNull(tagRef.getDigest());
+        List<RegistriesConf.MirrorConfig> applicableForTag = conf.getApplicableMirrors(tagRef);
+        assertEquals(2, applicableForTag.size());
+        assertEquals("mirror-tag.example.com", applicableForTag.get(0).location());
+        assertEquals("mirror-all.example.com", applicableForTag.get(1).location());
+    }
+
+    @Test
+    void shouldFilterMirrorsByPullFromMirrorForDigestRef() {
+        // language=toml
+        String toml =
+                """
+                [[registry]]
+                prefix = "docker.io"
+                location = "docker.io"
+
+                [[registry.mirror]]
+                location = "mirror-digest.example.com"
+                pull-from-mirror = "digest-only"
+
+                [[registry.mirror]]
+                location = "mirror-tag.example.com"
+                pull-from-mirror = "tag-only"
+
+                [[registry.mirror]]
+                location = "mirror-all.example.com"
+                """;
+
+        RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
+
+        // Digest-only ref: tag-only mirror is excluded
+        ContainerRef digestRef = ContainerRef.parse("docker.io/library/alpine:latest")
+                .withDigest("sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+        assertNull(digestRef.getTag());
+        List<RegistriesConf.MirrorConfig> applicableForDigest = conf.getApplicableMirrors(digestRef);
+        assertEquals(2, applicableForDigest.size());
+        assertEquals("mirror-digest.example.com", applicableForDigest.get(0).location());
+        assertEquals("mirror-all.example.com", applicableForDigest.get(1).location());
+    }
+
+    @Test
+    void shouldApplyMirrorByDigestOnly() {
+        // language=toml
+        String toml =
+                """
+                [[registry]]
+                prefix = "docker.io"
+                location = "docker.io"
+                mirror-by-digest-only = true
+
+                [[registry.mirror]]
+                location = "mirror-a.example.com"
+
+                [[registry.mirror]]
+                location = "mirror-b.example.com"
+                pull-from-mirror = "tag-only"
+                """;
+
+        RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
+
+        // Tag ref → no mirrors (mirror-by-digest-only overrides per-mirror settings)
+        ContainerRef tagRef = ContainerRef.parse("docker.io/library/alpine:latest");
+        assertTrue(
+                conf.getApplicableMirrors(tagRef).isEmpty(),
+                "mirror-by-digest-only must block tag-only pulls from all mirrors");
+
+        // Digest ref → both mirrors are applicable
+        ContainerRef digestRef = ContainerRef.parse("docker.io/library/alpine:latest")
+                .withDigest("sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a");
+        List<RegistriesConf.MirrorConfig> applicable = conf.getApplicableMirrors(digestRef);
+        assertEquals(2, applicable.size());
+    }
+
+    @Test
+    void shouldReturnAllMirrorsWhenNoFilterConfigured() {
+        // language=toml
+        String toml =
+                """
+                [[registry]]
+                prefix = "docker.io"
+                location = "docker.io"
+
+                [[registry.mirror]]
+                location = "mirror-a.example.com"
+
+                [[registry.mirror]]
+                location = "mirror-b.example.com"
+                """;
+
+        RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
+        ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");
+        assertEquals(2, conf.getApplicableMirrors(ref).size());
     }
 
     private Path writeTempToml(String content) {

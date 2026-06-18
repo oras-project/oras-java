@@ -22,6 +22,7 @@ package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -260,6 +261,133 @@ class RegistryMirrorTest {
             assertTrue(ref.isUnqualified());
             Manifest manifest = registry.getManifest(ref);
             assertNotNull(manifest, "Manifest should be fetched via mirror for unqualified reference");
+        });
+    }
+
+    @Test
+    void shouldSkipDigestOnlyMirrorWhenPullingByTag(@TempDir Path blobDir) throws Exception {
+
+        // Push artifact to the working mirror
+        String mirrorRegistry = mirrorUp.getRegistry();
+        Registry setupRegistry = Registry.builder().insecure(mirrorRegistry).build();
+        Path testFile = createTestFile(blobDir, "digest-only.txt", "digest-only mirror content");
+        ContainerRef mirrorArtifact = ContainerRef.parse(mirrorRegistry + "/test/digest-only-mirror:v1");
+        setupRegistry.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
+
+        // Mirror configured as digest-only — a tag-based pull must NOT use it
+        // language=toml
+        String registriesConf =
+                """
+                [[registry]]
+                prefix = "localhost:59998"
+                location = "localhost:59998"
+
+                [[registry.mirror]]
+                location = "%s"
+                insecure = true
+                pull-from-mirror = "digest-only"
+                """
+                        .formatted(mirrorRegistry);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            // Pull by tag: digest-only mirror is skipped; fallback to "original" (also down) → must fail
+            ContainerRef ref = ContainerRef.parse("localhost:59998/test/digest-only-mirror:v1");
+            assertThrows(
+                    land.oras.exception.OrasException.class,
+                    () -> registry.getManifest(ref),
+                    "digest-only mirror must be skipped for a tag-based pull");
+        });
+    }
+
+    @Test
+    void shouldUseDigestOnlyMirrorWhenPullingByDigest(@TempDir Path blobDir) throws Exception {
+
+        // Push artifact to the working mirror
+        String mirrorRegistry = mirrorUp.getRegistry();
+        Registry setupRegistry = Registry.builder().insecure(mirrorRegistry).build();
+        Path testFile = createTestFile(blobDir, "digest-pull.txt", "digest mirror content");
+        ContainerRef mirrorArtifact = ContainerRef.parse(mirrorRegistry + "/test/digest-pull-mirror:v1");
+        setupRegistry.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
+
+        // Resolve the digest so we can pull by digest
+        Manifest pushed = setupRegistry.getManifest(mirrorArtifact);
+        assertNotNull(pushed);
+        String digest = pushed.getDescriptor().getDigest();
+
+        // language=toml
+        String registriesConf =
+                """
+                [[registry]]
+                prefix = "localhost:59998"
+                location = "localhost:59998"
+
+                [[registry.mirror]]
+                location = "%s"
+                insecure = true
+                pull-from-mirror = "digest-only"
+                """
+                        .formatted(mirrorRegistry);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            // Pull by digest: digest-only mirror must be used
+            ContainerRef ref = ContainerRef.parse("localhost:59998/test/digest-pull-mirror:v1")
+                    .withDigest(digest);
+            Manifest manifest = registry.getManifest(ref);
+            assertNotNull(manifest, "digest-only mirror must be used for a digest-based pull");
+        });
+    }
+
+    @Test
+    void shouldApplyMirrorByDigestOnly(@TempDir Path blobDir) throws Exception {
+
+        // Push artifact to the working mirror
+        String mirrorRegistry = mirrorUp.getRegistry();
+        Registry setupRegistry = Registry.builder().insecure(mirrorRegistry).build();
+        Path testFile = createTestFile(blobDir, "mbd.txt", "mirror-by-digest-only content");
+        ContainerRef mirrorArtifact = ContainerRef.parse(mirrorRegistry + "/test/mbd-mirror:v1");
+        setupRegistry.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
+
+        Manifest pushed = setupRegistry.getManifest(mirrorArtifact);
+        assertNotNull(pushed);
+        String digest = pushed.getDescriptor().getDigest();
+
+        // language=toml
+        String registriesConf =
+                """
+                [[registry]]
+                prefix = "localhost:59998"
+                location = "localhost:59998"
+                mirror-by-digest-only = true
+
+                [[registry.mirror]]
+                location = "%s"
+                insecure = true
+                """
+                        .formatted(mirrorRegistry);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+
+            // Tag pull → mirror-by-digest-only skips all mirrors → fails with original down
+            ContainerRef tagRef = ContainerRef.parse("localhost:59998/test/mbd-mirror:v1");
+            assertThrows(
+                    land.oras.exception.OrasException.class,
+                    () -> registry.getManifest(tagRef),
+                    "mirror-by-digest-only must skip mirrors for tag-based pulls");
+
+            // Digest pull → mirror is used
+            ContainerRef digestRef =
+                    ContainerRef.parse("localhost:59998/test/mbd-mirror:v1").withDigest(digest);
+            Manifest manifest = registry.getManifest(digestRef);
+            assertNotNull(manifest, "mirror-by-digest-only must allow mirrors for digest-based pulls");
         });
     }
 
