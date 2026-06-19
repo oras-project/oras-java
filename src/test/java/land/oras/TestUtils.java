@@ -57,7 +57,7 @@ public final class TestUtils {
      * @param homeDir the home directory where the .config/containers/registries.conf file will be created
      * @param content the content of the registries.conf file
      */
-    public static void createRegistriesConfFile(Path homeDir, String content) {
+    public static synchronized void createRegistriesConfFile(Path homeDir, String content) {
         try {
             Files.createDirectory(homeDir.resolve(".config"));
             Files.createDirectory(homeDir.resolve(".config").resolve("containers"));
@@ -73,7 +73,7 @@ public final class TestUtils {
      * @param action the action to execute with the HOME environment variable set
      * @throws Exception if any exception occurs during the execution of the action
      */
-    public static void withHome(Path homeDir, Runnable action) throws Exception {
+    public static synchronized void withHome(Path homeDir, Runnable action) throws Exception {
         new EnvironmentVariables()
                 .set("HOME", homeDir.toAbsolutePath().toString())
                 .execute(() -> {
