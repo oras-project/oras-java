@@ -23,8 +23,10 @@ package land.oras.auth;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -68,23 +70,22 @@ public class RegistriesConf {
     }
 
     /**
-     * Create a new RegistriesConf instance by loading configuration from the specified paths.
-     * @param configPaths The list of paths to load configuration from.
+     * Create a new RegistriesConf instance by merging configuration from all provided paths that exist.
+     * Files are merged in list order: later entries override scalar values and augment collections.
+     * @param configPaths The ordered list of paths to load and merge.
      * @return A new RegistriesConf instance.
      */
     public static RegistriesConf newConf(List<Path> configPaths) {
-
-        // Take the first path found: https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md
+        Config config = new Config();
         for (Path configPath : configPaths) {
             LOG.debug("Checking for registries config file at: {}", configPath);
             if (Files.exists(configPath)) {
                 ConfigFile configFile = TomlUtils.fromToml(configPath, ConfigFile.class);
                 LOG.debug("Loaded registries config file: {}", configPath);
-                return new RegistriesConf(Config.load(configFile));
+                config.merge(configFile);
             }
         }
-        // Empty config
-        return new RegistriesConf(new Config());
+        return new RegistriesConf(config);
     }
 
     /**
@@ -104,18 +105,48 @@ public class RegistriesConf {
     }
 
     /**
-     * Returns the ordered list of registries.conf paths to search when {@code CONTAINERS_REGISTRIES_CONF} is not set.
-     * The user-local path (under {@code $HOME}) is tried first; the system-wide path is always included as fallback.
+     * Returns the ordered list of registries.conf paths to load and merge when {@code CONTAINERS_REGISTRIES_CONF}
+     * is not set. Follows the containers/image search order:
+     * <ol>
+     *   <li>{@code /etc/containers/registries.conf}</li>
+     *   <li>{@code /etc/containers/registries.conf.d/*.conf} (alpha-numerical order)</li>
+     *   <li>{@code $HOME/.config/containers/registries.conf} (when {@code HOME} is set)</li>
+     *   <li>{@code $HOME/.config/containers/registries.conf.d/*.conf} (alpha-numerical order)</li>
+     * </ol>
      *
-     * @return list of candidate paths.
+     * @return ordered list of candidate paths.
      */
     private static List<Path> defaultConfPaths() {
-        Path globalPath = Path.of("/etc/containers/registries.conf");
+        List<Path> paths = new ArrayList<>();
+        paths.add(Path.of("/etc/containers/registries.conf"));
+        paths.addAll(dropInFiles(Path.of("/etc/containers/registries.conf.d")));
         String home = System.getenv("HOME");
         if (home != null) {
-            return List.of(Path.of(home, ".config", "containers", "registries.conf"), globalPath);
+            paths.add(Path.of(home, ".config", "containers", "registries.conf"));
+            paths.addAll(dropInFiles(Path.of(home, ".config", "containers", "registries.conf.d")));
         }
-        return List.of(globalPath);
+        return paths;
+    }
+
+    /**
+     * Lists all {@code *.conf} files in the given drop-in directory, sorted in alpha-numerical order.
+     * Returns an empty list if the directory does not exist or cannot be read.
+     *
+     * @param dir the drop-in directory to scan.
+     * @return sorted list of {@code *.conf} paths found in {@code dir}.
+     */
+    private static List<Path> dropInFiles(Path dir) {
+        if (!Files.isDirectory(dir)) {
+            return List.of();
+        }
+        try (var stream = Files.list(dir)) {
+            return stream.filter(p -> p.getFileName().toString().endsWith(".conf"))
+                    .sorted()
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            LOG.warn("Failed to list drop-in directory {}: {}", dir, e.getMessage());
+            return List.of();
+        }
     }
 
     /**
@@ -642,23 +673,34 @@ public class RegistriesConf {
          */
         public static Config load(ConfigFile configFile) throws OrasException {
             Config config = new Config();
+            config.merge(configFile);
+            return config;
+        }
+
+        /**
+         * Merges the given {@link ConfigFile} into this config.
+         * Collections (registries, unqualified registries) are extended; scalar values (aliases, short-name-mode)
+         * use last-wins semantics so later drop-in files can override earlier ones.
+         *
+         * @param configFile the parsed config file to merge in.
+         */
+        void merge(ConfigFile configFile) {
             if (configFile.unqualifiedRegistries != null) {
-                LOG.trace("Loading unqualified registries: {}", configFile.unqualifiedRegistries);
-                config.unqualifiedRegistries.addAll(configFile.unqualifiedRegistries);
+                LOG.trace("Merging unqualified registries: {}", configFile.unqualifiedRegistries);
+                unqualifiedRegistries.addAll(configFile.unqualifiedRegistries);
             }
             if (configFile.aliases != null) {
-                LOG.trace("Loading registry aliases: {}", configFile.aliases);
-                config.aliases.putAll(configFile.aliases);
+                LOG.trace("Merging registry aliases: {}", configFile.aliases);
+                aliases.putAll(configFile.aliases);
             }
             if (configFile.registries != null) {
-                LOG.trace("Loading registry configurations: {}", configFile.registries);
-                config.registries.addAll(configFile.registries);
+                LOG.trace("Merging registry configurations: {}", configFile.registries);
+                registries.addAll(configFile.registries);
             }
             if (configFile.shortNameMode != null) {
-                LOG.trace("Loading short name mode: {}", configFile.shortNameMode);
-                config.shortNameMode = configFile.shortNameMode;
+                LOG.trace("Merging short name mode: {}", configFile.shortNameMode);
+                shortNameMode = configFile.shortNameMode;
             }
-            return config;
         }
     }
 }

@@ -68,21 +68,41 @@ public final class TestUtils {
     }
 
     /**
+     * Create a drop-in registries.conf file under {@code $HOME/.config/containers/registries.conf.d/}.
+     * The drop-in directory is created if it does not already exist.
+     *
+     * @param homeDir  the home directory that contains (or will contain) the drop-in directory
+     * @param filename the filename to write inside the drop-in directory (e.g. {@code "10-extra.conf"})
+     * @param content  the TOML content to write
+     */
+    public static synchronized void createDropInConfFile(Path homeDir, String filename, String content) {
+        try {
+            Path dropInDir = homeDir.resolve(".config").resolve("containers").resolve("registries.conf.d");
+            Files.createDirectories(dropInDir);
+            Files.writeString(dropInDir.resolve(filename), content);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
      * Execute the given action with the HOME environment variable set to the given home directory.
      * @param homeDir the home directory to set in the HOME environment variable
      * @param action the action to execute with the HOME environment variable set
      * @throws Exception if any exception occurs during the execution of the action
      */
     public static synchronized void withHome(Path homeDir, Runnable action) throws Exception {
-        new EnvironmentVariables()
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .remove("CONTAINERS_REGISTRIES_CONF")
-                .execute(() -> {
-                    try {
-                        action.run();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        synchronized (TestUtils.class) {
+            new EnvironmentVariables()
+                    .set("HOME", homeDir.toAbsolutePath().toString())
+                    .remove("CONTAINERS_REGISTRIES_CONF")
+                    .execute(() -> {
+                        try {
+                            action.run();
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
     }
 }
