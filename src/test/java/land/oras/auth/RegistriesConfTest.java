@@ -22,6 +22,7 @@ package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.TestUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Test class of {@link RegistriesConf}.
@@ -72,5 +74,66 @@ class RegistriesConfTest {
             assertEquals(1, conf.getUnqualifiedRegistries().size());
             assertEquals("docker.io", conf.getUnqualifiedRegistries().get(0));
         });
+    }
+
+    @Test
+    void shouldFallBackToGlobalPathWhenHomeIsAbsent() throws Exception {
+        new EnvironmentVariables()
+                .remove("HOME")
+                .remove("CONTAINERS_REGISTRIES_CONF")
+                .execute(() -> {
+                    RegistriesConf conf = RegistriesConf.newConf();
+                    assertNotNull(conf);
+                    // /etc/containers/registries.conf does not exist in the test environment,
+                    // so the result is an empty config — but the code path is exercised.
+                    assertTrue(conf.getUnqualifiedRegistries().isEmpty());
+                    assertTrue(conf.getAliases().isEmpty());
+                });
+    }
+
+    @Test
+    void shouldUseContainersRegistriesConfWhenSet(@TempDir Path customDir) throws Exception {
+        // language=toml
+        String customContent =
+                """
+        unqualified-search-registries = ["quay.io"]
+
+        [aliases]
+        "busybox"="quay.io/library/busybox"
+        """;
+        Path customFile = customDir.resolve("registries.conf");
+        Files.writeString(customFile, customContent);
+
+        new EnvironmentVariables()
+                .set("CONTAINERS_REGISTRIES_CONF", customFile.toAbsolutePath().toString())
+                .execute(() -> {
+                    RegistriesConf conf = RegistriesConf.newConf();
+                    assertNotNull(conf);
+                    assertEquals(1, conf.getUnqualifiedRegistries().size());
+                    assertEquals("quay.io", conf.getUnqualifiedRegistries().get(0));
+                    assertTrue(conf.hasAlias("busybox"));
+                    assertEquals("quay.io/library/busybox", conf.getAliases().get("busybox"));
+                });
+    }
+
+    @Test
+    void containersRegistriesConfTakesPrecedenceOverHome(@TempDir Path customDir) throws Exception {
+        // language=toml
+        String customContent = """
+        unqualified-search-registries = ["custom.io"]
+        """;
+        Path customFile = customDir.resolve("registries.conf");
+        Files.writeString(customFile, customContent);
+
+        new EnvironmentVariables()
+                .set("CONTAINERS_REGISTRIES_CONF", customFile.toAbsolutePath().toString())
+                .set("HOME", homeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    RegistriesConf conf = RegistriesConf.newConf();
+                    // Must reflect the custom file, not the HOME-based one (which has "docker.io")
+                    assertEquals(1, conf.getUnqualifiedRegistries().size());
+                    assertEquals("custom.io", conf.getUnqualifiedRegistries().get(0));
+                    assertFalse(conf.hasAlias("alpine"));
+                });
     }
 }

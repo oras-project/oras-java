@@ -76,6 +76,7 @@ public final class TestUtils {
     public static synchronized void withHome(Path homeDir, Runnable action) throws Exception {
         new EnvironmentVariables()
                 .set("HOME", homeDir.toAbsolutePath().toString())
+                .remove("CONTAINERS_REGISTRIES_CONF")
                 .execute(() -> {
                     try {
                         action.run();

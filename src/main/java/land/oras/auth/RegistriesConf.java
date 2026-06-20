@@ -89,16 +89,33 @@ public class RegistriesConf {
 
     /**
      * Create a new RegistriesConf instance by loading configuration from standard paths.
+     * If the {@code CONTAINERS_REGISTRIES_CONF} environment variable is set it is used exclusively.
+     * Otherwise, the user-local config (under {@code $HOME}) is tried first, then {@code /etc/containers/registries.conf}.
+     *
      * @return A new RegistriesConf instance.
      */
     public static RegistriesConf newConf() {
+        String containersRegistriesConf = System.getenv("CONTAINERS_REGISTRIES_CONF");
+        if (containersRegistriesConf != null) {
+            LOG.debug("Using registries config from CONTAINERS_REGISTRIES_CONF: {}", containersRegistriesConf);
+            return newConf(List.of(Path.of(containersRegistriesConf)));
+        }
+        return newConf(defaultConfPaths());
+    }
+
+    /**
+     * Returns the ordered list of registries.conf paths to search when {@code CONTAINERS_REGISTRIES_CONF} is not set.
+     * The user-local path (under {@code $HOME}) is tried first; the system-wide path is always included as fallback.
+     *
+     * @return list of candidate paths.
+     */
+    private static List<Path> defaultConfPaths() {
         Path globalPath = Path.of("/etc/containers/registries.conf");
-        List<Path> paths = List.of(
-                System.getenv("HOME") != null
-                        ? Path.of(System.getenv("HOME"), ".config", "containers", "registries.conf")
-                        : globalPath,
-                globalPath);
-        return newConf(paths);
+        String home = System.getenv("HOME");
+        if (home != null) {
+            return List.of(Path.of(home, ".config", "containers", "registries.conf"), globalPath);
+        }
+        return List.of(globalPath);
     }
 
     /**
