@@ -131,34 +131,40 @@ class AuthStoreTest {
 
     @Test
     void testShouldReadCredentialsFromCredentialHelperNullCheck() throws Exception {
-        new EnvironmentVariables().set("XDG_RUNTIME_DIR", "not-used").execute(() -> {
-            new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
-                assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
-                AuthStore authStoreInstance = AuthStore.newStore();
-                assertNotNull(authStoreInstance);
+        new EnvironmentVariables()
+                .set("XDG_RUNTIME_DIR", "not-used")
+                .remove("REGISTRY_AUTH_FILE")
+                .execute(() -> {
+                    new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                        assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
+                        AuthStore authStoreInstance = AuthStore.newStore();
+                        assertNotNull(authStoreInstance);
 
-                // Verify
-                AuthStore.Credential credential =
-                        authStoreInstance.get(ContainerRef.parse("other.other.com/foo/bar:latest"));
-                assertNull(credential);
-            });
-        });
+                        // Verify
+                        AuthStore.Credential credential =
+                                authStoreInstance.get(ContainerRef.parse("other.other.com/foo/bar:latest"));
+                        assertNull(credential);
+                    });
+                });
     }
 
     @Test
     void testShouldReadCredentialsFromCredentialStoreNullCheck() throws Exception {
-        new EnvironmentVariables().set("XDG_RUNTIME_DIR", "not-used").execute(() -> {
-            new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
-                assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
-                AuthStore authStoreInstance = AuthStore.newStore();
-                assertNotNull(authStoreInstance);
+        new EnvironmentVariables()
+                .set("XDG_RUNTIME_DIR", "not-used")
+                .remove("REGISTRY_AUTH_FILE")
+                .execute(() -> {
+                    new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                        assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
+                        AuthStore authStoreInstance = AuthStore.newStore();
+                        assertNotNull(authStoreInstance);
 
-                // Verify
-                AuthStore.Credential credential =
-                        authStoreInstance.get(ContainerRef.parse("otherfromstore.other.com/foo/bar:latest"));
-                assertNull(credential);
-            });
-        });
+                        // Verify
+                        AuthStore.Credential credential =
+                                authStoreInstance.get(ContainerRef.parse("otherfromstore.other.com/foo/bar:latest"));
+                        assertNull(credential);
+                    });
+                });
     }
 
     @Test
@@ -178,6 +184,7 @@ class AuthStoreTest {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", "not-used")
                 .set("PATH", newPath)
+                .remove("REGISTRY_AUTH_FILE")
                 .execute(() -> {
                     new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
                         assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
@@ -209,6 +216,7 @@ class AuthStoreTest {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", "not-used")
                 .set("PATH", newPath)
+                .remove("REGISTRY_AUTH_FILE")
                 .execute(() -> {
                     new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
                         assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
@@ -225,36 +233,40 @@ class AuthStoreTest {
 
     @Test
     void testShouldReadCredentialsFromDockerConfig() throws Exception {
-        new EnvironmentVariables().set("XDG_RUNTIME_DIR", "not-used").execute(() -> {
-            new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
-                assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
-                AuthStore authStoreInstance = AuthStore.newStore();
-                assertNotNull(authStoreInstance);
+        new EnvironmentVariables()
+                .set("XDG_RUNTIME_DIR", "not-used")
+                .remove("REGISTRY_AUTH_FILE")
+                .execute(() -> {
+                    new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                        assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
+                        AuthStore authStoreInstance = AuthStore.newStore();
+                        assertNotNull(authStoreInstance);
 
-                // Verify
-                AuthStore.Credential credential =
-                        authStoreInstance.get(ContainerRef.parse("registry.example.com/foo/bar:latest"));
-                assertNotNull(credential);
-                assertEquals(USERNAME, credential.username());
+                        // Verify
+                        AuthStore.Credential credential =
+                                authStoreInstance.get(ContainerRef.parse("registry.example.com/foo/bar:latest"));
+                        assertNotNull(credential);
+                        assertEquals(USERNAME, credential.username());
 
-                // Null
-                assertNull(authStoreInstance.get(ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
+                        // Null
+                        assertNull(authStoreInstance.get(ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
 
-                String binary = authStoreInstance.getCredentialHelperBinary(
-                        ContainerRef.parse("registry.other.com/foo/bar:latest"));
-                assertNotNull(binary);
-                assertEquals("docker-credential-foo-binary", binary);
+                        String binary = authStoreInstance.getCredentialHelperBinary(
+                                ContainerRef.parse("registry.other.com/foo/bar:latest"));
+                        assertNotNull(binary);
+                        assertEquals("docker-credential-foo-binary", binary);
 
-                assertNull(authStoreInstance.getCredentialHelperBinary(
-                        ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
-            });
-        });
+                        assertNull(authStoreInstance.getCredentialHelperBinary(
+                                ContainerRef.parse("unknown.registry.com/foo/bar:latest")));
+                    });
+                });
     }
 
     @Test
     void testShouldReadCredentialsFromPodManConfig() throws Exception {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", xdgRuntimeDir.toAbsolutePath().toString())
+                .remove("REGISTRY_AUTH_FILE")
                 .execute(() -> {
                     new SystemProperties("user.home", "not-used").execute(() -> {
                         assertNotNull(System.getenv("XDG_RUNTIME_DIR"));
@@ -365,11 +377,71 @@ class AuthStoreTest {
 
     @Test
     void testWithoutXdgRuntimeDir() throws Exception {
-        new EnvironmentVariables().remove("XDG_RUNTIME_DIR").execute(() -> {
-            assertNull(System.getenv("XDG_RUNTIME_DIR"));
-            AuthStore authStoreInstance = AuthStore.newStore();
-            assertNotNull(authStoreInstance);
-        });
+        new EnvironmentVariables()
+                .remove("XDG_RUNTIME_DIR")
+                .remove("REGISTRY_AUTH_FILE")
+                .execute(() -> {
+                    assertNull(System.getenv("XDG_RUNTIME_DIR"));
+                    AuthStore authStoreInstance = AuthStore.newStore();
+                    assertNotNull(authStoreInstance);
+                });
+    }
+
+    @Test
+    void testRegistryAuthFileIsUsedWhenSet() throws Exception {
+        Path authFile = tempDir.resolve("custom-auth.json");
+        Files.writeString(authFile, SAMPLE_DOCKER_CONFIG);
+
+        new EnvironmentVariables()
+                .set("REGISTRY_AUTH_FILE", authFile.toAbsolutePath().toString())
+                .remove("XDG_RUNTIME_DIR")
+                .execute(() -> {
+                    new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                        AuthStore authStoreInstance = AuthStore.newStore();
+                        assertNotNull(authStoreInstance);
+
+                        AuthStore.Credential credential =
+                                authStoreInstance.get(ContainerRef.parse("registry.example.com/foo/bar:latest"));
+                        assertNotNull(credential);
+                        assertEquals(USERNAME, credential.username());
+                    });
+                });
+    }
+
+    @Test
+    void testRegistryAuthFileTakesPrecedenceOverDefaults() throws Exception {
+        // language=json
+        String customConfig =
+                """
+        {
+            "auths": {
+                "custom.registry.com": {
+                    "auth": "dXNlcjpwYXNzd29yZA=="
+                }
+            }
+        }
+        """;
+        Path authFile = tempDir.resolve("custom-auth.json");
+        Files.writeString(authFile, customConfig);
+
+        new EnvironmentVariables()
+                .set("REGISTRY_AUTH_FILE", authFile.toAbsolutePath().toString())
+                .set("XDG_RUNTIME_DIR", xdgRuntimeDir.toAbsolutePath().toString())
+                .execute(() -> {
+                    new SystemProperties("user.home", homeDir.toAbsolutePath().toString()).execute(() -> {
+                        AuthStore authStoreInstance = AuthStore.newStore();
+
+                        // Custom registry from REGISTRY_AUTH_FILE must be found
+                        AuthStore.Credential custom =
+                                authStoreInstance.get(ContainerRef.parse("custom.registry.com/foo/bar:latest"));
+                        assertNotNull(custom);
+                        assertEquals(USERNAME, custom.username());
+
+                        // Default docker/podman registries must NOT be visible (REGISTRY_AUTH_FILE is exclusive)
+                        assertNull(authStoreInstance.get(ContainerRef.parse("registry.example.com/foo/bar:latest")));
+                        assertNull(authStoreInstance.get(ContainerRef.parse("registry.other.com/foo/bar:latest")));
+                    });
+                });
     }
 
     @Test

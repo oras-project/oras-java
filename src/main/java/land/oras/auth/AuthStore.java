@@ -88,19 +88,35 @@ public class AuthStore {
     }
 
     /**
-     * Creates a new FileStore from default location
+     * Creates a new FileStore from default location.
+     * If the {@code REGISTRY_AUTH_FILE} environment variable is set it is used exclusively.
+     * Otherwise, the Docker config and (when {@code XDG_RUNTIME_DIR} is set) the Podman auth file are searched.
+     *
      * @return FileStore instance.
      */
     public static AuthStore newStore() {
+        String registryAuthFile = System.getenv("REGISTRY_AUTH_FILE");
+        if (registryAuthFile != null) {
+            LOG.debug("Using auth file from REGISTRY_AUTH_FILE: {}", registryAuthFile);
+            return newStore(List.of(Path.of(registryAuthFile)));
+        }
+        return newStore(defaultAuthPaths());
+    }
+
+    /**
+     * Returns the ordered list of auth file paths to search when no {@code REGISTRY_AUTH_FILE} is set.
+     * Docker config is always included; the Podman auth file is added when {@code XDG_RUNTIME_DIR} is set.
+     *
+     * @return list of candidate paths.
+     */
+    private static List<Path> defaultAuthPaths() {
         Path dockerPath = Path.of(System.getProperty("user.home"), ".docker", "config.json");
-        List<Path> paths = List.of(
-                dockerPath,
-                // default podman with fallback on docker config
-                // https://docs.podman.io/en/stable/markdown/podman-login.1.html#description
-                System.getenv("XDG_RUNTIME_DIR") != null
-                        ? Path.of(System.getenv("XDG_RUNTIME_DIR"), "containers", "auth.json")
-                        : dockerPath);
-        return newStore(paths);
+        String xdgRuntimeDir = System.getenv("XDG_RUNTIME_DIR");
+        if (xdgRuntimeDir != null) {
+            // https://docs.podman.io/en/stable/markdown/podman-login.1.html#description
+            return List.of(dockerPath, Path.of(xdgRuntimeDir, "containers", "auth.json"));
+        }
+        return List.of(dockerPath);
     }
 
     /**
