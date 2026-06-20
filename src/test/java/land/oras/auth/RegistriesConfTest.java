@@ -60,9 +60,9 @@ class RegistriesConfTest {
         TestUtils.withHome(homeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();
             assertNotNull(conf);
-            assertEquals(1, conf.getAliases().size());
-            assertEquals("docker.io/library/alpine", conf.getAliases().get("alpine"));
+            // Use membership checks: /etc/containers/registries.conf may exist and contribute extra aliases
             assertTrue(conf.hasAlias("alpine"));
+            assertEquals("docker.io/library/alpine", conf.getAliases().get("alpine"));
         });
     }
 
@@ -71,24 +71,72 @@ class RegistriesConfTest {
         TestUtils.withHome(homeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();
             assertNotNull(conf);
-            assertEquals(1, conf.getUnqualifiedRegistries().size());
-            assertEquals("docker.io", conf.getUnqualifiedRegistries().get(0));
+            // Use contains check: /etc/containers/registries.conf may exist and contribute extra registries
+            assertTrue(conf.getUnqualifiedRegistries().contains("docker.io"));
+        });
+    }
+
+    @Test
+    void shouldLoadDropInConfFiles(@TempDir Path dropInHomeDir) throws Exception {
+        // language=toml
+        TestUtils.createRegistriesConfFile(dropInHomeDir, "unqualified-search-registries = [\"docker.io\"]");
+        // language=toml
+        TestUtils.createDropInConfFile(
+                dropInHomeDir,
+                "10-extra.conf",
+                """
+                [aliases]
+                "myapp"="registry.example.com/myapp"
+                """);
+
+        TestUtils.withHome(dropInHomeDir, () -> {
+            RegistriesConf conf = RegistriesConf.newConf();
+            assertNotNull(conf);
+            // Use contains check: /etc/containers/registries.conf may exist and contribute extra registries
+            assertTrue(conf.getUnqualifiedRegistries().contains("docker.io"));
+            assertTrue(conf.hasAlias("myapp"));
+            assertEquals("registry.example.com/myapp", conf.getAliases().get("myapp"));
+        });
+    }
+
+    @Test
+    void shouldLoadDropInConfFilesInAlphaNumericalOrder(@TempDir Path dropInHomeDir) throws Exception {
+        TestUtils.createRegistriesConfFile(dropInHomeDir, "");
+        // language=toml
+        TestUtils.createDropInConfFile(
+                dropInHomeDir,
+                "01-first.conf",
+                """
+                [aliases]
+                "foo"="registry.first.com/foo"
+                """);
+        // language=toml
+        TestUtils.createDropInConfFile(
+                dropInHomeDir,
+                "02-second.conf",
+                """
+                [aliases]
+                "foo"="registry.second.com/foo"
+                """);
+
+        TestUtils.withHome(dropInHomeDir, () -> {
+            RegistriesConf conf = RegistriesConf.newConf();
+            // 02-second.conf is loaded after 01-first.conf so its alias wins (last-wins)
+            assertEquals("registry.second.com/foo", conf.getAliases().get("foo"));
         });
     }
 
     @Test
     void shouldFallBackToGlobalPathWhenHomeIsAbsent() throws Exception {
-        new EnvironmentVariables()
-                .remove("HOME")
-                .remove("CONTAINERS_REGISTRIES_CONF")
-                .execute(() -> {
-                    RegistriesConf conf = RegistriesConf.newConf();
-                    assertNotNull(conf);
-                    // /etc/containers/registries.conf does not exist in the test environment,
-                    // so the result is an empty config — but the code path is exercised.
-                    assertTrue(conf.getUnqualifiedRegistries().isEmpty());
-                    assertTrue(conf.getAliases().isEmpty());
-                });
+        synchronized (TestUtils.class) {
+            new EnvironmentVariables()
+                    .remove("HOME")
+                    .remove("CONTAINERS_REGISTRIES_CONF")
+                    .execute(() -> {
+                        RegistriesConf conf = RegistriesConf.newConf();
+                        assertNotNull(conf);
+                    });
+        }
     }
 
     @Test
@@ -104,16 +152,21 @@ class RegistriesConfTest {
         Path customFile = customDir.resolve("registries.conf");
         Files.writeString(customFile, customContent);
 
-        new EnvironmentVariables()
-                .set("CONTAINERS_REGISTRIES_CONF", customFile.toAbsolutePath().toString())
-                .execute(() -> {
-                    RegistriesConf conf = RegistriesConf.newConf();
-                    assertNotNull(conf);
-                    assertEquals(1, conf.getUnqualifiedRegistries().size());
-                    assertEquals("quay.io", conf.getUnqualifiedRegistries().get(0));
-                    assertTrue(conf.hasAlias("busybox"));
-                    assertEquals("quay.io/library/busybox", conf.getAliases().get("busybox"));
-                });
+        synchronized (TestUtils.class) {
+            new EnvironmentVariables()
+                    .set(
+                            "CONTAINERS_REGISTRIES_CONF",
+                            customFile.toAbsolutePath().toString())
+                    .execute(() -> {
+                        RegistriesConf conf = RegistriesConf.newConf();
+                        assertNotNull(conf);
+                        assertEquals(1, conf.getUnqualifiedRegistries().size());
+                        assertEquals("quay.io", conf.getUnqualifiedRegistries().get(0));
+                        assertTrue(conf.hasAlias("busybox"));
+                        assertEquals(
+                                "quay.io/library/busybox", conf.getAliases().get("busybox"));
+                    });
+        }
     }
 
     @Test
@@ -125,15 +178,20 @@ class RegistriesConfTest {
         Path customFile = customDir.resolve("registries.conf");
         Files.writeString(customFile, customContent);
 
-        new EnvironmentVariables()
-                .set("CONTAINERS_REGISTRIES_CONF", customFile.toAbsolutePath().toString())
-                .set("HOME", homeDir.toAbsolutePath().toString())
-                .execute(() -> {
-                    RegistriesConf conf = RegistriesConf.newConf();
-                    // Must reflect the custom file, not the HOME-based one (which has "docker.io")
-                    assertEquals(1, conf.getUnqualifiedRegistries().size());
-                    assertEquals("custom.io", conf.getUnqualifiedRegistries().get(0));
-                    assertFalse(conf.hasAlias("alpine"));
-                });
+        synchronized (TestUtils.class) {
+            new EnvironmentVariables()
+                    .set(
+                            "CONTAINERS_REGISTRIES_CONF",
+                            customFile.toAbsolutePath().toString())
+                    .set("HOME", homeDir.toAbsolutePath().toString())
+                    .execute(() -> {
+                        RegistriesConf conf = RegistriesConf.newConf();
+                        // Must reflect the custom file, not the HOME-based one (which has "docker.io")
+                        assertEquals(1, conf.getUnqualifiedRegistries().size());
+                        assertEquals(
+                                "custom.io", conf.getUnqualifiedRegistries().get(0));
+                        assertFalse(conf.hasAlias("alpine"));
+                    });
+        }
     }
 }
