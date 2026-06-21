@@ -484,6 +484,14 @@
               <goals>
                 <goal>test-jar</goal>
               </goals>
+              <configuration>
+                <excludes>
+                  <exclude>archives/**</exclude>
+                  <exclude>oci/**</exclude>
+                  <exclude>img/**</exclude>
+                  <exclude>content/**</exclude>
+                </excludes>
+              </configuration>
             </execution>
           </executions>
         </plugin>
