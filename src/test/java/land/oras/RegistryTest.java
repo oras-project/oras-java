@@ -2368,4 +2368,77 @@ class RegistryTest {
                         CopyUtils.CopyOptions.shallow().withPlatformFilter(Set.of(Platform.linuxArm64V8()))),
                 "Copy with non-matching platform filter should throw OrasException");
     }
+
+    @Test
+    void shouldPushArtifactWithChunkedOptions() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-push-options-chunked".formatted(this.registry.getRegistry()));
+
+        Path file = blobDir.resolve("chunked-artifact.txt");
+        Files.writeString(file, "hello chunked artifact");
+
+        // PushOptions.chunked() — default chunk size
+        OCI.PushOptions options = OCI.PushOptions.chunked();
+        assertTrue(options.isChunked());
+        assertEquals(OCI.PushOptions.DEFAULT_CHUNK_SIZE, options.chunkSize());
+
+        Manifest manifest = registry.pushArtifact(containerRef, options, LocalPath.of(file));
+        assertEquals(1, manifest.getLayers().size());
+        assertNotNull(manifest.getAnnotations().get(Const.ANNOTATION_CREATED));
+
+        registry.pullArtifact(containerRef, artifactDir, true);
+        assertEquals("hello chunked artifact", Files.readString(artifactDir.resolve("chunked-artifact.txt")));
+    }
+
+    @Test
+    void shouldPushArtifactWithChunkedOptionsCustomChunkSizeAndArtifactType() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-push-options-chunked-type".formatted(this.registry.getRegistry()));
+
+        Path file = blobDir.resolve("chunked-artifact-type.txt");
+        Files.writeString(file, "chunked with artifact type");
+
+        // PushOptions.chunked(long) — custom chunk size
+        OCI.PushOptions options = OCI.PushOptions.chunked(8L);
+        assertTrue(options.isChunked());
+        assertEquals(8L, options.chunkSize());
+
+        Manifest manifest = registry.pushArtifact(
+                containerRef, ArtifactType.from("application/vnd.test+type"), options, LocalPath.of(file));
+        assertEquals(1, manifest.getLayers().size());
+        assertEquals("application/vnd.test+type", manifest.getArtifactType().getMediaType());
+    }
+
+    @Test
+    void shouldPushArtifactWithChunkedOptionsAndAnnotations() throws IOException {
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse(
+                "%s/library/artifact-push-options-chunked-annotations".formatted(this.registry.getRegistry()));
+
+        Path file = blobDir.resolve("chunked-artifact-annotations.txt");
+        Files.writeString(file, "chunked with annotations");
+
+        Annotations annotations = Annotations.ofManifest(Map.of("custom-key", "custom-value"));
+
+        // PushOptions.chunked(long) via the artifactType+annotations overload
+        Manifest manifest = registry.pushArtifact(
+                containerRef,
+                ArtifactType.from("application/vnd.test+type"),
+                annotations,
+                OCI.PushOptions.chunked(16L),
+                LocalPath.of(file));
+        assertEquals(1, manifest.getLayers().size());
+        assertEquals("custom-value", manifest.getAnnotations().get("custom-key"));
+    }
 }

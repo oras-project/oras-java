@@ -59,6 +59,102 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     protected static final Logger LOG = LoggerFactory.getLogger(OCI.class);
 
     /**
+     * Options controlling the behavior of {@link OCI#pushArtifact} operations.
+     */
+    @OrasModel
+    public static final class PushOptions {
+
+        /** Default chunk size: 5 MiB. */
+        public static final long DEFAULT_CHUNK_SIZE = 5L * 1024 * 1024;
+
+        private final boolean chunkedEnabled;
+        private final long chunkSize;
+
+        private PushOptions(boolean chunkedEnabled, long chunkSize) {
+            this.chunkedEnabled = chunkedEnabled;
+            this.chunkSize = chunkSize;
+        }
+
+        /**
+         * Default options: single-request upload, no chunking.
+         * @return The default push options
+         */
+        public static PushOptions defaults() {
+            return new PushOptions(false, DEFAULT_CHUNK_SIZE);
+        }
+
+        /**
+         * Options that enable chunked (PATCH-based) upload with the default chunk size.
+         * @return Push options with chunked upload enabled
+         */
+        public static PushOptions chunked() {
+            return new PushOptions(true, DEFAULT_CHUNK_SIZE);
+        }
+
+        /**
+         * Options that enable chunked (PATCH-based) upload with a custom chunk size.
+         * @param chunkSize Maximum number of bytes per chunk. Must be greater than 0.
+         * @return Push options with chunked upload enabled
+         */
+        public static PushOptions chunked(long chunkSize) {
+            return new PushOptions(true, chunkSize);
+        }
+
+        /**
+         * Return whether chunked upload is enabled.
+         * @return {@code true} if chunked upload should be used
+         */
+        public boolean isChunked() {
+            return chunkedEnabled;
+        }
+
+        /**
+         * Return the maximum number of bytes per chunk.
+         * @return The chunk size in bytes
+         */
+        public long chunkSize() {
+            return chunkSize;
+        }
+    }
+
+    /**
+     * Options controlling the behavior of {@link OCI#pullArtifact} operations.
+     */
+    @OrasModel
+    public static final class PullOptions {
+
+        private final boolean overwriteEnabled;
+
+        private PullOptions(boolean overwriteEnabled) {
+            this.overwriteEnabled = overwriteEnabled;
+        }
+
+        /**
+         * Default options: do not overwrite existing files.
+         * @return The default pull options
+         */
+        public static PullOptions defaults() {
+            return new PullOptions(false);
+        }
+
+        /**
+         * Options that allow overwriting existing files when pulling.
+         * @return Pull options with overwrite enabled
+         */
+        public static PullOptions overwrite() {
+            return new PullOptions(true);
+        }
+
+        /**
+         * Return whether existing files should be overwritten.
+         * @return {@code true} if existing files should be overwritten
+         */
+        public boolean isOverwrite() {
+            return overwriteEnabled;
+        }
+    }
+
+    /**
      * Default constructor
      */
     protected OCI() {}
@@ -94,6 +190,43 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      */
     public Manifest pushArtifact(T ref, ArtifactType artifactType, Annotations annotations, LocalPath... paths) {
         return pushArtifact(ref, artifactType, annotations, Config.empty(), paths);
+    }
+
+    /**
+     * Push an artifact with explicit push options
+     * @param ref The ref
+     * @param options The push options
+     * @param paths The paths
+     * @return The manifest
+     */
+    public Manifest pushArtifact(T ref, PushOptions options, LocalPath... paths) {
+        return pushArtifact(ref, ArtifactType.unknown(), Annotations.empty(), Config.empty(), options, paths);
+    }
+
+    /**
+     * Push an artifact with explicit push options
+     * @param ref The ref
+     * @param artifactType The artifact type
+     * @param options The push options
+     * @param paths The paths
+     * @return The manifest
+     */
+    public Manifest pushArtifact(T ref, ArtifactType artifactType, PushOptions options, LocalPath... paths) {
+        return pushArtifact(ref, artifactType, Annotations.empty(), Config.empty(), options, paths);
+    }
+
+    /**
+     * Push an artifact with explicit push options
+     * @param ref The ref
+     * @param artifactType The artifact type
+     * @param annotations The annotations
+     * @param options The push options
+     * @param paths The paths
+     * @return The manifest
+     */
+    public Manifest pushArtifact(
+            T ref, ArtifactType artifactType, Annotations annotations, PushOptions options, LocalPath... paths) {
+        return pushArtifact(ref, artifactType, annotations, Config.empty(), options, paths);
     }
 
     /**
@@ -182,7 +315,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     }
 
     /**
-     * Push layers to the target
+     * Push layers to the target using default push options
      * @param ref The ref
      * @param annotations The annotations for layers (selected by title annotation).
      * @param withDigest Push with digest
@@ -190,10 +323,24 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @return The layers
      */
     protected final List<Layer> pushLayers(T ref, Annotations annotations, boolean withDigest, LocalPath... paths) {
+        return pushLayers(ref, annotations, withDigest, PushOptions.defaults(), paths);
+    }
+
+    /**
+     * Push layers to the target
+     * @param ref The ref
+     * @param annotations The annotations for layers (selected by title annotation).
+     * @param withDigest Push with digest
+     * @param options The push options
+     * @param paths The paths to the files
+     * @return The layers
+     */
+    protected final List<Layer> pushLayers(
+            T ref, Annotations annotations, boolean withDigest, PushOptions options, LocalPath... paths) {
         try {
             return Arrays.stream(paths)
                     .map(p -> CompletableFuture.supplyAsync(
-                            () -> pushLayer(ref, annotations, withDigest, p), getExecutorService()))
+                            () -> pushLayer(ref, annotations, withDigest, p, options), getExecutorService()))
                     .map(CompletableFuture::join)
                     .toList();
         } catch (CompletionException e) {
@@ -287,7 +434,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     public abstract Repositories getRepositories();
 
     /**
-     * Push an artifact
+     * Push an artifact using default push options
      * @param ref The container
      * @param artifactType The artifact type. Can be null
      * @param annotations The annotations
@@ -295,8 +442,36 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @param paths The paths
      * @return The manifest
      */
+    public Manifest pushArtifact(
+            T ref, ArtifactType artifactType, Annotations annotations, @Nullable Config config, LocalPath... paths) {
+        return pushArtifact(ref, artifactType, annotations, config, PushOptions.defaults(), paths);
+    }
+
+    /**
+     * Push an artifact
+     * @param ref The container
+     * @param artifactType The artifact type. Can be null
+     * @param annotations The annotations
+     * @param config The config
+     * @param options The push options
+     * @param paths The paths
+     * @return The manifest
+     */
     public abstract Manifest pushArtifact(
-            T ref, ArtifactType artifactType, Annotations annotations, @Nullable Config config, LocalPath... paths);
+            T ref,
+            ArtifactType artifactType,
+            Annotations annotations,
+            @Nullable Config config,
+            PushOptions options,
+            LocalPath... paths);
+
+    /**
+     * Pull an artifact using the given options
+     * @param ref The reference of the artifact
+     * @param path The path to save the artifact
+     * @param options The pull options
+     */
+    public abstract void pullArtifact(T ref, Path path, PullOptions options);
 
     /**
      * Pull an artifact
@@ -304,7 +479,9 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
      * @param path The path to save the artifact
      * @param overwrite Overwrite the artifact if it exists
      */
-    public abstract void pullArtifact(T ref, Path path, boolean overwrite);
+    public void pullArtifact(T ref, Path path, boolean overwrite) {
+        pullArtifact(ref, path, overwrite ? PullOptions.overwrite() : PullOptions.defaults());
+    }
 
     /**
      * Push a manifest
@@ -449,6 +626,10 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
     }
 
     protected Layer pushLayer(T ref, Annotations annotations, boolean withDigest, LocalPath path) {
+        return pushLayer(ref, annotations, withDigest, path, PushOptions.defaults());
+    }
+
+    protected Layer pushLayer(T ref, Annotations annotations, boolean withDigest, LocalPath path, PushOptions options) {
         try {
             // Create tar.gz archive for directory
             if (Files.isDirectory(path.getPath())) {
@@ -462,57 +643,72 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                 if (withDigest) {
                     ref = ref.withDigest(ref.getAlgorithm().digest(tempArchive.getPath()));
                 }
-                try (InputStream is = Files.newInputStream(tempArchive.getPath())) {
-                    String title = path.getPath().isAbsolute()
-                            ? path.getPath().getFileName().toString()
-                            : path.getPath().toString();
 
-                    // We store the filename, based on directory name if we don't auto unpack
-                    if (!autoUnpack) {
-                        title = "%s.%s".formatted(title, compression.getFileExtension());
-                    }
-                    LOG.debug("Uploading directory as archive with title: {}", title);
+                String title = path.getPath().isAbsolute()
+                        ? path.getPath().getFileName().toString()
+                        : path.getPath().toString();
 
-                    Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
-                            ? annotations.getFileAnnotations(title)
-                            : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
-
-                    // Add oras digest/unpack
-                    // For example zip can be packed application/zip but never unpacked by the runtime
-                    // This is convenience method to pack zip layer as directories
-                    if (compression.isAutoUnpack()) {
-                        layerAnnotations.put(
-                                Const.ANNOTATION_ORAS_CONTENT_DIGEST,
-                                ref.getAlgorithm().digest(tempSource.getPath()));
-                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
-                    } else {
-                        layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "false");
-                    }
-
-                    Layer layer =
-                            pushBlob(ref, is).withMediaType(path.getMediaType()).withAnnotations(layerAnnotations);
-                    LOG.info("Uploaded directory: {}", layer.getDigest());
-                    Files.delete(tempArchive.getPath());
-                    return layer;
+                // We store the filename, based on directory name if we don't auto unpack
+                if (!autoUnpack) {
+                    title = "%s.%s".formatted(title, compression.getFileExtension());
                 }
+                LOG.debug("Uploading directory as archive with title: {}", title);
+
+                Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                        ? annotations.getFileAnnotations(title)
+                        : new LinkedHashMap<>(Map.of(Const.ANNOTATION_TITLE, title));
+
+                // Add oras digest/unpack
+                // For example zip can be packed application/zip but never unpacked by the runtime
+                // This is convenience method to pack zip layer as directories
+                if (compression.isAutoUnpack()) {
+                    layerAnnotations.put(
+                            Const.ANNOTATION_ORAS_CONTENT_DIGEST,
+                            ref.getAlgorithm().digest(tempSource.getPath()));
+                    layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "true");
+                } else {
+                    layerAnnotations.put(Const.ANNOTATION_ORAS_UNPACK, "false");
+                }
+
+                Layer layer = doPushBlob(ref, tempArchive.getPath(), options)
+                        .withMediaType(path.getMediaType())
+                        .withAnnotations(layerAnnotations);
+                LOG.info("Uploaded directory: {}", layer.getDigest());
+                Files.delete(tempArchive.getPath());
+                return layer;
             } else {
-                try (InputStream is = Files.newInputStream(path.getPath())) {
-                    if (withDigest) {
-                        ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
-                    }
-                    String title = path.getPath().getFileName().toString();
-                    Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
-                            ? annotations.getFileAnnotations(title)
-                            : Map.of(Const.ANNOTATION_TITLE, title);
-
-                    Layer layer =
-                            pushBlob(ref, is).withMediaType(path.getMediaType()).withAnnotations(layerAnnotations);
-                    LOG.info("Uploaded: {}", layer.getDigest());
-                    return layer;
+                if (withDigest) {
+                    ref = ref.withDigest(ref.getAlgorithm().digest(path.getPath()));
                 }
+                String title = path.getPath().getFileName().toString();
+                Map<String, String> layerAnnotations = annotations.hasFileAnnotations(title)
+                        ? annotations.getFileAnnotations(title)
+                        : Map.of(Const.ANNOTATION_TITLE, title);
+
+                Layer layer = doPushBlob(ref, path.getPath(), options)
+                        .withMediaType(path.getMediaType())
+                        .withAnnotations(layerAnnotations);
+                LOG.info("Uploaded: {}", layer.getDigest());
+                return layer;
             }
         } catch (IOException e) {
             throw new OrasException("Failed to push artifact", e);
+        }
+    }
+
+    /**
+     * Push a blob from a file path, respecting the given push options.
+     * Subclasses may override to support chunked upload.
+     * @param ref The ref
+     * @param blob The blob file
+     * @param options The push options
+     * @return The layer
+     */
+    protected Layer doPushBlob(T ref, Path blob, PushOptions options) {
+        try (InputStream is = Files.newInputStream(blob)) {
+            return pushBlob(ref, is);
+        } catch (IOException e) {
+            throw new OrasException("Failed to push blob", e);
         }
     }
 }
