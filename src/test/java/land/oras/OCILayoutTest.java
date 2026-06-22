@@ -720,6 +720,24 @@ class OCILayoutTest {
     }
 
     @Test
+    void cannotPushBlobFromPathWithoutTagOrDigest() throws IOException {
+        Path invalidBlobPushDir = layoutPath.resolve("cannotPushBlobFromPathWithoutTagOrDigest");
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
+        Path blobFile = blobDir.resolve("cannotPushBlobFromPathWithoutTagOrDigest.txt");
+        Files.writeString(blobFile, "hello");
+
+        LayoutRef noTagLayout = LayoutRef.of(ociLayout);
+        OrasException e1 = assertThrows(OrasException.class, () -> ociLayout.pushBlob(noTagLayout, blobFile, Map.of()));
+        assertEquals("Missing ref", e1.getMessage());
+
+        LayoutRef noDigestLayout = LayoutRef.of(ociLayout, "latest");
+        OrasException e2 =
+                assertThrows(OrasException.class, () -> ociLayout.pushBlob(noDigestLayout, blobFile, Map.of()));
+        assertEquals("Unsupported digest: latest", e2.getMessage());
+    }
+
+    @Test
     void cannotPushWithInvalidDigest() {
         Path invalidBlobPushDir = layoutPath.resolve("cannotPushWithInvalidDigest");
 
