@@ -342,16 +342,22 @@ public final class OCILayout extends OCI<LayoutRef> {
 
     @Override
     public Layer pushBlob(LayoutRef ref, Path blob, Map<String, String> annotations) {
-        ensureDigest(ref, blob);
-        Path blobPath = getBlobPath(ref);
-        String digest = ref.getAlgorithm().digest(blob);
+        if (ref.getTag() == null) {
+            throw new OrasException("Missing ref");
+        }
+        if (!SupportedAlgorithm.isSupported(ref.getTag())) {
+            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+        }
+        String digest = ref.getTag();
         ensureAlgorithmPath(digest);
+        Path blobPath = getBlobPath(ref);
         LOG.trace("Digest: {}", digest);
         try {
             if (Files.exists(blobPath)) {
                 LOG.info("Blob already exists: {}", digest);
                 return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             }
+            ensureDigest(ref, blob);
             Files.copy(blob, blobPath);
             Layer layer = Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(annotations);
             packToTar();
@@ -394,12 +400,26 @@ public final class OCILayout extends OCI<LayoutRef> {
     @Override
     public Layer pushBlob(LayoutRef ref, byte[] data) {
         try {
-            Path path = Files.createTempFile("oras", "blob");
-            Files.write(path, data);
-            ensureDigest(ref, path);
+            if (ref.getTag() == null) {
+                throw new OrasException("Missing ref");
+            }
+            if (!SupportedAlgorithm.isSupported(ref.getTag())) {
+                throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+            }
             String digest = ref.getAlgorithm().digest(data);
+            if (!ref.getTag().equals(digest)) {
+                throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), digest));
+            }
             ensureAlgorithmPath(digest);
-            return pushBlob(ref, path, Map.of());
+            Path blobPath = getBlobAlgorithmPath(digest).resolve(SupportedAlgorithm.getDigest(digest));
+            if (Files.exists(blobPath)) {
+                LOG.info("Blob already exists: {}", digest);
+                return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(Map.of());
+            }
+            Files.write(blobPath, data);
+            packToTar();
+            LOG.debug("Blob pushed to OCI layout: {}", digest);
+            return Layer.fromFile(blobPath, ref.getAlgorithm()).withAnnotations(Map.of());
         } catch (IOException e) {
             throw new OrasException("Failed to push blob to OCI layout", e);
         }
