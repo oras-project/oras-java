@@ -49,12 +49,13 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(28, modelClasses.size());
+            assertEquals(31, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
             assertTrue(modelClasses.contains(ArtifactType.class));
             assertTrue(modelClasses.contains(Config.class));
+            assertTrue(modelClasses.contains(CopyUtils.CopyOptions.class));
             assertTrue(modelClasses.contains(Descriptor.class));
             assertTrue(modelClasses.contains(Describable.class));
             assertTrue(modelClasses.contains(Error.class));
@@ -64,6 +65,8 @@ class ClassAnnotationsTest {
             assertTrue(modelClasses.contains(Manifest.class));
             assertTrue(modelClasses.contains(ManifestDescriptor.class));
             assertTrue(modelClasses.contains(OCILayout.class));
+            assertTrue(modelClasses.contains(OCI.PullOptions.class));
+            assertTrue(modelClasses.contains(OCI.PushOptions.class));
             assertTrue(modelClasses.contains(Repositories.class));
             assertTrue(modelClasses.contains(Subject.class));
             assertTrue(modelClasses.contains(Tags.class));

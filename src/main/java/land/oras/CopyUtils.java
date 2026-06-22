@@ -49,12 +49,17 @@ public final class CopyUtils {
 
     /**
      * Options for copy.
-     * @param includeReferrers Whether to include referrers in the copy
-     * @param platformFilter Optional platform filter. When set on an index copy, only manifests matching
-     *                       one of the given platforms are copied and the resulting index contains only
-     *                       those manifests. The resulting index digest will differ from the source index.
      */
-    public record CopyOptions(boolean includeReferrers, @Nullable Set<Platform> platformFilter) {
+    @OrasModel
+    public static final class CopyOptions {
+
+        private final boolean includeReferrers;
+        private final @Nullable Set<Platform> platformFilter;
+
+        private CopyOptions(boolean includeReferrers, @Nullable Set<Platform> platformFilter) {
+            this.includeReferrers = includeReferrers;
+            this.platformFilter = platformFilter;
+        }
 
         /**
          * The default copy options with includeReferrers to false
@@ -81,6 +86,22 @@ public final class CopyUtils {
          */
         public CopyOptions withPlatformFilter(Set<Platform> platforms) {
             return new CopyOptions(includeReferrers, platforms);
+        }
+
+        /**
+         * Return whether referrers should be included in the copy.
+         * @return {@code true} if referrers should be included
+         */
+        public boolean includeReferrers() {
+            return includeReferrers;
+        }
+
+        /**
+         * Return the optional platform filter.
+         * @return The platform filter, or {@code null} if not set
+         */
+        public @Nullable Set<Platform> platformFilter() {
+            return platformFilter;
         }
     }
 

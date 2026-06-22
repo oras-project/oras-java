@@ -465,7 +465,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * Get the effective registry based on given target
      * This methods will perform HEAD request to determine the first unqualified search registry that contains the container reference if the reference is unqualified, otherwise return the registry of the reference.
      * This only works with Manifests and Index but now direct blob access.
-     * See {@link #forRegistry(String)} so set correct registry when getting blobs outside high level API like {@link Registry#pullArtifact(ContainerRef, Path, boolean)}.
+     * See {@link #forRegistry(String)} to set correct registry when getting blobs outside high level API like {@link Registry#pullArtifact(ContainerRef, Path, OCI.PullOptions)}.
      * @param target The target registry
      * @return The effective registry
      */

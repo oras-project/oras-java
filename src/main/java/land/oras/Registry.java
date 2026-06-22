@@ -41,6 +41,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import land.oras.OCI.PullOptions;
+import land.oras.OCI.PushOptions;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
@@ -573,21 +575,21 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     @Override
-    public void pullArtifact(ContainerRef containerRef, Path path, boolean overwrite) {
+    public void pullArtifact(ContainerRef containerRef, Path path, PullOptions options) {
         withMirrorFallback(containerRef, (reg, ref) -> {
-            reg.pullArtifactDirect(ref, path, overwrite);
+            reg.pullArtifactDirect(ref, path, options);
             return null;
         });
     }
 
-    private void pullArtifactDirect(ContainerRef containerRef, Path path, boolean overwrite) {
+    private void pullArtifactDirect(ContainerRef containerRef, Path path, PullOptions options) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            asInsecure().pullArtifactDirect(containerRef, path, overwrite);
+            asInsecure().pullArtifactDirect(containerRef, path, options);
             return;
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            asSecure().pullArtifactDirect(containerRef, path, overwrite);
+            asSecure().pullArtifactDirect(containerRef, path, options);
             return;
         }
         // Only collect layer that are files
@@ -606,7 +608,7 @@ public final class Registry extends OCI<ContainerRef> {
         CompletableFuture.allOf(layers.stream()
                         .filter(layer -> layer.getAnnotations().containsKey(Const.ANNOTATION_TITLE))
                         .map(layer -> CompletableFuture.runAsync(
-                                () -> pullLayer(ref, layer, path, overwrite), getExecutorService()))
+                                () -> pullLayer(ref, layer, path, options.isOverwrite()), getExecutorService()))
                         .toArray(CompletableFuture[]::new))
                 .join();
     }
@@ -617,6 +619,7 @@ public final class Registry extends OCI<ContainerRef> {
             ArtifactType artifactType,
             Annotations annotations,
             @Nullable Config config,
+            PushOptions options,
             LocalPath... paths) {
         Manifest manifest = Manifest.empty().withArtifactType(artifactType);
         Map<String, String> manifestAnnotations = new HashMap<>(annotations.manifestAnnotations());
@@ -638,7 +641,7 @@ public final class Registry extends OCI<ContainerRef> {
         ContainerRef resolvedRef = containerRef.forRegistry(this).forRegistry(resolvedRegistry);
 
         // Push layers
-        List<Layer> layers = pushLayers(resolvedRef, annotations, false, paths);
+        List<Layer> layers = pushLayers(resolvedRef, annotations, false, options, paths);
 
         // Add layer and config
         manifest = manifest.withLayers(layers).withConfig(pushedConfig);
@@ -649,6 +652,14 @@ public final class Registry extends OCI<ContainerRef> {
                 "Manifest pushed to: {}",
                 resolvedRef.withDigest(manifest.getDescriptor().getDigest()));
         return manifest;
+    }
+
+    @Override
+    protected Layer doPushBlob(ContainerRef ref, Path blob, PushOptions options) {
+        if (options.isChunked()) {
+            return pushBlobChunked(ref, blob, options.chunkSize());
+        }
+        return super.doPushBlob(ref, blob, options);
     }
 
     @Override

@@ -36,6 +36,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
+import land.oras.OCI.PullOptions;
+import land.oras.OCI.PushOptions;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
@@ -132,6 +134,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             ArtifactType artifactType,
             Annotations annotations,
             @Nullable Config config,
+            PushOptions options,
             LocalPath... paths) {
 
         Manifest manifest = Manifest.empty().withArtifactType(artifactType);
@@ -146,7 +149,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
 
         // Push layers
-        List<Layer> layers = pushLayers(ref, annotations, true, paths);
+        List<Layer> layers = pushLayers(ref, annotations, true, options, paths);
 
         // Push the config like any other blob
         Config configToPush = config != null ? config : Config.empty();
@@ -162,7 +165,7 @@ public final class OCILayout extends OCI<LayoutRef> {
     }
 
     @Override
-    public void pullArtifact(LayoutRef ref, Path path, boolean overwrite) {
+    public void pullArtifact(LayoutRef ref, Path path, PullOptions options) {
         if (ref.getTag() == null) {
             throw new OrasException("Tag is required to pull artifact from layout");
         }
@@ -186,7 +189,11 @@ public final class OCILayout extends OCI<LayoutRef> {
                 throw new OrasException("Refusing to pull layer: title annotation is not withing folder '%s'"
                         .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
             }
-            Files.copy(blobPath, targetPath);
+            if (options.isOverwrite()) {
+                Files.copy(blobPath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                Files.copy(blobPath, targetPath);
+            }
         } catch (IOException e) {
             throw new OrasException("Failed to copy blob", e);
         }
