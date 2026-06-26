@@ -61,7 +61,6 @@ import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
 import land.oras.utils.SupportedAlgorithm;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -548,42 +547,40 @@ class RegistryWireMockTest {
         assertEquals(408, exception.getStatusCode());
     }
 
-    // Note: Currently this test is @Disabled because the retry functionality isn't implemented.
-    // remove the @Disabled annotation and the test should pass.
     @Test
-    @Disabled("Automatic retry not yet implemented in SDK")
     void shouldRetryBlobUpload(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
-        String uploadUrl = "/v2/library/artifact-text/blobs/uploads/";
+        String uploadPath = "/v2/library/artifact-text/blobs/uploads/";
 
-        // Setting up WireMock to simulate a failed first attempt
-        wireMock.register(WireMock.post(WireMock.urlEqualTo(uploadUrl))
+        // HEAD: blob does not exist yet
+        wireMock.register(WireMock.head(WireMock.urlPathMatching("/v2/library/artifact-text/blobs/.*"))
+                .willReturn(WireMock.status(404)));
+
+        // POST: first attempt fails with 500; second succeeds with 202 + Location
+        wireMock.register(WireMock.post(WireMock.urlPathMatching(uploadPath + ".*"))
                 .inScenario("upload retry scenario")
                 .whenScenarioStateIs(Scenario.STARTED)
                 .willReturn(WireMock.serverError())
                 .willSetStateTo("retry"));
 
-        // Setting up WireMock for successful retry
-        wireMock.register(WireMock.post(WireMock.urlEqualTo(uploadUrl))
+        wireMock.register(WireMock.post(WireMock.urlPathMatching(uploadPath + ".*"))
                 .inScenario("upload retry scenario")
                 .whenScenarioStateIs("retry")
-                .willReturn(WireMock.aResponse().withStatus(202).withHeader("Location", uploadUrl + "12345")));
+                .willReturn(WireMock.aResponse().withStatus(202).withHeader("Location", uploadPath + "12345")));
 
         wireMock.register(
-                WireMock.put(WireMock.urlMatching(uploadUrl + "12345.*")).willReturn(WireMock.created()));
+                WireMock.put(WireMock.urlPathMatching(uploadPath + "12345.*")).willReturn(WireMock.created()));
 
-        Registry registry = Registry.Builder.builder().withInsecure(true).build();
+        Registry registry =
+                Registry.Builder.builder().withInsecure(true).withRetryDelay(0).build();
         ContainerRef ref = ContainerRef.parse("%s/library/artifact-text".formatted(registryUrl));
 
         Path testFile = configDir.resolve("test-data.temp");
         Files.writeString(testFile, "Test Content");
 
         try (InputStream inputStream = Files.newInputStream(testFile)) {
-            // when retry is implemented we dont want to throw an exception here as it will retry
             Layer layer = registry.pushBlob(ref, inputStream);
-
-            // assertions will verify that the upload succeeded after retry
             assertNotNull(layer);
             assertNotNull(layer.getDigest());
         }
@@ -1145,6 +1142,183 @@ class RegistryWireMockTest {
         assertFalse(
                 Files.exists(outputDir.getParent().resolve("traversed-file.txt")),
                 "Blob must not be written outside the output directory");
+    }
+
+    @Test
+    void shouldRetryOn429WithRetryAfterHeader(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // First call: 429 with Retry-After: 0 (immediate retry in tests)
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited-retry/tags/list"))
+                .inScenario("rate-limit-retry")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse()
+                        .withStatus(429)
+                        .withHeader("Retry-After", "0")
+                        .withBody("Rate limited"))
+                .willSetStateTo("retry"));
+
+        // Second call: success
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited-retry/tags/list"))
+                .inScenario("rate-limit-retry")
+                .whenScenarioStateIs("retry")
+                .willReturn(okJson(JsonUtils.toJson(new Tags("rate-limited-retry", List.of("latest"))))));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(2)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited-retry".formatted(registryUrl));
+        Tags tags = registry.getTags(ref);
+        assertEquals(List.of("latest"), tags.tags());
+
+        // Verify the server was called exactly twice (one failure + one retry)
+        WireMock.verify(2, getRequestedFor(urlEqualTo("/v2/library/rate-limited-retry/tags/list")));
+    }
+
+    @Test
+    void shouldRetryOn429WithExponentialBackoff(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Two 429 responses without Retry-After, then success
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited-backoff/tags/list"))
+                .inScenario("backoff-retry")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(429).withBody("Rate limited"))
+                .willSetStateTo("retry-1"));
+
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited-backoff/tags/list"))
+                .inScenario("backoff-retry")
+                .whenScenarioStateIs("retry-1")
+                .willReturn(aResponse().withStatus(429).withBody("Rate limited"))
+                .willSetStateTo("retry-2"));
+
+        wireMock.register(get(urlEqualTo("/v2/library/rate-limited-backoff/tags/list"))
+                .inScenario("backoff-retry")
+                .whenScenarioStateIs("retry-2")
+                .willReturn(okJson(JsonUtils.toJson(new Tags("rate-limited-backoff", List.of("v1"))))));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(3)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited-backoff".formatted(registryUrl));
+        Tags tags = registry.getTags(ref);
+        assertEquals(List.of("v1"), tags.tags());
+
+        WireMock.verify(3, getRequestedFor(urlEqualTo("/v2/library/rate-limited-backoff/tags/list")));
+    }
+
+    @Test
+    void shouldRetryOnNetworkError(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // First call: connection reset (IOException); second: success
+        wireMock.register(get(urlEqualTo("/v2/library/network-error-retry/tags/list"))
+                .inScenario("network-error-retry")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER))
+                .willSetStateTo("retry"));
+
+        wireMock.register(get(urlEqualTo("/v2/library/network-error-retry/tags/list"))
+                .inScenario("network-error-retry")
+                .whenScenarioStateIs("retry")
+                .willReturn(okJson(JsonUtils.toJson(new Tags("network-error-retry", List.of("latest"))))));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(2)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/network-error-retry".formatted(registryUrl));
+        Tags tags = registry.getTags(ref);
+        assertEquals(List.of("latest"), tags.tags());
+
+        WireMock.verify(2, getRequestedFor(urlEqualTo("/v2/library/network-error-retry/tags/list")));
+    }
+
+    @Test
+    void shouldNotRetryOnClientError(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        wireMock.register(get(urlEqualTo("/v2/library/not-found/tags/list"))
+                .willReturn(aResponse().withStatus(404).withBody("Not found")));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(3)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/not-found".formatted(registryUrl));
+        OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
+        assertEquals(404, exception.getStatusCode());
+
+        // Must be called exactly once — no retry on 4xx
+        WireMock.verify(1, getRequestedFor(urlEqualTo("/v2/library/not-found/tags/list")));
+    }
+
+    @Test
+    void shouldExhaustRetriesAndThrow(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // Always return 500
+        wireMock.register(get(urlEqualTo("/v2/library/always-fails/tags/list"))
+                .willReturn(aResponse().withStatus(500).withBody("Server error")));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(3)
+                .build();
+
+        ContainerRef ref = ContainerRef.parse("%s/library/always-fails".formatted(registryUrl));
+        assertThrows(OrasException.class, () -> registry.getTags(ref));
+
+        // 3 attempts total (initial + 2 retries)
+        WireMock.verify(3, getRequestedFor(urlEqualTo("/v2/library/always-fails/tags/list")));
+    }
+
+    @Test
+    void shouldNotRetryTokenRefreshRequest(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+
+        // Registry returns 401 to trigger token refresh
+        wireMock.register(get(urlPathEqualTo("/v2/library/no-retry-token/blobs/%s".formatted(digest)))
+                .willReturn(forbidden()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/no-retry-token:pull\""
+                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+
+        // Token endpoint always fails with 500
+        wireMock.register(get(urlPathEqualTo("/token"))
+                .willReturn(aResponse().withStatus(500).withBody("Token service unavailable")));
+
+        Registry registry = Registry.Builder.builder()
+                .withInsecure(true)
+                .withRetryDelay(0)
+                .withMaxRetries(3)
+                .build();
+
+        ContainerRef ref =
+                ContainerRef.parse("localhost:%d/library/no-retry-token".formatted(wmRuntimeInfo.getHttpPort()));
+        assertThrows(OrasException.class, () -> registry.getBlob(ref.withDigest(digest)));
+
+        // Token endpoint must be called exactly once — no retry on token refresh
+        WireMock.verify(1, getRequestedFor(urlPathEqualTo("/token")));
     }
 
     @Test
