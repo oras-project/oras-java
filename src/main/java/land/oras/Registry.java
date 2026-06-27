@@ -121,6 +121,21 @@ public final class Registry extends OCI<ContainerRef> {
     private @Nullable MeterRegistry meterRegistry;
 
     /**
+     * Maximum number of attempts for retryable requests (1 = no retry)
+     */
+    private int maxRetries = 3;
+
+    /**
+     * Initial delay between retries in milliseconds
+     */
+    private long retryDelayMs = 500L;
+
+    /**
+     * Upper bound on retry delay in milliseconds
+     */
+    private long maxRetryDelayMs = 30_000L;
+
+    /**
      * Constructor
      */
     private Registry() {
@@ -290,12 +305,28 @@ public final class Registry extends OCI<ContainerRef> {
         this.meterRegistry = meterRegistry;
     }
 
+    private void setMaxRetries(int maxRetries) {
+        this.maxRetries = maxRetries;
+    }
+
+    private void setRetryDelayMs(long retryDelayMs) {
+        this.retryDelayMs = retryDelayMs;
+    }
+
+    private void setMaxRetryDelayMs(long maxRetryDelayMs) {
+        this.maxRetryDelayMs = maxRetryDelayMs;
+    }
+
     /**
      * Build the provider
      * @return The provider
      */
     private Registry build() {
-        HttpClient.Builder clientBuilder = HttpClient.Builder.builder().withSkipTlsVerify(skipTlsVerify);
+        HttpClient.Builder clientBuilder = HttpClient.Builder.builder()
+                .withSkipTlsVerify(skipTlsVerify)
+                .withMaxRetries(maxRetries)
+                .withRetryDelay(retryDelayMs)
+                .withMaxRetryDelay(maxRetryDelayMs);
         if (caFilePath != null) {
             clientBuilder = clientBuilder.withCaFile(caFilePath);
         }
@@ -1565,6 +1596,9 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setSkipTlsVerify(registry.skipTlsVerify);
             this.registry.setExecutorService(registry.executorService);
             this.registry.setParallelism(registry.maxConcurrentDownloads);
+            this.registry.setMaxRetries(registry.maxRetries);
+            this.registry.setRetryDelayMs(registry.retryDelayMs);
+            this.registry.setMaxRetryDelayMs(registry.maxRetryDelayMs);
             if (registry.meterRegistry != null) {
                 this.registry.setMeterRegistry(registry.meterRegistry);
             }
@@ -1740,6 +1774,40 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withMeterRegistry(MeterRegistry meterRegistry) {
             registry.setMeterRegistry(meterRegistry);
+            return this;
+        }
+
+        /**
+         * Set the maximum number of attempts for retryable requests (default: 3).
+         * A value of 1 disables retries entirely.
+         * Retryable conditions: HTTP 429, HTTP 5xx, network errors (IOException / timeout).
+         * Token-refresh requests are never retried regardless of this setting.
+         * @param maxRetries Maximum attempts (must be &gt;= 1)
+         * @return The builder
+         */
+        public Builder withMaxRetries(int maxRetries) {
+            registry.setMaxRetries(maxRetries);
+            return this;
+        }
+
+        /**
+         * Set the initial delay before the first retry in milliseconds (default: 500).
+         * Subsequent delays are doubled up to the limit set by {@link #withMaxRetryDelay}.
+         * @param retryDelayMs Initial delay in milliseconds (must be &gt;= 0)
+         * @return The builder
+         */
+        public Builder withRetryDelay(long retryDelayMs) {
+            registry.setRetryDelayMs(retryDelayMs);
+            return this;
+        }
+
+        /**
+         * Set the upper bound on retry delay in milliseconds (default: 30 000).
+         * @param maxRetryDelayMs Maximum delay cap in milliseconds (must be &gt;= 0)
+         * @return The builder
+         */
+        public Builder withMaxRetryDelay(long maxRetryDelayMs) {
+            registry.setMaxRetryDelayMs(maxRetryDelayMs);
             return this;
         }
 

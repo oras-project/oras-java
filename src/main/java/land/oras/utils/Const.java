@@ -462,6 +462,11 @@ public final class Const {
     public static final String METRIC_HTTP_REQUESTS = "land.oras.http.client.requests";
 
     /**
+     * Metric name for HTTP retries
+     */
+    public static final String METRIC_HTTP_RETRIES = "land.oras.http.client.retries";
+
+    /**
      * Metric name for token refresh duration
      */
     public static final String METRIC_TAG_SERVICE = "service";

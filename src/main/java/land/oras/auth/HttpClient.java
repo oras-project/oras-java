@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.net.*;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -112,6 +113,21 @@ public final class HttpClient {
      * Timeout in seconds
      */
     private Integer timeout;
+
+    /**
+     * Maximum number of attempts (1 = no retry, 2 = one retry, …)
+     */
+    private int maxRetries = 3;
+
+    /**
+     * Initial delay between retries in milliseconds (doubles on each attempt)
+     */
+    private long retryDelayMs = 500L;
+
+    /**
+     * Upper bound on retry delay in milliseconds
+     */
+    private long maxRetryDelayMs = 30_000L;
 
     /**
      * The meter registry for metrics
@@ -280,7 +296,23 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
+    }
+
+    private ResponseWrapper<String> getForTokenRefresh(
+            URI uri, Map<String, String> headers, Scopes scopes, AuthProvider authProvider) {
+        return executeRequest(
+                "GET",
+                uri,
+                true,
+                headers,
+                new byte[0],
+                HttpResponse.BodyHandlers.ofString(),
+                HttpRequest.BodyPublishers.noBody(),
+                scopes,
+                authProvider,
+                false);
     }
 
     /**
@@ -303,7 +335,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofFile(file),
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -325,7 +358,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofInputStream(),
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -350,7 +384,8 @@ public final class HttpClient {
                     HttpResponse.BodyHandlers.ofString(),
                     HttpRequest.BodyPublishers.ofFile(file),
                     scopes,
-                    authProvider);
+                    authProvider,
+                    true);
         } catch (FileNotFoundException e) {
             throw new OrasException("Unable to upload file. File not found.", e);
         }
@@ -382,7 +417,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), size),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -404,7 +440,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -426,7 +463,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -449,7 +487,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 body.length == 0 ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -472,7 +511,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -501,7 +541,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), chunkSize),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -524,7 +565,8 @@ public final class HttpClient {
                 HttpResponse.BodyHandlers.ofString(),
                 HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
-                authProvider);
+                authProvider,
+                true);
     }
 
     /**
@@ -565,9 +607,9 @@ public final class HttpClient {
 
         URI uri = URI.create(realm + "?" + query);
 
-        // Perform the request to get the token
+        // Perform the request to get the token (no retry — a failed token request is a hard failure)
         Map<String, String> headers = new HashMap<>();
-        HttpClient.ResponseWrapper<String> responseWrapper = get(uri, headers, scopes, authProvider);
+        HttpClient.ResponseWrapper<String> responseWrapper = getForTokenRefresh(uri, headers, scopes, authProvider);
 
         // Log the response
         LOG.debug(
@@ -614,14 +656,18 @@ public final class HttpClient {
     }
 
     /**
-     * Execute a request
-     * @param method The method
+     * Execute a request, with optional retry on transient failures (429, 5xx, network errors).
+     * Token-refresh requests must pass {@code retryEnabled=false}.
+     * @param method The HTTP method
      * @param uri The URI
-     * @param headers The headers
-     * @param body The body
-     * @param handler The response handler
+     * @param includeAuthHeader Whether to attach an Authorization header
+     * @param headers Extra headers
+     * @param body Raw body bytes (used only for logging)
+     * @param handler The response body handler
      * @param bodyPublisher The body publisher
+     * @param scopes The scopes
      * @param authProvider The authentication provider
+     * @param retryEnabled Whether transient failures should be retried
      * @return The response
      */
     private <T> ResponseWrapper<T> executeRequest(
@@ -633,79 +679,153 @@ public final class HttpClient {
             HttpResponse.BodyHandler<T> handler,
             HttpRequest.BodyPublisher bodyPublisher,
             Scopes scopes,
-            AuthProvider authProvider) {
-        try {
-            HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, bodyPublisher);
+            AuthProvider authProvider,
+            boolean retryEnabled) {
 
-            // Get scope based on method
-            ContainerRef containerRef = scopes.getContainerRef();
-            LOG.debug("Scopes are adding registry scopes");
-            Scopes newScopes =
-                    switch (method) {
-                        case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
-                        case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
-                        case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
-                        default -> throw new OrasException("Unsupported HTTP method: " + method);
-                    };
+        // Scopes are invariant across retries — compute once.
+        ContainerRef containerRef = scopes.getContainerRef();
+        LOG.debug("Scopes are adding registry scopes");
+        Scopes newScopes =
+                switch (method) {
+                    case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
+                    case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
+                    case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
+                    default -> throw new OrasException("Unsupported HTTP method: " + method);
+                };
+        LOG.debug("Existing scopes: {}", scopes.getScopes());
+        LOG.debug("New scopes: {}", newScopes.getScopes());
 
-            LOG.debug("Existing scopes: {}", scopes.getScopes());
-            LOG.debug("New scopes: {}", newScopes.getScopes());
+        int maxAttempts = retryEnabled ? this.maxRetries : 1;
 
-            // Check if token is present and reuse auth instead of passing auth provider
-            TokenResponse cachedToken = TokenCache.get(newScopes);
-            if (cachedToken == null) {
-                LOG.trace("No token found in cache for scopes: {}", newScopes);
-            } else {
-                LOG.trace("Found token in cache for scopes: {}", newScopes.withService(cachedToken.service()));
-            }
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            try {
+                HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, bodyPublisher);
 
-            // Add authentication header if any (from provider or cached token)
-            var authHeader = authProvider.getAuthHeader(containerRef);
-            if (cachedToken == null
-                    && authHeader != null
-                    && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
-                    && includeAuthHeader) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, authHeader);
-            } else if (cachedToken != null && includeAuthHeader) {
-                builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + cachedToken.getEffectiveToken());
-            }
-            headers.forEach(builder::header);
-
-            // Add user agent
-            builder = builder.header(Const.USER_AGENT_HEADER, Versions.USER_AGENT_VALUE);
-
-            HttpRequest request = builder.build();
-            logRequest(request, body);
-            HttpResponse<T> response = executeAndRecordRequest(request, handler);
-
-            // Follow redirect
-            if (shouldRedirect(response)) {
-                String location = getLocationHeader(response);
-                URI redirectUri = URI.create(location);
-                LOG.debug("Redirecting to {} from domain {} to domain {}", location, uri, redirectUri);
-                boolean includeAuthHeaderForRedirect = isSameOrigin(uri, redirectUri);
-                if (!includeAuthHeaderForRedirect) {
-                    LOG.debug("Skipping auth header for redirect from {} to {}", uri, redirectUri);
+                // Check token cache — may be populated by a prior attempt's 401 handling.
+                TokenResponse cachedToken = TokenCache.get(newScopes);
+                if (cachedToken == null) {
+                    LOG.trace("No token found in cache for scopes: {}", newScopes);
+                } else {
+                    LOG.trace("Found token in cache for scopes: {}", newScopes.withService(cachedToken.service()));
                 }
-                return executeRequest(
-                        method,
-                        redirectUri,
-                        includeAuthHeaderForRedirect,
-                        headers,
-                        body,
-                        handler,
-                        bodyPublisher,
-                        newScopes,
-                        authProvider);
+
+                // Add authentication header if any (from provider or cached token)
+                var authHeader = authProvider.getAuthHeader(containerRef);
+                if (cachedToken == null
+                        && authHeader != null
+                        && !authProvider.getAuthScheme().equals(AuthScheme.NONE)
+                        && includeAuthHeader) {
+                    builder = builder.header(Const.AUTHORIZATION_HEADER, authHeader);
+                } else if (cachedToken != null && includeAuthHeader) {
+                    builder = builder.header(Const.AUTHORIZATION_HEADER, "Bearer " + cachedToken.getEffectiveToken());
+                }
+                headers.forEach(builder::header);
+
+                // Add user agent
+                builder = builder.header(Const.USER_AGENT_HEADER, Versions.USER_AGENT_VALUE);
+
+                HttpRequest request = builder.build();
+                logRequest(request, body);
+                HttpResponse<T> response = executeAndRecordRequest(request, handler);
+
+                // Follow redirect (retryEnabled propagates into the recursive call)
+                if (shouldRedirect(response)) {
+                    String location = getLocationHeader(response);
+                    URI redirectUri = URI.create(location);
+                    LOG.debug("Redirecting to {} from domain {} to domain {}", location, uri, redirectUri);
+                    boolean includeAuthHeaderForRedirect = isSameOrigin(uri, redirectUri);
+                    if (!includeAuthHeaderForRedirect) {
+                        LOG.debug("Skipping auth header for redirect from {} to {}", uri, redirectUri);
+                    }
+                    return executeRequest(
+                            method,
+                            redirectUri,
+                            includeAuthHeaderForRedirect,
+                            headers,
+                            body,
+                            handler,
+                            bodyPublisher,
+                            newScopes,
+                            authProvider,
+                            retryEnabled);
+                }
+
+                // Retry on 429 / 5xx before delegating 401/403 to redoRequest.
+                if (retryEnabled && isRetryableStatus(response.statusCode()) && attempt < maxAttempts - 1) {
+                    long delay = computeRetryDelay(response, attempt);
+                    LOG.warn(
+                            "Retrying request ({}/{}) after {}ms, status={}",
+                            attempt + 1,
+                            maxAttempts - 1,
+                            delay,
+                            response.statusCode());
+                    meterRegistry
+                            .counter(Const.METRIC_HTTP_RETRIES, "reason", retryReason(response.statusCode()))
+                            .increment();
+                    Thread.sleep(delay);
+                    continue;
+                }
+
+                return redoRequest(uri, response, builder, handler, newScopes, authProvider);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new OrasException("Request interrupted during retry wait", e);
+            } catch (OrasException e) {
+                throw e;
+            } catch (Exception e) {
+                if (retryEnabled && attempt < maxAttempts - 1 && isRetryableException(e)) {
+                    long delay = computeRetryDelay(null, attempt);
+                    LOG.warn(
+                            "Retrying request ({}/{}) after {}ms, error={}",
+                            attempt + 1,
+                            maxAttempts - 1,
+                            delay,
+                            e.getMessage());
+                    meterRegistry
+                            .counter(Const.METRIC_HTTP_RETRIES, "reason", "network_error")
+                            .increment();
+                    try {
+                        Thread.sleep(delay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new OrasException("Request interrupted during retry wait", ie);
+                    }
+                } else {
+                    LOG.error("Failed to execute request", e);
+                    throw new OrasException("Unable to create HTTP request", e);
+                }
             }
-            return redoRequest(uri, response, builder, handler, newScopes, authProvider);
-        } catch (Exception e) {
-            if (e instanceof OrasException) {
-                throw (OrasException) e;
-            }
-            LOG.error("Failed to execute request", e);
-            throw new OrasException("Unable to create HTTP request", e);
         }
+        throw new OrasException("Max retries (" + (maxAttempts - 1) + ") exceeded");
+    }
+
+    private static boolean isRetryableStatus(int statusCode) {
+        return statusCode == 429 || (statusCode >= 500 && statusCode <= 599);
+    }
+
+    private static boolean isRetryableException(Exception e) {
+        return e instanceof HttpTimeoutException || e instanceof java.io.IOException;
+    }
+
+    private long computeRetryDelay(@Nullable HttpResponse<?> response, int attempt) {
+        if (response != null && response.statusCode() == 429) {
+            String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+            if (retryAfter != null) {
+                try {
+                    return Long.parseLong(retryAfter.trim()) * 1000L;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        long delay = retryDelayMs * (1L << Math.min(attempt, 30));
+        return Math.min(delay, maxRetryDelayMs);
+    }
+
+    private static String retryReason(int statusCode) {
+        if (statusCode == 429) return "rate_limit";
+        if (statusCode >= 500) return "server_error";
+        return "unknown";
     }
 
     private <T> HttpResponse<T> executeAndRecordRequest(HttpRequest request, HttpResponse.BodyHandler<T> handler)
@@ -930,6 +1050,41 @@ public final class HttpClient {
          */
         public Builder withMeterRegistry(MeterRegistry meterRegistry) {
             client.meterRegistry = meterRegistry;
+            return this;
+        }
+
+        /**
+         * Set the maximum number of attempts for retryable requests (default: 3).
+         * A value of 1 disables retries entirely.
+         * @param maxRetries Maximum attempts (must be &gt;= 1)
+         * @return The builder
+         */
+        public Builder withMaxRetries(int maxRetries) {
+            if (maxRetries < 1) throw new IllegalArgumentException("maxRetries must be >= 1");
+            client.maxRetries = maxRetries;
+            return this;
+        }
+
+        /**
+         * Set the initial delay before the first retry in milliseconds (default: 500).
+         * Subsequent delays are doubled up to {@link #withMaxRetryDelay}.
+         * @param retryDelayMs Initial delay in milliseconds (must be &gt;= 0)
+         * @return The builder
+         */
+        public Builder withRetryDelay(long retryDelayMs) {
+            if (retryDelayMs < 0) throw new IllegalArgumentException("retryDelayMs must be >= 0");
+            client.retryDelayMs = retryDelayMs;
+            return this;
+        }
+
+        /**
+         * Set the upper bound on retry delay in milliseconds (default: 30 000).
+         * @param maxRetryDelayMs Maximum delay cap in milliseconds (must be &gt;= 0)
+         * @return The builder
+         */
+        public Builder withMaxRetryDelay(long maxRetryDelayMs) {
+            if (maxRetryDelayMs < 0) throw new IllegalArgumentException("maxRetryDelayMs must be >= 0");
+            client.maxRetryDelayMs = maxRetryDelayMs;
             return this;
         }
 
