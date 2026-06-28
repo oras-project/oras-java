@@ -1,0 +1,22 @@
+{
+  "default": [{"type": "reject"}],
+  "transports": {
+    "docker": {
+      "registry.example.com/signed": [
+        {
+          "type": "signedBy",
+          "keyType": "GPGKeys",
+          "keyPath": "/etc/pki/containers/my-key.gpg",
+          "signedIdentity": {"type": "matchRepoDigestOrExact"}
+        }
+      ],
+      "registry.example.com/cosign": [
+        {
+          "type": "sigstoreSigned",
+          "keyPath": "/etc/pki/containers/cosign.pub",
+          "signedIdentity": {"type": "matchRepository"}
+        }
+      ]
+    }
+  }
+}

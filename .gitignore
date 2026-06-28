@@ -39,6 +39,7 @@ target/
 oci/
 !src/test/resources/oci/
 !src/test/resources/oci/**/*.json
+!src/test/resources/policy/**/*.json
 !src/test/resources/archives/*.zip
 
 # macOS

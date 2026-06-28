@@ -1,0 +1,16 @@
+{
+  "default": [{"type": "reject"}],
+  "transports": {
+    "docker": {
+      "": [{"type": "reject"}],
+      "docker.io": [{"type": "insecureAcceptAnything"}],
+      "docker.io/library/nginx": [{"type": "reject"}],
+      "quay.io/myorg": [{"type": "insecureAcceptAnything"}],
+      "*.example.com": [{"type": "insecureAcceptAnything"}],
+      "*.example.com/restricted": [{"type": "reject"}]
+    },
+    "docker-daemon": {
+      "": [{"type": "insecureAcceptAnything"}]
+    }
+  }
+}
