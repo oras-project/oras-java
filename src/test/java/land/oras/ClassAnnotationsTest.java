@@ -49,7 +49,7 @@ class ClassAnnotationsTest {
                     .loadClasses());
 
             // Check number of classes
-            assertEquals(31, modelClasses.size());
+            assertEquals(32, modelClasses.size());
 
             // Check classes
             assertTrue(modelClasses.contains(Annotations.class));
@@ -87,6 +87,23 @@ class ClassAnnotationsTest {
 
             // Check number of classes
             assertEquals(10, modelClasses.size());
+        }
+    }
+
+    @Test
+    void shouldHaveAnnotationOnPolicyPackage() {
+        try (ScanResult scanResult = new ClassGraph()
+                .enableClassInfo()
+                .enableAllInfo()
+                .enableAnnotationInfo()
+                .acceptPackages("land.oras.policy")
+                .scan()) {
+            Set<Class<?>> modelClasses = new HashSet<>(scanResult
+                    .getClassesWithAnnotation(OrasModel.class.getName())
+                    .loadClasses());
+
+            // Check number of classes
+            assertEquals(1, modelClasses.size());
         }
     }
 }
