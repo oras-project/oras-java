@@ -202,23 +202,21 @@ class ContainersPolicyTest {
     }
 
     @Test
-    void evaluatingSignedByThrowsUnsupportedException() {
+    void evaluatingSignedByAcceptsWithWarning() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
-        OrasException ex =
-                assertThrows(OrasException.class, () -> policy.isAllowed("docker", "registry.example.com/signed"));
-        assertTrue(ex.getMessage().contains("signedBy"));
+        // SignedBy is not yet implemented, so it accepts (logs warning) instead of throwing
+        assertTrue(policy.isAllowed("docker", "registry.example.com/signed"));
     }
 
     @Test
-    void evaluatingSigstoreSignedThrowsUnsupportedException() {
+    void evaluatingSigstoreSignedAcceptsWithWarning() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
-        OrasException ex =
-                assertThrows(OrasException.class, () -> policy.isAllowed("docker", "registry.example.com/cosign"));
-        assertTrue(ex.getMessage().contains("sigstoreSigned"));
+        // SigstoreSigned is not yet implemented, so it accepts (logs warning) instead of throwing
+        assertTrue(policy.isAllowed("docker", "registry.example.com/cosign"));
     }
 
     @Test

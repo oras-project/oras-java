@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import land.oras.exception.OrasException;
+import land.oras.policy.ContainersPolicy;
 import land.oras.utils.Const;
 import land.oras.utils.RegistryContainer;
 import land.oras.utils.SupportedAlgorithm;
@@ -2440,5 +2441,81 @@ class RegistryTest {
                 LocalPath.of(file));
         assertEquals(1, manifest.getLayers().size());
         assertEquals("custom-value", manifest.getAnnotations().get("custom-key"));
+    }
+
+    @Test
+    void shouldBlockPullWithRejectPolicy() throws IOException {
+        // Create a registry with reject-all policy
+        Registry registryWithPolicy = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .withPolicy(ContainersPolicy.rejectAll())
+                .build();
+
+        // First push an artifact without policy enforcement
+        Registry registryNormal = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .withPolicy(ContainersPolicy.acceptAll())
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/policy-reject-test".formatted(this.registry.getRegistry()));
+
+        Path file = blobDir.resolve("policy-test.txt");
+        Files.writeString(file, "This artifact should be blocked");
+
+        // Push succeeds with accept-all policy
+        Manifest manifest = registryNormal.pushArtifact(containerRef, LocalPath.of(file));
+        assertNotNull(manifest);
+
+        // Pull fails with reject-all policy - verify exact error message
+        OrasException ex = assertThrows(OrasException.class, () -> registryWithPolicy.getManifest(containerRef));
+        assertTrue(
+                ex.getMessage().contains("rejected by containers policy"),
+                "Expected error message to contain 'rejected by containers policy', got: " + ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains(containerRef.toString()),
+                "Expected error message to contain container ref, got: " + ex.getMessage());
+    }
+
+    @Test
+    void shouldBlockPullWithPolicyFromPath() throws IOException {
+        // Create a temporary policy file with reject-all
+        Path policyFile = Files.createTempFile("policy", ".json");
+        Files.writeString(policyFile, """
+                {"default": [{"type": "reject"}]}
+                """);
+
+        // Create a registry with policy loaded from file path
+        Registry registryWithPolicy = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .withPolicy(policyFile)
+                .build();
+
+        // Push an artifact first (with accept-all policy)
+        Registry registryNormal = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .withPolicy(land.oras.policy.ContainersPolicy.acceptAll())
+                .build();
+
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/policy-path-test".formatted(this.registry.getRegistry()));
+
+        Path file = blobDir.resolve("policy-path-test.txt");
+        Files.writeString(file, "This artifact should be blocked by policy from file");
+
+        // Push succeeds
+        Manifest manifest = registryNormal.pushArtifact(containerRef, LocalPath.of(file));
+        assertNotNull(manifest);
+
+        // Pull fails with policy from file - verify exact error message format
+        OrasException ex = assertThrows(OrasException.class, () -> registryWithPolicy.getManifest(containerRef));
+        String expectedMessage = "Image '%s' rejected by containers policy".formatted(containerRef);
+        assertEquals(expectedMessage, ex.getMessage());
+
+        Files.deleteIfExists(policyFile);
     }
 }

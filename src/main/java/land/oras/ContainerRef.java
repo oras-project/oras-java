@@ -518,7 +518,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
     }
 
     /**
-     * Check if access to this container reference is blocked by the registry configuration
+     * Check if access to this container reference is blocked by the registry configuration or policies
      * @param registry The registry
      * @return True if access to this container reference is blocked, false otherwise
      */
@@ -532,15 +532,24 @@ public final class ContainerRef extends Ref<ContainerRef> {
                     effectiveRef);
             return true;
         }
+
+        // Check containers policy
+        String scope = effectiveRef.toString().replaceFirst("(:.+)?(@.+)?$", "");
+        boolean allowed = registry.getContainersPolicy().isAllowed("docker", scope);
+        if (!allowed) {
+            throw new OrasException("Image '%s' rejected by containers policy".formatted(this));
+        }
+
         return false;
     }
 
     /**
-     * Check if access to this container reference is blocked by the registry configuration and throw exception if it is
+     * Check if this container reference is allowed (not blocked by registry configuration or policy)
      * @param registry The registry
-     * @throws OrasException if access to this container reference is blocked by the registry configuration
+     * @throws OrasException if access to this container reference is blocked by the registry configuration or policy
      */
     ContainerRef checkBlocked(Registry registry) throws OrasException {
+        // Check registry configuration (blocked registries)
         if (isBlocked(registry)) {
             throw new OrasException(
                     "Access to container reference %s is blocked by registry configuration".formatted(this));

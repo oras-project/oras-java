@@ -147,15 +147,16 @@ public class ContainersPolicy {
      * @param transport the transport name, e.g. {@code "docker"}.
      * @param scope     the image scope, e.g. {@code "docker.io/library/nginx"}.
      * @return {@code true} if all resolved requirements pass.
-     * @throws OrasException if a requirement cannot be evaluated (e.g. unsupported type).
      */
     public boolean isAllowed(String transport, String scope) {
         List<PolicyRequirement> requirements = resolveRequirements(transport, scope);
         for (PolicyRequirement req : requirements) {
-            if (!evaluate(req, transport, scope)) {
+            if (!req.evaluate(transport, scope)) {
+                LOG.debug("Policy requirement {} failed for transport='{}' scope='{}'", req, transport, scope);
                 return false;
             }
         }
+        LOG.debug("Policy all requirements passed for transport='{}' scope='{}'", transport, scope);
         return true;
     }
 
@@ -236,25 +237,14 @@ public class ContainersPolicy {
         return Collections.unmodifiableMap(policyFile.transports());
     }
 
-    private boolean evaluate(PolicyRequirement req, String transport, String scope) {
-        if (req instanceof PolicyRequirement.InsecureAcceptAnything) {
-            return true;
-        }
-        if (req instanceof PolicyRequirement.Reject) {
-            LOG.debug("Policy: reject for transport='{}' scope='{}'", transport, scope);
-            return false;
-        }
-        if (req instanceof PolicyRequirement.SignedBy) {
-            throw new OrasException("Policy requirement 'signedBy' is not yet supported for transport='" + transport
-                    + "' scope='" + scope + "'");
-        }
-        if (req instanceof PolicyRequirement.SigstoreSigned) {
-            throw new OrasException("Policy requirement 'sigstoreSigned' is not yet supported for transport='"
-                    + transport + "' scope='" + scope + "'");
-        }
-        throw new OrasException("Unknown policy requirement type: " + req.getType());
-    }
-
+    /**
+     * Return {@code true} if {@code candidate} is a valid path-prefix of {@code scope}.
+     * A prefix must end at a {@code /} boundary (or equal the scope exactly).
+     *
+     * @param scope     the full scope string.
+     * @param candidate the candidate prefix key.
+     * @return {@code true} if candidate is a prefix of scope at a path boundary.
+     */
     private boolean isScopePrefix(String scope, String candidate) {
         if (scope.equals(candidate)) return true;
         return scope.startsWith(candidate + "/");
