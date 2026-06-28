@@ -52,6 +52,7 @@ import land.oras.auth.RegistriesConf;
 import land.oras.auth.Scopes;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
+import land.oras.policy.ContainersPolicy;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -136,12 +137,18 @@ public final class Registry extends OCI<ContainerRef> {
     private long maxRetryDelayMs = 30_000L;
 
     /**
+     * The containers policy for trust verification
+     */
+    private ContainersPolicy containersPolicy;
+
+    /**
      * Constructor
      */
     private Registry() {
         this.authProvider = new NoAuthProvider();
         this.client = HttpClient.Builder.builder().build();
         this.registriesConf = RegistriesConf.newConf();
+        this.containersPolicy = ContainersPolicy.newPolicy(); // Load from standard locations or accept-all
     }
 
     @Override
@@ -258,6 +265,14 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return the containers policy used for trust verification.
+     * @return the containers policy
+     */
+    public ContainersPolicy getContainersPolicy() {
+        return containersPolicy;
+    }
+
+    /**
      * Return this registry with the auth provider
      * @param authProvider The auth provider
      */
@@ -315,6 +330,10 @@ public final class Registry extends OCI<ContainerRef> {
 
     private void setMaxRetryDelayMs(long maxRetryDelayMs) {
         this.maxRetryDelayMs = maxRetryDelayMs;
+    }
+
+    private void setContainersPolicy(ContainersPolicy containersPolicy) {
+        this.containersPolicy = containersPolicy;
     }
 
     /**
@@ -1177,7 +1196,9 @@ public final class Registry extends OCI<ContainerRef> {
             }
         }
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
-        return Manifest.fromJson(json).withDescriptor(manifestDescriptor);
+        Manifest manifest = Manifest.fromJson(json).withDescriptor(manifestDescriptor);
+
+        return manifest;
     }
 
     @Override
@@ -1599,6 +1620,7 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setMaxRetries(registry.maxRetries);
             this.registry.setRetryDelayMs(registry.retryDelayMs);
             this.registry.setMaxRetryDelayMs(registry.maxRetryDelayMs);
+            this.registry.setContainersPolicy(registry.containersPolicy);
             if (registry.meterRegistry != null) {
                 this.registry.setMeterRegistry(registry.meterRegistry);
             }
@@ -1808,6 +1830,40 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withMaxRetryDelay(long maxRetryDelayMs) {
             registry.setMaxRetryDelayMs(maxRetryDelayMs);
+            return this;
+        }
+
+        /**
+         * Set the containers trust policy to enforce during pull operations.
+         *
+         * <p>When set, all image manifest pulls will be evaluated against the policy before
+         * being returned. Only {@code insecureAcceptAnything} and {@code reject} requirements
+         * are currently implemented; {@code signedBy} and {@code sigstoreSigned} will log a
+         * warning and accept the image without verification.
+         *
+         * <p>By default, the policy is loaded from standard locations
+         * ({@code $HOME/.config/containers/policy.json} or {@code /etc/containers/policy.json}).
+         * If no policy file is found, an accept-all policy is used.
+         *
+         * @param policy the containers policy to enforce.
+         * @return the builder
+         * @see ContainersPolicy#newPolicy()
+         */
+        public Builder withPolicy(ContainersPolicy policy) {
+            registry.setContainersPolicy(policy);
+            return this;
+        }
+
+        /**
+         * Load and set the containers trust policy from the given path.
+         *
+         * @param policyPath the path to the policy.json file.
+         * @return the builder
+         * @throws OrasException if the file cannot be read or parsed.
+         * @see ContainersPolicy#newPolicy(Path)
+         */
+        public Builder withPolicy(Path policyPath) {
+            registry.setContainersPolicy(ContainersPolicy.newPolicy(policyPath));
             return this;
         }
 

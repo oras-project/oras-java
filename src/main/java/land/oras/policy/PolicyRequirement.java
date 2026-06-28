@@ -25,8 +25,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.util.List;
+import land.oras.OrasModel;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A single requirement entry inside a containers policy scope.
@@ -43,6 +46,7 @@ import org.jspecify.annotations.Nullable;
     @JsonSubTypes.Type(value = PolicyRequirement.SignedBy.class, name = "signedBy"),
     @JsonSubTypes.Type(value = PolicyRequirement.SigstoreSigned.class, name = "sigstoreSigned"),
 })
+@OrasModel
 public abstract sealed class PolicyRequirement
         permits PolicyRequirement.InsecureAcceptAnything,
                 PolicyRequirement.Reject,
@@ -60,11 +64,26 @@ public abstract sealed class PolicyRequirement
     public abstract String getType();
 
     /**
+     * Evaluate this requirement for the given transport and scope.
+     *
+     * @param transport the transport name (e.g., {@code "docker"}).
+     * @param scope the image scope (e.g., {@code "docker.io/library/nginx"}).
+     * @return {@code true} if the requirement passes, {@code false} otherwise.
+     */
+    public abstract boolean evaluate(String transport, String scope);
+
+    @Override
+    public String toString() {
+        return getType();
+    }
+
+    /**
      * Accept any image unconditionally – no signature or digest verification is performed.
      *
      * <p>JSON example:
      * <pre>{@code {"type": "insecureAcceptAnything"}}</pre>
      */
+    @OrasModel
     public static final class InsecureAcceptAnything extends PolicyRequirement {
 
         /**
@@ -76,6 +95,11 @@ public abstract sealed class PolicyRequirement
         public String getType() {
             return "insecureAcceptAnything";
         }
+
+        @Override
+        public boolean evaluate(String transport, String scope) {
+            return true;
+        }
     }
 
     /**
@@ -84,7 +108,13 @@ public abstract sealed class PolicyRequirement
      * <p>JSON example:
      * <pre>{@code {"type": "reject"}}</pre>
      */
+    @OrasModel
     public static final class Reject extends PolicyRequirement {
+
+        /**
+         * Logger
+         */
+        private static final Logger LOG = LoggerFactory.getLogger(Reject.class);
 
         /**
          * Constructor
@@ -94,6 +124,12 @@ public abstract sealed class PolicyRequirement
         @Override
         public String getType() {
             return "reject";
+        }
+
+        @Override
+        public boolean evaluate(String transport, String scope) {
+            LOG.debug("Policy: reject for transport='{}' scope='{}'", transport, scope);
+            return false;
         }
     }
 
@@ -110,7 +146,10 @@ public abstract sealed class PolicyRequirement
      * }
      * }</pre>
      */
+    @OrasModel
     public static final class SignedBy extends PolicyRequirement {
+
+        private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SignedBy.class);
 
         private final @Nullable String keyType;
         private final @Nullable String keyPath;
@@ -144,6 +183,15 @@ public abstract sealed class PolicyRequirement
         @Override
         public String getType() {
             return "signedBy";
+        }
+
+        @Override
+        public boolean evaluate(String transport, String scope) {
+            LOG.warn(
+                    "Policy requirement 'signedBy' is not yet implemented for transport='{}' scope='{}' — accepting without verification",
+                    transport,
+                    scope);
+            return true;
         }
 
         /**
@@ -206,7 +254,10 @@ public abstract sealed class PolicyRequirement
      * }</pre>
      *
      */
+    @OrasModel
     public static final class SigstoreSigned extends PolicyRequirement {
+
+        private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SigstoreSigned.class);
 
         private final @Nullable String keyPath;
         private final @Nullable List<String> keyPaths;
@@ -240,6 +291,15 @@ public abstract sealed class PolicyRequirement
         @Override
         public String getType() {
             return "sigstoreSigned";
+        }
+
+        @Override
+        public boolean evaluate(String transport, String scope) {
+            LOG.warn(
+                    "Policy requirement 'sigstoreSigned' is not yet implemented for transport='{}' scope='{}' — accepting without verification",
+                    transport,
+                    scope);
+            return true;
         }
 
         /**
