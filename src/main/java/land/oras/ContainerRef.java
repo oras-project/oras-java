@@ -646,15 +646,18 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
     @Override
     public String toString() {
+        String ref = digest != null ? "@" + digest : (tag != null ? ":" + tag : "");
+
         if (isUnqualified()) {
             if (namespace != null && !namespace.isEmpty()) {
-                return "%s/%s:%s%s".formatted(namespace, repository, tag, digest != null ? "@" + digest : "");
+                return "%s/%s%s".formatted(namespace, repository, ref);
             }
-            return "%s:%s%s".formatted(repository, tag, digest != null ? "@" + digest : "");
+            return "%s%s".formatted(repository, ref);
         }
+
         if (namespace != null && !namespace.isEmpty()) {
-            return "%s/%s/%s:%s%s".formatted(registry, namespace, repository, tag, digest != null ? "@" + digest : "");
+            return "%s/%s/%s%s".formatted(registry, namespace, repository, ref);
         }
-        return "%s/%s:%s%s".formatted(registry, repository, tag, digest != null ? "@" + digest : "");
+        return "%s/%s%s".formatted(registry, repository, ref);
     }
 }

@@ -335,10 +335,8 @@ class RegistryConfTest {
         ContainerRef rewrittenDigest = conf.rewriteForMirror(digestOnly, mirror);
         assertFalse(rewrittenDigest.toString().contains(":null"), "Tag must not appear as ':null'");
         assertTrue(rewrittenDigest.toString().contains("sha256:"), "Digest must be preserved in rewritten ref");
-        // ContainerRef.parse() defaults the tag to "latest" when omitted, so the rewritten ref
-        // carries both the digest and the default tag — the digest still drives resolution.
         assertEquals(
-                "mirror.example.com/library/alpine:latest@sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "mirror.example.com/library/alpine@sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
                 rewrittenDigest.toString());
     }
 

@@ -452,7 +452,7 @@ class ContainerRefTest {
     @Test
     void testToStringDefault() {
         ContainerRef containerRef1 = ContainerRef.parse("alpine1@sha256:1234567890abcdef");
-        assertEquals("alpine1:latest@sha256:1234567890abcdef", containerRef1.toString());
+        assertEquals("alpine1@sha256:1234567890abcdef", containerRef1.toString());
     }
 
     @Test
