@@ -533,8 +533,9 @@ public final class ContainerRef extends Ref<ContainerRef> {
             return true;
         }
 
-        // Check containers policy
-        String scope = effectiveRef.toString().replaceFirst("(:.+)?(@.+)?$", "");
+        // Check containers policy. Strip a trailing ":tag" and/or "@digest" without touching a
+        // "host:port" registry (the tag colon always follows the last "/").
+        String scope = effectiveRef.toString().replaceFirst("(:[^/@]+)?(@[^/]+)?$", "");
         boolean allowed = registry.getContainersPolicy().isAllowed("docker", scope);
         if (!allowed) {
             throw new OrasException("Image '%s' rejected by containers policy".formatted(this));

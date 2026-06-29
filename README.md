@@ -305,6 +305,74 @@ mirror-by-digest-only = false   # set to true to restrict all mirrors to digest-
   pull-from-mirror = "digest-only"
 ```
 
+## Trust policy
+
+The ORAS Java SDK can enforce a containers trust policy when pulling, using the
+[`policy.json`](https://man.archlinux.org/man/containers-policy.json.5.en) format used by Podman,
+Skopeo and Buildah.
+
+The policy is loaded from the following locations, in order (the first that exists wins):
+
+1. the path in the `CONTAINERS_POLICY` environment variable (if set)
+2. `$HOME/.config/containers/policy.json`
+3. `/etc/containers/policy.json`
+
+If no policy file is found, an **accept-all** policy is used. You can also set it explicitly:
+
+```java
+// Load from a specific file
+Registry registry = Registry.builder()
+        .defaults()
+        .withPolicy(Path.of("/etc/containers/policy.json"))
+        .build();
+
+// Or build one programmatically
+Registry registry = Registry.builder()
+        .defaults()
+        .withPolicy(ContainersPolicy.rejectAll())
+        .build();
+```
+
+When a policy is set, every manifest/index pull is evaluated against it and rejected
+(`OrasException`) if it does not pass.
+
+### Supported requirement types
+
+| Type                     | Supported | Behaviour                                                          |
+|--------------------------|-----------|--------------------------------------------------------------------|
+| `insecureAcceptAnything` | ✅        | Accept the image without any verification (trust all).             |
+| `reject`                 | ✅        | Reject the image unconditionally.                                  |
+| `sigstoreSigned`         | ✅        | Accept only images with a valid keyed Sigstore (cosign) signature. |
+| `signedBy` (GPG)         | ❌        | Not implemented. Legacy                                            |
+
+### `sigstoreSigned`
+
+Only **keyed** verification is supported for now. If `keyPath` or `keyData` is present it contains a single
+Sigstore public key (the `cosign.pub` produced by `cosign generate-key-pair`), and only signatures
+made by that key are accepted:
+
+- `keyPath` — path to a PEM public key file.
+- `keyData` — the same key, base64-encoded inline.
+
+Multiple keys (`keyPaths`/`keyDatas`) and keyless (Fulcio/Rekor) verification are **not** supported.
+Signatures are discovered through the OCI [referrers API](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-referrers)
+(the Sigstore bundle, `application/vnd.dev.sigstore.bundle.v0.3+json`, attached to the image); no
+local signature store is consulted. The `signedIdentity` field is accepted but, because the bundle
+binds only the image digest, matching is limited to the digest of the pulled image.
+
+```json
+{
+    "default": [{"type": "insecureAcceptAnything"}],
+    "transports": {
+        "docker": {
+            "example.com/my-image": [
+                {"type": "sigstoreSigned", "keyPath": "/home/me/my-key.pub"}
+            ]
+        }
+    }
+}
+```
+
 ### Deploy SNAPSHOTS
 
 SNAPSHOTS are automatically deployed when the `main` branch is updated. See the [GitHub Actions](.github/workflows/deploy-snapshots.yml) for more details.

@@ -64,13 +64,18 @@ public abstract sealed class PolicyRequirement
     public abstract String getType();
 
     /**
-     * Evaluate this requirement for the given transport and scope.
+     * Verify this requirement against the given {@link PolicyContext}.
      *
-     * @param transport the transport name (e.g., {@code "docker"}).
-     * @param scope the image scope (e.g., {@code "docker.io/library/nginx"}).
+     * <p>The context may be <em>content-free</em> ({@link PolicyContext#hasContent()} is {@code false}),
+     * which is the lightweight scope gate used by {@link ContainersPolicy#isAllowed(String, String)} on
+     * any operation (including push). Signature-based requirements cannot be enforced in that case and
+     * should allow the operation to proceed; their cryptographic check runs only once the image has
+     * been resolved during a pull, when the context carries the digest and a {@link SignatureFetcher}.
+     *
+     * @param context the policy context.
      * @return {@code true} if the requirement passes, {@code false} otherwise.
      */
-    public abstract boolean evaluate(String transport, String scope);
+    public abstract boolean verify(PolicyContext context);
 
     @Override
     public String toString() {
@@ -97,7 +102,7 @@ public abstract sealed class PolicyRequirement
         }
 
         @Override
-        public boolean evaluate(String transport, String scope) {
+        public boolean verify(PolicyContext context) {
             return true;
         }
     }
@@ -127,8 +132,8 @@ public abstract sealed class PolicyRequirement
         }
 
         @Override
-        public boolean evaluate(String transport, String scope) {
-            LOG.debug("Policy: reject for transport='{}' scope='{}'", transport, scope);
+        public boolean verify(PolicyContext context) {
+            LOG.debug("Policy: reject for transport='{}' scope='{}'", context.getTransport(), context.getScope());
             return false;
         }
     }
@@ -186,11 +191,14 @@ public abstract sealed class PolicyRequirement
         }
 
         @Override
-        public boolean evaluate(String transport, String scope) {
-            LOG.warn(
-                    "Policy requirement 'signedBy' is not yet implemented for transport='{}' scope='{}' — accepting without verification",
-                    transport,
-                    scope);
+        public boolean verify(PolicyContext context) {
+            // GPG "simple signing" is not implemented; accept without verification (content-free gate
+            // and resolved pulls alike).
+            if (context.hasContent()) {
+                LOG.warn(
+                        "Policy requirement 'signedBy' (GPG) is not implemented; accepting {} without verification",
+                        context.getReference());
+            }
             return true;
         }
 
@@ -242,7 +250,11 @@ public abstract sealed class PolicyRequirement
     }
 
     /**
-     * Require a valid Sigstore/Cosign signature stored as an OCI artifact.
+     * Require a valid keyed Sigstore/Cosign signature attached to the image as an OCI referrer.
+     *
+     * <p>If {@code keyPath} or {@code keyData} is present it contains a single Sigstore public key,
+     * and only signatures made by that key are accepted. Keyless (Fulcio/Rekor) verification is not
+     * supported.
      *
      * <p>JSON example:
      * <pre>{@code
@@ -252,7 +264,6 @@ public abstract sealed class PolicyRequirement
      *   "signedIdentity": {"type": "matchRepoDigestOrExact"}
      * }
      * }</pre>
-     *
      */
     @OrasModel
     public static final class SigstoreSigned extends PolicyRequirement {
@@ -260,31 +271,23 @@ public abstract sealed class PolicyRequirement
         private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SigstoreSigned.class);
 
         private final @Nullable String keyPath;
-        private final @Nullable List<String> keyPaths;
         private final @Nullable String keyData;
-        private final @Nullable List<String> keyDatas;
         private final @Nullable SignedIdentity signedIdentity;
 
         /**
          * Creates a new {@link SigstoreSigned} requirement.
          *
-         * @param keyPath        path to a Sigstore/Cosign public key (mutually exclusive with others).
-         * @param keyPaths       paths to multiple public keys (mutually exclusive with others).
-         * @param keyData        base64-encoded public key (mutually exclusive with others).
-         * @param keyDatas       list of base64-encoded public keys (mutually exclusive with others).
+         * @param keyPath        path to a Sigstore/Cosign public key file (mutually exclusive with {@code keyData}).
+         * @param keyData        base64-encoded Sigstore/Cosign public key (mutually exclusive with {@code keyPath}).
          * @param signedIdentity identity matching rules; {@code null} defaults to matchRepoDigestOrExact.
          */
         @JsonCreator
         public SigstoreSigned(
                 @JsonProperty("keyPath") @Nullable String keyPath,
-                @JsonProperty("keyPaths") @Nullable List<String> keyPaths,
                 @JsonProperty("keyData") @Nullable String keyData,
-                @JsonProperty("keyDatas") @Nullable List<String> keyDatas,
                 @JsonProperty("signedIdentity") @Nullable SignedIdentity signedIdentity) {
             this.keyPath = keyPath;
-            this.keyPaths = keyPaths;
             this.keyData = keyData;
-            this.keyDatas = keyDatas;
             this.signedIdentity = signedIdentity;
         }
 
@@ -294,16 +297,46 @@ public abstract sealed class PolicyRequirement
         }
 
         @Override
-        public boolean evaluate(String transport, String scope) {
-            LOG.warn(
-                    "Policy requirement 'sigstoreSigned' is not yet implemented for transport='{}' scope='{}' — accepting without verification",
-                    transport,
-                    scope);
-            return true;
+        public boolean verify(PolicyContext context) {
+            String imageDigest = context.getImageDigest();
+            if (imageDigest == null) {
+                // Content-free scope gate (e.g. push, or before the manifest is resolved): signatures
+                // cannot be checked yet, so allow the operation to proceed. The real check runs when
+                // this requirement is verified again with the resolved digest during the pull.
+                LOG.debug(
+                        "Policy requirement 'sigstoreSigned' deferred to content verification for transport='{}' scope='{}'",
+                        context.getTransport(),
+                        context.getScope());
+                return true;
+            }
+            if (keyPath == null && keyData == null) {
+                LOG.warn(
+                        "Policy requirement 'sigstoreSigned' for {} has no keyPath or keyData "
+                                + "(keyless verification is not supported); rejecting",
+                        context.getReference());
+                return false;
+            }
+            java.security.PublicKey key = SigstoreVerifier.loadKey(this);
+            if (key == null) {
+                LOG.warn(
+                        "Policy requirement 'sigstoreSigned' for {} could not load the configured public key "
+                                + "(keyPath={}, keyData={}); rejecting",
+                        context.getReference(),
+                        keyPath,
+                        keyData != null ? "<set>" : null);
+                return false;
+            }
+            boolean verified = SigstoreVerifier.verify(context.fetchSigstoreBundles(), imageDigest, key);
+            if (!verified) {
+                LOG.warn(
+                        "Policy requirement 'sigstoreSigned' failed: no valid signature for {}",
+                        context.getReference());
+            }
+            return verified;
         }
 
         /**
-         * Return the path to a Sigstore/Cosign public key file, or {@code null} if not set.
+         * Return the path to the Sigstore/Cosign public key file, or {@code null} if not set.
          *
          * @return the key path, may be {@code null}.
          */
@@ -312,30 +345,12 @@ public abstract sealed class PolicyRequirement
         }
 
         /**
-         * Return the list of paths to public key files, or {@code null} if not set.
-         *
-         * @return the key paths, may be {@code null}.
-         */
-        public @Nullable List<String> getKeyPaths() {
-            return keyPaths;
-        }
-
-        /**
-         * Return the base64-encoded public key, or {@code null} if not set.
+         * Return the base64-encoded Sigstore/Cosign public key, or {@code null} if not set.
          *
          * @return the key data, may be {@code null}.
          */
         public @Nullable String getKeyData() {
             return keyData;
-        }
-
-        /**
-         * Return the list of base64-encoded public keys, or {@code null} if not set.
-         *
-         * @return the key datas, may be {@code null}.
-         */
-        public @Nullable List<String> getKeyDatas() {
-            return keyDatas;
         }
 
         /**

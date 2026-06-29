@@ -23,10 +23,13 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import land.oras.policy.ContainersPolicy;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
 import land.oras.utils.ZotUnsecureContainer;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
@@ -50,6 +53,46 @@ class GitHubContainerRegistryITCase {
         ContainerRef containerRef1 = ContainerRef.parse("ghcr.io/oras-project/oras:main");
         Index index = registry.getIndex(containerRef1);
         assertNotNull(index);
+    }
+
+    @Test
+    @Disabled("Disabled because Referrers on GHCR")
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldPullSignedImage(@TempDir Path homeDir) throws Exception {
+
+        Path path = homeDir.resolve("policy.json");
+        Path publicKeyPath = Path.of("src/test/resources/keys/sigstore/alpine-signed.pub");
+
+        // language=toml
+        String config =
+                """
+            [[registry]]
+            location = "ghcr.io"
+            insecure = false
+            """;
+
+        // language=json
+        Files.writeString(
+                path,
+                """
+                {
+                  "default": [{"type": "reject"}],
+                  "transports": {
+                    "docker": {
+                      "ghcr.io/jonesbusy/alpine-signed": [{"type": "sigstoreSigned", "keyPath": "%s"}]
+                    }
+                  }
+                }
+                """
+                        .formatted(publicKeyPath.toAbsolutePath().toString()));
+        ContainersPolicy policy = ContainersPolicy.newPolicy(path);
+        TestUtils.createRegistriesConfFile(homeDir, config);
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().defaults().withPolicy(policy).build();
+            ContainerRef containerRef1 = ContainerRef.parse("ghcr.io/jonesbusy/alpine-signed:latest");
+            Manifest manifest = registry.getManifest(containerRef1);
+            assertNotNull(manifest);
+        });
     }
 
     @Test

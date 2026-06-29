@@ -140,24 +140,50 @@ public class ContainersPolicy {
     }
 
     /**
-     * Determine whether an image is allowed under this policy.
+     * Determine whether an image is allowed under this policy using the lightweight, content-free
+     * scope gate.
      *
-     * <p>All requirements in the resolved list must pass (logical AND)
+     * <p>All requirements in the resolved list must pass (logical AND). Because no image content is
+     * available, signature-based requirements ({@code signedBy}, {@code sigstoreSigned}) allow the
+     * operation to proceed here; their cryptographic check runs in {@link #verify(PolicyContext)} once
+     * the image has been resolved during a pull.
      *
      * @param transport the transport name, e.g. {@code "docker"}.
      * @param scope     the image scope, e.g. {@code "docker.io/library/nginx"}.
      * @return {@code true} if all resolved requirements pass.
      */
     public boolean isAllowed(String transport, String scope) {
+        PolicyContext context = PolicyContext.forScope(transport, scope);
         List<PolicyRequirement> requirements = resolveRequirements(transport, scope);
         for (PolicyRequirement req : requirements) {
-            if (!req.evaluate(transport, scope)) {
+            if (!req.verify(context)) {
                 LOG.debug("Policy requirement {} failed for transport='{}' scope='{}'", req, transport, scope);
                 return false;
             }
         }
         LOG.debug("Policy all requirements passed for transport='{}' scope='{}'", transport, scope);
         return true;
+    }
+
+    /**
+     * Verify a resolved image against this policy, performing content-based checks (such as Sigstore
+     * signature verification) that {@link #isAllowed(String, String)} cannot perform.
+     *
+     * <p>All resolved requirements must pass (logical AND). If any requirement fails, an
+     * {@link OrasException} is thrown describing the failure.
+     *
+     * @param context the policy context carrying the resolved digest and a signature fetcher.
+     * @throws OrasException if any resolved requirement rejects the image.
+     */
+    public void verify(PolicyContext context) {
+        List<PolicyRequirement> requirements = resolveRequirements(context.getTransport(), context.getScope());
+        for (PolicyRequirement req : requirements) {
+            if (!req.verify(context)) {
+                throw new OrasException("Image '%s' rejected by containers policy requirement '%s'"
+                        .formatted(context.getReference(), req.getType()));
+            }
+        }
+        LOG.debug("Policy verification passed for {}", context.getReference());
     }
 
     /**
