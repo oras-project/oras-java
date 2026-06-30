@@ -95,7 +95,6 @@ public final class TestUtils {
         synchronized (TestUtils.class) {
             new EnvironmentVariables()
                     .set("HOME", homeDir.toAbsolutePath().toString())
-                    .remove("CONTAINERS_REGISTRIES_CONF")
                     .execute(() -> {
                         try {
                             action.run();

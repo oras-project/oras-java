@@ -210,30 +210,11 @@ class ContainersPolicyTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
-    void loadsFromContainersPolicyEnvVar(@TempDir Path dir) throws Exception {
-        Path policyPath = dir.resolve("policy.json");
-        // language=json
-        Files.writeString(policyPath, """
-                {"default": [{"type": "reject"}]}
-                """);
-
-        new EnvironmentVariables()
-                .set("CONTAINERS_POLICY", policyPath.toAbsolutePath().toString())
-                .set("HOME", dir.toAbsolutePath().toString())
-                .execute(() -> {
-                    ContainersPolicy policy = ContainersPolicy.newPolicy();
-                    assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
-                });
-    }
-
-    @Test
-    @Execution(ExecutionMode.SAME_THREAD)
     void fallsBackToAcceptAllWhenNoPolicyFileFound(@TempDir Path emptyHome) throws Exception {
         // Use a home dir that has no policy.json and ensure /etc/containers/policy.json is skipped
         // by pointing both to a dir we control (emptyHome has no policy.json)
         new EnvironmentVariables()
                 .set("HOME", emptyHome.toAbsolutePath().toString())
-                .remove("CONTAINERS_POLICY")
                 .execute(() -> {
                     ContainersPolicy policy = ContainersPolicy.newPolicy();
                     assertNotNull(policy);

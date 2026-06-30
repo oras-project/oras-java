@@ -264,8 +264,6 @@ The SDK reads configuration from the following locations, in order (later entrie
 3. `$HOME/.config/containers/registries.conf`
 4. `$HOME/.config/containers/registries.conf.d/*.conf` (alphabetical)
 
-Set the `CONTAINERS_REGISTRIES_CONF` environment variable to use a single file exclusively.
-
 ### Supported features
 
 ```toml
@@ -313,9 +311,8 @@ Skopeo and Buildah.
 
 The policy is loaded from the following locations, in order (the first that exists wins):
 
-1. the path in the `CONTAINERS_POLICY` environment variable (if set)
-2. `$HOME/.config/containers/policy.json`
-3. `/etc/containers/policy.json`
+1. `$HOME/.config/containers/policy.json`
+2. `/etc/containers/policy.json`
 
 If no policy file is found, an **accept-all** policy is used. You can also set it explicitly:
 

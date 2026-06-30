@@ -90,23 +90,17 @@ public class RegistriesConf {
 
     /**
      * Create a new RegistriesConf instance by loading configuration from standard paths.
-     * If the {@code CONTAINERS_REGISTRIES_CONF} environment variable is set it is used exclusively.
-     * Otherwise, the user-local config (under {@code $HOME}) is tried first, then {@code /etc/containers/registries.conf}.
+     * The user-local config (under {@code $HOME}) is tried first, then {@code /etc/containers/registries.conf}.
      *
      * @return A new RegistriesConf instance.
      */
     public static RegistriesConf newConf() {
-        String containersRegistriesConf = System.getenv("CONTAINERS_REGISTRIES_CONF");
-        if (containersRegistriesConf != null) {
-            LOG.debug("Using registries config from CONTAINERS_REGISTRIES_CONF: {}", containersRegistriesConf);
-            return newConf(List.of(Path.of(containersRegistriesConf)));
-        }
         return newConf(defaultConfPaths());
     }
 
     /**
-     * Returns the ordered list of registries.conf paths to load and merge when {@code CONTAINERS_REGISTRIES_CONF}
-     * is not set. Follows the containers/image search order:
+     * Returns the ordered list of registries.conf paths to load and merge.
+     * Follows the containers/image search order:
      * <ol>
      *   <li>{@code /etc/containers/registries.conf}</li>
      *   <li>{@code /etc/containers/registries.conf.d/*.conf} (alpha-numerical order)</li>
