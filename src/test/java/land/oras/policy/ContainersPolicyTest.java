@@ -36,7 +36,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
- * Unit tests for {@link ContainersPolicy}, {@link PolicyRequirement}, and {@link SignedIdentity}.
+ * Unit tests for {@link ContainersPolicy} and {@link PolicyRequirement}.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 class ContainersPolicyTest {
@@ -44,16 +44,16 @@ class ContainersPolicyTest {
     @Test
     void acceptAllPolicyAllowsEverything() {
         ContainersPolicy policy = ContainersPolicy.acceptAll();
-        assertTrue(policy.isAllowed("docker", "docker.io/library/nginx"));
-        assertTrue(policy.isAllowed("docker", "quay.io/foo/bar"));
-        assertTrue(policy.isAllowed("docker-daemon", ""));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "quay.io/foo/bar"));
+        assertTrue(policy.isAllowed(Transport.UNKNOWN, ""));
     }
 
     @Test
     void rejectAllPolicyDeniesEverything() {
         ContainersPolicy policy = ContainersPolicy.rejectAll();
-        assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
-        assertFalse(policy.isAllowed("docker", "quay.io/foo/bar"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "quay.io/foo/bar"));
     }
 
     @Test
@@ -64,7 +64,7 @@ class ContainersPolicyTest {
         List<PolicyRequirement> defaults = policy.getDefaultRequirements();
         assertEquals(1, defaults.size());
         assertInstanceOf(PolicyRequirement.InsecureAcceptAnything.class, defaults.get(0));
-        assertTrue(policy.isAllowed("docker", "docker.io/library/nginx"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
     }
 
     @Test
@@ -75,7 +75,7 @@ class ContainersPolicyTest {
         List<PolicyRequirement> defaults = policy.getDefaultRequirements();
         assertEquals(1, defaults.size());
         assertInstanceOf(PolicyRequirement.Reject.class, defaults.get(0));
-        assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
     }
 
     @Test
@@ -87,21 +87,24 @@ class ContainersPolicyTest {
         assertInstanceOf(
                 PolicyRequirement.Reject.class, policy.getDefaultRequirements().get(0));
 
-        assertTrue(policy.isAllowed("docker", "docker.io"));
-        assertTrue(policy.isAllowed("docker", "docker.io/library/ubuntu"));
-        assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
-        assertFalse(policy.isAllowed("docker", "quay.io/someimage"));
-        assertTrue(policy.isAllowed("docker", "quay.io/myorg"));
-        assertTrue(policy.isAllowed("docker", "quay.io/myorg/app"));
-        assertTrue(policy.isAllowed("docker-daemon", "anything"));
-        assertFalse(policy.isAllowed("oci", "some/image"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "docker.io"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "docker.io/library/ubuntu"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "quay.io/someimage"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "quay.io/myorg"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "quay.io/myorg/app"));
+
+        // The "docker-daemon" transport in mixed.json maps to UNKNOWN, whose "" default is
+        // insecureAcceptAnything; every non-docker transport collapses to that same UNKNOWN bucket.
+        assertTrue(policy.isAllowed(Transport.UNKNOWN, "anything"));
+        assertTrue(policy.isAllowed(Transport.UNKNOWN, "some/image"));
     }
 
     @Test
     void exactScopeMatchTakesPrecedenceOverPrefix() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "docker.io/library/nginx");
+        List<PolicyRequirement> reqs = policy.resolveRequirements(Transport.DOCKER, "docker.io/library/nginx");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.Reject.class, reqs.get(0));
     }
@@ -110,7 +113,7 @@ class ContainersPolicyTest {
     void longestPrefixMatchIsSelected() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "quay.io/myorg/app/subapp");
+        List<PolicyRequirement> reqs = policy.resolveRequirements(Transport.DOCKER, "quay.io/myorg/app/subapp");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.InsecureAcceptAnything.class, reqs.get(0));
     }
@@ -119,45 +122,30 @@ class ContainersPolicyTest {
     void wildcardSubdomainMatchAcceptsSubdomain() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertTrue(policy.isAllowed("docker", "sub.example.com/repo"));
-        assertTrue(policy.isAllowed("docker", "other.example.com"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "sub.example.com/repo"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "other.example.com"));
     }
 
     @Test
     void wildcardWithPathMatchesMoreSpecificPath() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertFalse(policy.isAllowed("docker", "sub.example.com/restricted"));
-        assertFalse(policy.isAllowed("docker", "sub.example.com/restricted/deeper"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "sub.example.com/restricted"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "sub.example.com/restricted/deeper"));
     }
 
     @Test
     void wildcardDoesNotMatchParentDomain() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertFalse(policy.isAllowed("docker", "example.com/repo"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "example.com/repo"));
     }
 
     @Test
     void transportDefaultAppliesWhenNoScopeMatches() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertFalse(policy.isAllowed("docker", "ghcr.io/owner/image"));
-    }
-
-    @Test
-    void signedByRequirementDeserializesCorrectly() {
-        Path path = resourcePath("policy/signing.json");
-        ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "registry.example.com/signed");
-        assertEquals(1, reqs.size());
-        assertInstanceOf(PolicyRequirement.SignedBy.class, reqs.get(0));
-
-        PolicyRequirement.SignedBy signedBy = (PolicyRequirement.SignedBy) reqs.get(0);
-        assertEquals("GPGKeys", signedBy.getKeyType());
-        assertEquals("/etc/pki/containers/my-key.gpg", signedBy.getKeyPath());
-        assertInstanceOf(SignedIdentity.MatchRepoDigestOrExact.class, signedBy.getSignedIdentity());
+        assertFalse(policy.isAllowed(Transport.DOCKER, "ghcr.io/owner/image"));
     }
 
     @Test
@@ -165,27 +153,27 @@ class ContainersPolicyTest {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
-        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "registry.example.com/cosign");
+        List<PolicyRequirement> reqs = policy.resolveRequirements(Transport.DOCKER, "registry.example.com/cosign");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.SigstoreSigned.class, reqs.get(0));
 
+        // keyPath is read; a signedIdentity field, if present in the JSON, is ignored.
         PolicyRequirement.SigstoreSigned sigstore = (PolicyRequirement.SigstoreSigned) reqs.get(0);
         assertEquals("/etc/pki/containers/cosign.pub", sigstore.getKeyPath());
-        assertInstanceOf(SignedIdentity.MatchRepository.class, sigstore.getSignedIdentity());
     }
 
     @Test
-    void evaluatingSignedByAcceptsWithWarning() {
+    void evaluatingSignedByFalseNotImplemented() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertTrue(policy.isAllowed("docker", "registry.example.com/signed"));
+        assertFalse(policy.isAllowed(Transport.DOCKER, "registry.example.com/signed"));
     }
 
     @Test
     void evaluatingSigstoreSignedPassesScopeGate() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-        assertTrue(policy.isAllowed("docker", "registry.example.com/cosign"));
+        assertTrue(policy.isAllowed(Transport.DOCKER, "registry.example.com/cosign"));
     }
 
     @Test
@@ -199,7 +187,7 @@ class ContainersPolicyTest {
         TestUtils.withHome(homeDir, () -> {
             ContainersPolicy policy = ContainersPolicy.newPolicy();
             assertNotNull(policy);
-            assertTrue(policy.isAllowed("docker", "docker.io/library/nginx"));
+            assertTrue(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
         });
     }
 
@@ -216,7 +204,7 @@ class ContainersPolicyTest {
             assertNotNull(policy);
             // User's reject-all should win (we can't know what system policy says, but we know
             // the user policy was loaded since docker.io is rejected)
-            assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
+            assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
         });
     }
 
@@ -234,7 +222,7 @@ class ContainersPolicyTest {
                 .set("HOME", dir.toAbsolutePath().toString())
                 .execute(() -> {
                     ContainersPolicy policy = ContainersPolicy.newPolicy();
-                    assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
+                    assertFalse(policy.isAllowed(Transport.DOCKER, "docker.io/library/nginx"));
                 });
     }
 
@@ -263,35 +251,9 @@ class ContainersPolicyTest {
     void requirementTypeNamesAreCorrect() {
         assertEquals("insecureAcceptAnything", new PolicyRequirement.InsecureAcceptAnything().getType());
         assertEquals("reject", new PolicyRequirement.Reject().getType());
-        assertEquals("signedBy", new PolicyRequirement.SignedBy(null, null, null, null, null).getType());
-        assertEquals("sigstoreSigned", new PolicyRequirement.SigstoreSigned(null, null, null).getType());
+        assertEquals("signedBy", new PolicyRequirement.SignedBy().getType());
+        assertEquals("sigstoreSigned", new PolicyRequirement.SigstoreSigned(null, null).getType());
     }
-
-    @Test
-    void signedIdentityTypeNamesAreCorrect() {
-        assertEquals("matchExact", new SignedIdentity.MatchExact().getType());
-        assertEquals("matchRepoDigestOrExact", new SignedIdentity.MatchRepoDigestOrExact().getType());
-        assertEquals("matchRepository", new SignedIdentity.MatchRepository().getType());
-        assertEquals("exactReference", new SignedIdentity.ExactReference(null).getType());
-        assertEquals("exactRepository", new SignedIdentity.ExactRepository(null).getType());
-        assertEquals("remapIdentity", new SignedIdentity.RemapIdentity(null, null).getType());
-    }
-
-    @Test
-    void exactReferenceAndExactRepositoryPreserveValues() {
-        SignedIdentity.ExactReference ref = new SignedIdentity.ExactReference("docker.io/library/nginx:latest");
-        assertEquals("docker.io/library/nginx:latest", ref.getDockerReference());
-
-        SignedIdentity.ExactRepository repo = new SignedIdentity.ExactRepository("docker.io/library/nginx");
-        assertEquals("docker.io/library/nginx", repo.getDockerRepository());
-
-        SignedIdentity.RemapIdentity remap =
-                new SignedIdentity.RemapIdentity("mirror.example.com", "docker.io/library");
-        assertEquals("mirror.example.com", remap.getPrefix());
-        assertEquals("docker.io/library", remap.getSignedPrefix());
-    }
-
-    // ---- sigstoreSigned verification driven by policy.json format ----
 
     @Test
     void sigstoreSignedExactScopeVerifiesSignedImage(@TempDir Path dir) throws IOException {
@@ -319,7 +281,7 @@ class ContainersPolicyTest {
                 dir, "registry.example.com/team", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
 
         // Sub-path resolves to the prefix requirement.
-        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "registry.example.com/team/app");
+        List<PolicyRequirement> reqs = policy.resolveRequirements(Transport.DOCKER, "registry.example.com/team/app");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.SigstoreSigned.class, reqs.get(0));
 
@@ -437,7 +399,7 @@ class ContainersPolicyTest {
     }
 
     @Test
-    void signedByGpgVerifyAcceptsWithWarning(@TempDir Path dir) throws IOException {
+    void signedByGpgIsDeniedBecauseNotImplemented(@TempDir Path dir) throws IOException {
         Path path = dir.resolve("policy.json");
         // language=json
         Files.writeString(
@@ -455,9 +417,8 @@ class ContainersPolicyTest {
                 }
                 """);
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // GPG simple signing is not implemented: verify() warns and accepts (does not throw).
-        assertDoesNotThrow(
+        assertThrows(
+                OrasException.class,
                 () -> policy.verify(context("registry.example.com/signed", "registry.example.com/signed:latest")));
     }
 
@@ -542,7 +503,8 @@ class ContainersPolicyTest {
      * {@link SigstoreTestSupport#IMAGE_DIGEST}, whose signature fetcher returns the given bundles.
      */
     private static PolicyContext context(String scope, String reference, byte[]... bundles) {
-        return new PolicyContext("docker", scope, SigstoreTestSupport.IMAGE_DIGEST, reference, () -> List.of(bundles));
+        return new PolicyContext(
+                Transport.DOCKER, scope, SigstoreTestSupport.IMAGE_DIGEST, reference, () -> List.of(bundles));
     }
 
     private static Path resourcePath(String relative) {

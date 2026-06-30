@@ -26,64 +26,62 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Carries the data a {@link PolicyRequirement} needs to evaluate an image.
- *
- * <p>A context is either:
- * <ul>
- *   <li><strong>content-free</strong> (created with {@link #forScope(String, String)}): only the
- *       transport and scope are known. This is the lightweight gate used by
- *       {@link ContainersPolicy#isAllowed(String, String)} on any operation, including push.
- *       Signature-based requirements cannot be enforced and allow the operation to proceed.</li>
- *   <li><strong>content-bound</strong> (created with the full constructor): the resolved manifest
- *       digest and a {@link SignatureFetcher} are available, so signatures can be verified. This is
- *       used at pull time once the image has been resolved.</li>
- * </ul>
  */
 @NullMarked
 public final class PolicyContext {
 
-    private static final SignatureFetcher NO_SIGNATURES = List::of;
+    private static final SigstoreSignatureFetcher NO_SIGNATURES = List::of;
 
-    private final String transport;
+    private final Transport transport;
     private final String scope;
     private final @Nullable String imageDigest;
     private final @Nullable String reference;
-    private final SignatureFetcher signatureFetcher;
+    private final SigstoreSignatureFetcher sigstoreSignatureFetcher;
 
     /**
      * Create a content-bound policy context for a resolved image.
      *
-     * @param transport        the transport name (e.g. {@code "docker"}).
-     * @param scope            the matched image scope (registry + path, without tag/digest).
-     * @param imageDigest      the resolved image digest, e.g. {@code "sha256:abc..."}.
-     * @param reference        the full image reference being pulled (for diagnostics).
-     * @param signatureFetcher supplies the attached signatures for verification.
+     * @param transport the transport (e.g. {@link Transport#DOCKER}).
+     * @param scope the matched image scope (registry + path, without tag/digest).
+     * @param imageDigest the resolved image digest, e.g. {@code "sha256:abc..."}.
+     * @param reference the full image reference being pulled (for diagnostics).
+     * @param sigstoreSignatureFetcher supplies the attached signatures for verification.
      */
     public PolicyContext(
-            String transport, String scope, String imageDigest, String reference, SignatureFetcher signatureFetcher) {
+            Transport transport,
+            String scope,
+            String imageDigest,
+            String reference,
+            SigstoreSignatureFetcher sigstoreSignatureFetcher) {
         this.transport = transport;
         this.scope = scope;
         this.imageDigest = imageDigest;
         this.reference = reference;
-        this.signatureFetcher = signatureFetcher;
+        this.sigstoreSignatureFetcher = sigstoreSignatureFetcher;
     }
 
-    private PolicyContext(String transport, String scope) {
+    /**
+     * Private constructor
+     * @param transport The transport
+     * @param scope the matched image scope (registry + path, without tag/digest).
+     */
+    private PolicyContext(Transport transport, String scope) {
         this.transport = transport;
         this.scope = scope;
         this.imageDigest = null;
         this.reference = null;
-        this.signatureFetcher = NO_SIGNATURES;
+        this.sigstoreSignatureFetcher = NO_SIGNATURES;
     }
 
     /**
      * Create a content-free policy context that carries only the transport and scope. Signature-based
      * requirements cannot be verified against it.
      *
-     * @param transport the transport name (e.g. {@code "docker"}).
+     * @param transport the transport (e.g. {@link Transport#DOCKER}).
      * @param scope     the matched image scope.
      * @return a content-free context.
      */
-    public static PolicyContext forScope(String transport, String scope) {
+    public static PolicyContext forScope(Transport transport, String scope) {
         return new PolicyContext(transport, scope);
     }
 
@@ -98,11 +96,11 @@ public final class PolicyContext {
     }
 
     /**
-     * Return the transport name.
+     * Return the transport.
      *
-     * @return the transport, e.g. {@code "docker"}.
+     * @return the transport, e.g. {@link Transport#DOCKER}.
      */
-    public String getTransport() {
+    public Transport getTransport() {
         return transport;
     }
 
@@ -134,11 +132,11 @@ public final class PolicyContext {
     }
 
     /**
-     * Fetch the Sigstore bundles attached to the image.
+     * Fetch the bundles attached to the image.
      *
      * @return the bundle blob bytes; empty if no signatures are attached.
      */
-    public List<byte[]> fetchSigstoreBundles() {
-        return signatureFetcher.fetchSigstoreBundles();
+    public List<byte[]> fetchSignatureBundle() {
+        return sigstoreSignatureFetcher.fetchBundle();
     }
 }

@@ -105,7 +105,7 @@ final class SigstoreTestSupport {
 
     private static byte[] sign(PrivateKey privateKey, byte[] content) {
         try {
-            Signature signer = Signature.getInstance("SHA256withECDSA");
+            Signature signer = Signature.getInstance(Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
             signer.initSign(privateKey);
             signer.update(content);
             return signer.sign();

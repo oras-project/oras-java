@@ -24,7 +24,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import java.util.List;
 import land.oras.OrasModel;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -33,18 +32,16 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A single requirement entry inside a containers policy scope.
- *
- * <p>Each requirement is a JSON object whose {@code "type"} field selects the concrete
- * subtype. A scope's requirement list is a logical AND: every requirement must pass for
- * an image to be allowed.
  */
 @NullMarked
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = PolicyRequirement.InsecureAcceptAnything.class, name = "insecureAcceptAnything"),
-    @JsonSubTypes.Type(value = PolicyRequirement.Reject.class, name = "reject"),
-    @JsonSubTypes.Type(value = PolicyRequirement.SignedBy.class, name = "signedBy"),
-    @JsonSubTypes.Type(value = PolicyRequirement.SigstoreSigned.class, name = "sigstoreSigned"),
+    @JsonSubTypes.Type(
+            value = PolicyRequirement.InsecureAcceptAnything.class,
+            name = PolicyRequirement.InsecureAcceptAnything.TYPE),
+    @JsonSubTypes.Type(value = PolicyRequirement.Reject.class, name = PolicyRequirement.Reject.TYPE),
+    @JsonSubTypes.Type(value = PolicyRequirement.SignedBy.class, name = PolicyRequirement.SignedBy.TYPE),
+    @JsonSubTypes.Type(value = PolicyRequirement.SigstoreSigned.class, name = PolicyRequirement.SigstoreSigned.TYPE),
 })
 @OrasModel
 public abstract sealed class PolicyRequirement
@@ -53,7 +50,9 @@ public abstract sealed class PolicyRequirement
                 PolicyRequirement.SignedBy,
                 PolicyRequirement.SigstoreSigned {
 
-    /** Package-private constructor; only the sealed subtypes may extend this class. */
+    /**
+     * Private constructor
+     */
     PolicyRequirement() {}
 
     /**
@@ -67,15 +66,15 @@ public abstract sealed class PolicyRequirement
      * Verify this requirement against the given {@link PolicyContext}.
      *
      * <p>The context may be <em>content-free</em> ({@link PolicyContext#hasContent()} is {@code false}),
-     * which is the lightweight scope gate used by {@link ContainersPolicy#isAllowed(String, String)} on
+     * which is the lightweight scope gate used by {@link ContainersPolicy#isAllowed(Transport, String)} on
      * any operation (including push). Signature-based requirements cannot be enforced in that case and
      * should allow the operation to proceed; their cryptographic check runs only once the image has
-     * been resolved during a pull, when the context carries the digest and a {@link SignatureFetcher}.
+     * been resolved during a pull, when the context carries the digest and a {@link SigstoreSignatureFetcher}.
      *
      * @param context the policy context.
      * @return {@code true} if the requirement passes, {@code false} otherwise.
      */
-    public abstract boolean verify(PolicyContext context);
+    abstract boolean verify(PolicyContext context);
 
     @Override
     public String toString() {
@@ -92,17 +91,32 @@ public abstract sealed class PolicyRequirement
     public static final class InsecureAcceptAnything extends PolicyRequirement {
 
         /**
+         * The {@code "type"} value of this requirement in the policy JSON.
+         */
+        public static final String TYPE = "insecureAcceptAnything";
+
+        /**
+         * Logger
+         */
+        private static final Logger LOG = LoggerFactory.getLogger(InsecureAcceptAnything.class);
+
+        /**
          * Constructor
          */
         public InsecureAcceptAnything() {}
 
         @Override
         public String getType() {
-            return "insecureAcceptAnything";
+            return TYPE;
         }
 
         @Override
-        public boolean verify(PolicyContext context) {
+        boolean verify(PolicyContext context) {
+            LOG.warn(
+                    "Policy requirement '{}' for transport {} and scope {} (no signature verification)",
+                    getType(),
+                    context.getTransport(),
+                    context.getScope());
             return true;
         }
     }
@@ -117,6 +131,11 @@ public abstract sealed class PolicyRequirement
     public static final class Reject extends PolicyRequirement {
 
         /**
+         * The {@code "type"} value of this requirement in the policy JSON.
+         */
+        public static final String TYPE = "reject";
+
+        /**
          * Logger
          */
         private static final Logger LOG = LoggerFactory.getLogger(Reject.class);
@@ -128,209 +147,140 @@ public abstract sealed class PolicyRequirement
 
         @Override
         public String getType() {
-            return "reject";
+            return TYPE;
         }
 
         @Override
-        public boolean verify(PolicyContext context) {
-            LOG.debug("Policy: reject for transport='{}' scope='{}'", context.getTransport(), context.getScope());
+        boolean verify(PolicyContext context) {
+            LOG.debug(
+                    "Policy requirement '{}' for transport {} and scope {}",
+                    getType(),
+                    context.getTransport(),
+                    context.getScope());
             return false;
         }
     }
 
     /**
-     * Require a valid GPG "simple signing" signature.
-     *
-     * <p>JSON example:
-     * <pre>{@code
-     * {
-     *   "type": "signedBy",
-     *   "keyType": "GPGKeys",
-     *   "keyPath": "/etc/pki/containers/my-key.gpg",
-     *   "signedIdentity": {"type": "matchRepoDigestOrExact"}
-     * }
-     * }</pre>
+     * Require a GPG "simple signing" signature.
+     * Not supported. Legacy replaced by cosign/Sigstore
      */
     @OrasModel
     public static final class SignedBy extends PolicyRequirement {
 
-        private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SignedBy.class);
-
-        private final @Nullable String keyType;
-        private final @Nullable String keyPath;
-        private final @Nullable List<String> keyPaths;
-        private final @Nullable String keyData;
-        private final @Nullable SignedIdentity signedIdentity;
+        /**
+         * The {@code "type"} value of this requirement in the policy JSON.
+         */
+        public static final String TYPE = "signedBy";
 
         /**
-         * Constructor
-         *
-         * @param keyType       the key type, currently always {@code "GPGKeys"}.
-         * @param keyPath       path to a single GPG keyring file (mutually exclusive with keyPaths/keyData).
-         * @param keyPaths      paths to multiple GPG keyring files (mutually exclusive with keyPath/keyData).
-         * @param keyData       base64-encoded GPG keyring (mutually exclusive with keyPath/keyPaths).
-         * @param signedIdentity identity matching rules; {@code null} defaults to matchRepoDigestOrExact.
+         * Logger
          */
-        @JsonCreator
-        public SignedBy(
-                @JsonProperty("keyType") @Nullable String keyType,
-                @JsonProperty("keyPath") @Nullable String keyPath,
-                @JsonProperty("keyPaths") @Nullable List<String> keyPaths,
-                @JsonProperty("keyData") @Nullable String keyData,
-                @JsonProperty("signedIdentity") @Nullable SignedIdentity signedIdentity) {
-            this.keyType = keyType;
-            this.keyPath = keyPath;
-            this.keyPaths = keyPaths;
-            this.keyData = keyData;
-            this.signedIdentity = signedIdentity;
-        }
+        private static final Logger LOG = LoggerFactory.getLogger(SignedBy.class);
+
+        /**
+         * Constructor. Any JSON fields on a {@code signedBy} requirement are ignored.
+         */
+        public SignedBy() {}
 
         @Override
         public String getType() {
-            return "signedBy";
+            return TYPE;
         }
 
         @Override
-        public boolean verify(PolicyContext context) {
-            // GPG "simple signing" is not implemented; accept without verification (content-free gate
-            // and resolved pulls alike).
+        boolean verify(PolicyContext context) {
             if (context.hasContent()) {
                 LOG.warn(
-                        "Policy requirement 'signedBy' (GPG) is not implemented; accepting {} without verification",
+                        "Policy requirement '{}' (GPG) is not implemented. Rejecting {}",
+                        getType(),
                         context.getReference());
             }
-            return true;
-        }
-
-        /**
-         * Return the key type (currently always {@code "GPGKeys"}).
-         *
-         * @return the key type string, may be {@code null}.
-         */
-        public @Nullable String getKeyType() {
-            return keyType;
-        }
-
-        /**
-         * Return the path to a single GPG keyring file, or {@code null} if not set.
-         *
-         * @return the key path, may be {@code null}.
-         */
-        public @Nullable String getKeyPath() {
-            return keyPath;
-        }
-
-        /**
-         * Return the list of paths to GPG keyring files, or {@code null} if not set.
-         *
-         * @return the key paths, may be {@code null}.
-         */
-        public @Nullable List<String> getKeyPaths() {
-            return keyPaths;
-        }
-
-        /**
-         * Return the base64-encoded GPG keyring, or {@code null} if not set.
-         *
-         * @return the key data, may be {@code null}.
-         */
-        public @Nullable String getKeyData() {
-            return keyData;
-        }
-
-        /**
-         * Return the signed identity matching rules, or {@code null} to use the default
-         * ({@code matchRepoDigestOrExact}).
-         *
-         * @return the signed identity, may be {@code null}.
-         */
-        public @Nullable SignedIdentity getSignedIdentity() {
-            return signedIdentity;
+            return false;
         }
     }
 
     /**
      * Require a valid keyed Sigstore/Cosign signature attached to the image as an OCI referrer.
      *
-     * <p>If {@code keyPath} or {@code keyData} is present it contains a single Sigstore public key,
-     * and only signatures made by that key are accepted. Keyless (Fulcio/Rekor) verification is not
-     * supported.
+     * Only public keys on keyPath or keyData are supported; keyless verification is not supported
      *
-     * <p>JSON example:
+     * <p>JSON example ({@code signedIdentity}, if present, is ignored):
      * <pre>{@code
      * {
      *   "type": "sigstoreSigned",
-     *   "keyPath": "/etc/pki/containers/cosign.pub",
-     *   "signedIdentity": {"type": "matchRepoDigestOrExact"}
+     *   "keyPath": "/etc/pki/containers/cosign.pub"
      * }
      * }</pre>
      */
     @OrasModel
     public static final class SigstoreSigned extends PolicyRequirement {
 
-        private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SigstoreSigned.class);
+        /**
+         * The {@code "type"} value of this requirement in the policy JSON.
+         */
+        public static final String TYPE = "sigstoreSigned";
+
+        /**
+         * Logger
+         */
+        private static final Logger LOG = LoggerFactory.getLogger(SigstoreSigned.class);
 
         private final @Nullable String keyPath;
         private final @Nullable String keyData;
-        private final @Nullable SignedIdentity signedIdentity;
 
         /**
          * Creates a new {@link SigstoreSigned} requirement.
          *
-         * @param keyPath        path to a Sigstore/Cosign public key file (mutually exclusive with {@code keyData}).
-         * @param keyData        base64-encoded Sigstore/Cosign public key (mutually exclusive with {@code keyPath}).
-         * @param signedIdentity identity matching rules; {@code null} defaults to matchRepoDigestOrExact.
+         * @param keyPath path to a Sigstore/Cosign public key file (mutually exclusive with {@code keyData}).
+         * @param keyData base64-encoded Sigstore/Cosign public key (mutually exclusive with {@code keyPath}).
          */
         @JsonCreator
         public SigstoreSigned(
-                @JsonProperty("keyPath") @Nullable String keyPath,
-                @JsonProperty("keyData") @Nullable String keyData,
-                @JsonProperty("signedIdentity") @Nullable SignedIdentity signedIdentity) {
+                @JsonProperty("keyPath") @Nullable String keyPath, @JsonProperty("keyData") @Nullable String keyData) {
             this.keyPath = keyPath;
             this.keyData = keyData;
-            this.signedIdentity = signedIdentity;
         }
 
         @Override
         public String getType() {
-            return "sigstoreSigned";
+            return TYPE;
         }
 
         @Override
-        public boolean verify(PolicyContext context) {
+        boolean verify(PolicyContext context) {
             String imageDigest = context.getImageDigest();
             if (imageDigest == null) {
-                // Content-free scope gate (e.g. push, or before the manifest is resolved): signatures
-                // cannot be checked yet, so allow the operation to proceed. The real check runs when
-                // this requirement is verified again with the resolved digest during the pull.
                 LOG.debug(
-                        "Policy requirement 'sigstoreSigned' deferred to content verification for transport='{}' scope='{}'",
+                        "Policy requirement '{}' deferred to content verification for transport {} and scope {}",
+                        getType(),
                         context.getTransport(),
                         context.getScope());
                 return true;
             }
             if (keyPath == null && keyData == null) {
                 LOG.warn(
-                        "Policy requirement 'sigstoreSigned' for {} has no keyPath or keyData "
+                        "Policy requirement '{}' for {} has no keyPath or keyData "
                                 + "(keyless verification is not supported); rejecting",
+                        getType(),
                         context.getReference());
                 return false;
             }
             java.security.PublicKey key = SigstoreVerifier.loadKey(this);
             if (key == null) {
                 LOG.warn(
-                        "Policy requirement 'sigstoreSigned' for {} could not load the configured public key "
+                        "Policy requirement '{}' for {} could not load the configured public key "
                                 + "(keyPath={}, keyData={}); rejecting",
+                        getType(),
                         context.getReference(),
                         keyPath,
                         keyData != null ? "<set>" : null);
                 return false;
             }
-            boolean verified = SigstoreVerifier.verify(context.fetchSigstoreBundles(), imageDigest, key);
+            boolean verified = SigstoreVerifier.verify(context.fetchSignatureBundle(), imageDigest, key);
             if (!verified) {
                 LOG.warn(
-                        "Policy requirement 'sigstoreSigned' failed: no valid signature for {}",
-                        context.getReference());
+                        "Policy requirement '{}' failed: no valid signature for {}", getType(), context.getReference());
             }
             return verified;
         }
@@ -351,16 +301,6 @@ public abstract sealed class PolicyRequirement
          */
         public @Nullable String getKeyData() {
             return keyData;
-        }
-
-        /**
-         * Return the signed identity matching rules, or {@code null} to use the default
-         * ({@code matchRepoDigestOrExact}).
-         *
-         * @return the signed identity, may be {@code null}.
-         */
-        public @Nullable SignedIdentity getSignedIdentity() {
-            return signedIdentity;
         }
     }
 }
