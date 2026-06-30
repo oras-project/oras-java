@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import land.oras.OrasModel;
@@ -47,7 +48,6 @@ import tools.jackson.databind.json.JsonMapper;
  * verification is required.
  *
  * @see PolicyRequirement
- * @see SignedIdentity
  */
 @NullMarked
 public class ContainersPolicy {
@@ -55,8 +55,8 @@ public class ContainersPolicy {
     private static final Logger LOG = LoggerFactory.getLogger(ContainersPolicy.class);
 
     /**
-     * A dedicated Jackson mapper for policy.json that supports {@link PolicyRequirement} and
-     * {@link SignedIdentity} polymorphic deserialization.
+     * A dedicated Jackson mapper for policy.json that supports {@link PolicyRequirement}
+     * polymorphic deserialization.
      *
      * <p>The global mapper in {@link JsonUtils} has a {@code NON_EMPTY} global inclusion filter
      * that would interfere with the {@code @JsonTypeInfo} resolution here, so we use a separate
@@ -148,26 +148,26 @@ public class ContainersPolicy {
      * operation to proceed here; their cryptographic check runs in {@link #verify(PolicyContext)} once
      * the image has been resolved during a pull.
      *
-     * @param transport the transport name, e.g. {@code "docker"}.
+     * @param transport the transport, e.g. {@link Transport#DOCKER}.
      * @param scope     the image scope, e.g. {@code "docker.io/library/nginx"}.
      * @return {@code true} if all resolved requirements pass.
      */
-    public boolean isAllowed(String transport, String scope) {
+    public boolean isAllowed(Transport transport, String scope) {
         PolicyContext context = PolicyContext.forScope(transport, scope);
         List<PolicyRequirement> requirements = resolveRequirements(transport, scope);
         for (PolicyRequirement req : requirements) {
             if (!req.verify(context)) {
-                LOG.debug("Policy requirement {} failed for transport='{}' scope='{}'", req, transport, scope);
+                LOG.debug("Policy requirement {} failed for transport {} and scope {}", req, transport, scope);
                 return false;
             }
         }
-        LOG.debug("Policy all requirements passed for transport='{}' scope='{}'", transport, scope);
+        LOG.debug("Policy all requirements passed for transport {} and scope {}", transport, scope);
         return true;
     }
 
     /**
      * Verify a resolved image against this policy, performing content-based checks (such as Sigstore
-     * signature verification) that {@link #isAllowed(String, String)} cannot perform.
+     * signature verification) that {@link #isAllowed(Transport, String)} cannot perform.
      *
      * <p>All resolved requirements must pass (logical AND). If any requirement fails, an
      * {@link OrasException} is thrown describing the failure.
@@ -190,18 +190,18 @@ public class ContainersPolicy {
      * Resolve the list of {@link PolicyRequirement} objects that apply to the given transport and
      * scope, following the precedence rules described in {@link #isAllowed}.
      *
-     * @param transport the transport name, e.g. {@code "docker"}.
+     * @param transport the transport, e.g. {@link Transport#DOCKER}.
      * @param scope     the image scope, e.g. {@code "docker.io/library/nginx"}.
      * @return the non-null, possibly empty list of requirements (empty means global default
      *         was used and it too was empty — treat as reject-by-default for safety).
      */
-    public List<PolicyRequirement> resolveRequirements(String transport, String scope) {
+    public List<PolicyRequirement> resolveRequirements(Transport transport, String scope) {
         Map<String, List<PolicyRequirement>> transportMap =
                 policyFile.transports().getOrDefault(transport, Collections.emptyMap());
 
         // Exact match
         if (transportMap.containsKey(scope)) {
-            LOG.debug("Policy: exact match for transport='{}' scope='{}'", transport, scope);
+            LOG.debug("Policy: exact match for transport {} and scope {}", transport, scope);
             return transportMap.get(scope);
         }
 
@@ -216,7 +216,7 @@ public class ContainersPolicy {
             }
         }
         if (best != null) {
-            LOG.debug("Policy: prefix match '{}' for transport='{}' scope='{}'", best, transport, scope);
+            LOG.debug("Policy: prefix match '{}' for transport {} and scope {}", best, transport, scope);
             return transportMap.get(best);
         }
 
@@ -230,18 +230,18 @@ public class ContainersPolicy {
             }
         }
         if (bestWildcard != null) {
-            LOG.debug("Policy: wildcard match '{}' for transport='{}' scope='{}'", bestWildcard, transport, scope);
+            LOG.debug("Policy: wildcard match '{}' for transport {} and scope {}", bestWildcard, transport, scope);
             return transportMap.get(bestWildcard);
         }
 
         // Transport default
         if (transportMap.containsKey("")) {
-            LOG.debug("Policy: transport default for transport='{}'", transport);
+            LOG.debug("Policy: transport default for transport {}", transport);
             return transportMap.get("");
         }
 
         // Default
-        LOG.debug("Policy: global default for transport='{}' scope='{}'", transport, scope);
+        LOG.debug("Policy: global default for transport {} and scope {}", transport, scope);
         return policyFile.defaultRequirements();
     }
 
@@ -257,9 +257,9 @@ public class ContainersPolicy {
     /**
      * Return all transport-scoped requirements as an unmodifiable map.
      *
-     * @return a map from transport name to a map of scope → requirements.
+     * @return a map from {@link Transport} to a map of scope → requirements.
      */
-    public Map<String, Map<String, List<PolicyRequirement>>> getTransports() {
+    public Map<Transport, Map<String, List<PolicyRequirement>>> getTransports() {
         return Collections.unmodifiableMap(policyFile.transports());
     }
 
@@ -318,21 +318,30 @@ public class ContainersPolicy {
      */
     @OrasModel
     record PolicyFile(
-            @JsonProperty("default") List<PolicyRequirement> defaultRequirements,
-            @JsonProperty("transports") Map<String, Map<String, List<PolicyRequirement>>> transports) {
+            List<PolicyRequirement> defaultRequirements,
+            Map<Transport, Map<String, List<PolicyRequirement>>> transports) {
 
         /**
-         * Creates a new {@link PolicyFile}.
+         * Deserialize a {@link PolicyFile} from its JSON form, mapping the raw transport keys to the
+         * {@link Transport} enum (any non-{@code docker} transport is merged into {@link Transport#UNKNOWN}).
          *
-         * @param defaultRequirements the global default requirements.
-         * @param transports          the per-transport requirements.
+         * @param defaultRequirements the global default requirements (key {@code "default"}).
+         * @param rawTransports       the per-transport requirements keyed by raw transport name.
+         * @return the parsed policy file.
          */
         @JsonCreator
-        PolicyFile(
+        static PolicyFile fromJson(
                 @JsonProperty("default") @Nullable List<PolicyRequirement> defaultRequirements,
-                @JsonProperty("transports") @Nullable Map<String, Map<String, List<PolicyRequirement>>> transports) {
-            this.defaultRequirements = defaultRequirements != null ? defaultRequirements : Collections.emptyList();
-            this.transports = transports != null ? transports : Collections.emptyMap();
+                @JsonProperty("transports") @Nullable Map<String, Map<String, List<PolicyRequirement>>> rawTransports) {
+            List<PolicyRequirement> defaults =
+                    defaultRequirements != null ? defaultRequirements : Collections.emptyList();
+            Map<Transport, Map<String, List<PolicyRequirement>>> byTransport = new LinkedHashMap<>();
+            if (rawTransports != null) {
+                rawTransports.forEach((name, scopes) -> byTransport
+                        .computeIfAbsent(Transport.fromValue(name), t -> new LinkedHashMap<>())
+                        .putAll(scopes));
+            }
+            return new PolicyFile(defaults, byTransport);
         }
     }
 }

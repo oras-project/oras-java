@@ -27,18 +27,17 @@ import org.jspecify.annotations.NullMarked;
  * Supplies the raw signature artifacts attached to an image so that policy requirements can verify
  * them without the {@code land.oras.policy} package depending on the registry implementation.
  *
- * <p>The registry adapts itself to this interface, fetching Sigstore bundle blobs from the
+ * <p>The registry adapts itself to this interface, fetching bundle blobs from the
  * referrers attached to the image being evaluated.
  */
 @NullMarked
 @FunctionalInterface
-public interface SignatureFetcher {
+public interface SigstoreSignatureFetcher {
 
     /**
-     * Fetch the raw bytes of every Sigstore bundle ({@code application/vnd.dev.sigstore.bundle.v0.3+json})
-     * attached to the image as a referrer.
+     * Fetch the raw bytes of a bundle
      *
-     * @return the bundle blob bytes; empty if the image has no attached Sigstore signatures.
+     * @return the bundle blob bytes; empty if the image has no attached signatures.
      */
-    List<byte[]> fetchSigstoreBundles();
+    List<byte[]> fetchBundle();
 }

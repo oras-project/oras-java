@@ -38,5 +38,8 @@ class ConstTest {
         assertEquals("org.opencontainers.image.ref.name", Const.ANNOTATION_REF);
         assertEquals("application/vnd.oci.image.config.v1+json", Const.CONFIG_RUNNING_CONTAINER_MEDIA_TYPE);
         assertEquals("application/vnd.docker.container.image.v1+json", Const.CONFIG_RUNNING_DOCKER_MEDIA_TYPE);
+        assertEquals("dev.sigstore.bundle.content", Const.ANNOTATION_SIGSTORE_BUNDLE_CONTENT);
+        assertEquals("dsse-envelope", Const.SIGSTORE_BUNDLE_CONTENT_DSSE);
+        assertEquals("dev.sigstore.bundle.predicateType", Const.ANNOTATION_SIGSTORE_BUNDLE_PREDICATE_TYPE);
     }
 }

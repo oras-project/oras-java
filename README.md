@@ -357,8 +357,9 @@ made by that key are accepted:
 Multiple keys (`keyPaths`/`keyDatas`) and keyless (Fulcio/Rekor) verification are **not** supported.
 Signatures are discovered through the OCI [referrers API](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-referrers)
 (the Sigstore bundle, `application/vnd.dev.sigstore.bundle.v0.3+json`, attached to the image); no
-local signature store is consulted. The `signedIdentity` field is accepted but, because the bundle
-binds only the image digest, matching is limited to the digest of the pulled image.
+local signature store is consulted. Verification binds the signature to the pulled image by its
+digest. The `signedIdentity` field is **not supported** and is ignored if present, because the
+cosign bundle payload carries only the image digest and no claimed Docker reference to match against.
 
 ```json
 {

@@ -55,7 +55,7 @@ class SigstoreVerifierTest {
     @Test
     void verifiesValidBundleWithMatchingKeyAndDigest() throws Exception {
         KeyPair kp = generateEcKeyPair();
-        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, "SHA256withECDSA");
+        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
 
         assertTrue(SigstoreVerifier.verifyBundle(bundle, IMAGE_DIGEST, kp.getPublic()));
         assertTrue(SigstoreVerifier.verify(List.of(bundle), IMAGE_DIGEST, kp.getPublic()));
@@ -65,7 +65,7 @@ class SigstoreVerifierTest {
     void rejectsBundleSignedByDifferentKey() throws Exception {
         KeyPair signing = generateEcKeyPair();
         KeyPair other = generateEcKeyPair();
-        byte[] bundle = buildBundle(signing.getPrivate(), IMAGE_HEX, "SHA256withECDSA");
+        byte[] bundle = buildBundle(signing.getPrivate(), IMAGE_HEX, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
 
         assertFalse(SigstoreVerifier.verifyBundle(bundle, IMAGE_DIGEST, other.getPublic()));
     }
@@ -73,7 +73,7 @@ class SigstoreVerifierTest {
     @Test
     void rejectsBundleWhenDigestDoesNotMatch() throws Exception {
         KeyPair kp = generateEcKeyPair();
-        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, "SHA256withECDSA");
+        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
 
         String otherDigest = "sha256:" + "0".repeat(64);
         assertFalse(SigstoreVerifier.verifyBundle(bundle, otherDigest, kp.getPublic()));
@@ -84,7 +84,7 @@ class SigstoreVerifierTest {
         KeyPair kp = generateEcKeyPair();
         byte[] payload = inTotoPayload(IMAGE_HEX).getBytes(StandardCharsets.UTF_8);
         byte[] pae = SigstoreVerifier.preAuthEncoding(Const.IN_TOTO_PAYLOAD_TYPE, payload);
-        byte[] signature = sign(kp.getPrivate(), pae, "SHA256withECDSA");
+        byte[] signature = sign(kp.getPrivate(), pae, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
         byte[] tamperedPayload = (inTotoPayload(IMAGE_HEX) + " ").getBytes(StandardCharsets.UTF_8);
         byte[] bundle = bundleJson(tamperedPayload, signature).getBytes(StandardCharsets.UTF_8);
         assertFalse(SigstoreVerifier.verifyBundle(bundle, IMAGE_DIGEST, kp.getPublic()));
@@ -115,10 +115,9 @@ class SigstoreVerifierTest {
         // keyData is the base64-encoded content of the key file.
         String keyData = Base64.getEncoder().encodeToString(pem.getBytes(StandardCharsets.UTF_8));
 
-        PolicyRequirement.SigstoreSigned fromPath =
-                new PolicyRequirement.SigstoreSigned(keyFile.toString(), null, null);
-        PolicyRequirement.SigstoreSigned fromData = new PolicyRequirement.SigstoreSigned(null, keyData, null);
-        PolicyRequirement.SigstoreSigned none = new PolicyRequirement.SigstoreSigned(null, null, null);
+        PolicyRequirement.SigstoreSigned fromPath = new PolicyRequirement.SigstoreSigned(keyFile.toString(), null);
+        PolicyRequirement.SigstoreSigned fromData = new PolicyRequirement.SigstoreSigned(null, keyData);
+        PolicyRequirement.SigstoreSigned none = new PolicyRequirement.SigstoreSigned(null, null);
 
         assertNotNull(SigstoreVerifier.loadKey(fromPath));
         assertNotNull(SigstoreVerifier.loadKey(fromData));
@@ -128,7 +127,7 @@ class SigstoreVerifierTest {
     @Test
     void policyVerificationPassesForSignedImageAndFailsWhenTampered(@TempDir Path dir) throws Exception {
         KeyPair kp = generateEcKeyPair();
-        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, "SHA256withECDSA");
+        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
 
         Path keyFile = dir.resolve("cosign.pub");
         Files.writeString(keyFile, toPem(kp.getPublic()));
@@ -153,28 +152,31 @@ class SigstoreVerifierTest {
 
         ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
 
-        // Signed image: the fetcher returns the valid bundle -> verification passes.
+        // Signed image
         PolicyContext signed = new PolicyContext(
-                "docker",
+                Transport.DOCKER,
                 "registry.example.com/app",
                 IMAGE_DIGEST,
                 "registry.example.com/app:latest",
                 () -> List.of(bundle));
         assertDoesNotThrow(() -> policy.verify(signed));
 
-        // Unsigned image: no bundles -> verification fails closed.
+        // No bundle
         PolicyContext unsigned = new PolicyContext(
-                "docker", "registry.example.com/app", IMAGE_DIGEST, "registry.example.com/app:latest", List::of);
+                Transport.DOCKER,
+                "registry.example.com/app",
+                IMAGE_DIGEST,
+                "registry.example.com/app:latest",
+                List::of);
         assertThrows(OrasException.class, () -> policy.verify(unsigned));
     }
 
     @Test
     void policyVerificationFailsWhenKeyIsMissing(@TempDir Path dir) throws Exception {
         KeyPair kp = generateEcKeyPair();
-        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, "SHA256withECDSA");
+        byte[] bundle = buildBundle(kp.getPrivate(), IMAGE_HEX, Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM);
 
         Path policyPath = dir.resolve("policy.json");
-        // sigstoreSigned with a keyPath that does not exist -> no keys -> fail closed.
         // language=json
         Files.writeString(
                 policyPath,
@@ -193,7 +195,7 @@ class SigstoreVerifierTest {
 
         ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
         PolicyContext context = new PolicyContext(
-                "docker",
+                Transport.DOCKER,
                 "registry.example.com/app",
                 IMAGE_DIGEST,
                 "registry.example.com/app:latest",
@@ -202,7 +204,7 @@ class SigstoreVerifierTest {
     }
 
     private static KeyPair generateEcKeyPair() throws Exception {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance(Const.KEY_EC_ALGORITHM);
         kpg.initialize(new ECGenParameterSpec("secp256r1"), new SecureRandom());
         return kpg.generateKeyPair();
     }
@@ -222,21 +224,44 @@ class SigstoreVerifierTest {
     }
 
     private static String inTotoPayload(String imageHex) {
-        return "{\"_type\":\"https://in-toto.io/Statement/v1\",\"subject\":[{\"digest\":{\"sha256\":\"" + imageHex
-                + "\"},\"annotations\":{}}],\"predicateType\":\"https://sigstore.dev/cosign/sign/v1\",\"predicate\":{}}";
+        // language=json
+        return """
+                {
+                  "_type": "https://in-toto.io/Statement/v1",
+                  "subject": [{"digest": {"sha256": "%s"}, "annotations": {}}],
+                  "predicateType": "https://sigstore.dev/cosign/sign/v1",
+                  "predicate": {}
+                }"""
+                .formatted(imageHex);
     }
 
     private static String bundleJson(byte[] payload, byte[] signature) {
         Base64.Encoder b64 = Base64.getEncoder();
-        return "{\"mediaType\":\"" + Const.SIGSTORE_BUNDLE_MEDIA_TYPE + "\",\"dsseEnvelope\":{"
-                + "\"payload\":\"" + b64.encodeToString(payload) + "\","
-                + "\"payloadType\":\"" + land.oras.utils.Const.IN_TOTO_PAYLOAD_TYPE + "\","
-                + "\"signatures\":[{\"sig\":\"" + b64.encodeToString(signature) + "\"}]}}";
+        // language=json
+        return """
+                {
+                  "mediaType": "%s",
+                  "dsseEnvelope": {
+                    "payload": "%s",
+                    "payloadType": "%s",
+                    "signatures": [{"sig": "%s"}]
+                  }
+                }"""
+                .formatted(
+                        Const.SIGSTORE_BUNDLE_MEDIA_TYPE,
+                        b64.encodeToString(payload),
+                        Const.IN_TOTO_PAYLOAD_TYPE,
+                        b64.encodeToString(signature));
     }
 
     private static String toPem(PublicKey key) {
         String b64 =
                 Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8)).encodeToString(key.getEncoded());
-        return "-----BEGIN PUBLIC KEY-----\n" + b64 + "\n-----END PUBLIC KEY-----\n";
+        return """
+                -----BEGIN PUBLIC KEY-----
+                %s
+                -----END PUBLIC KEY-----
+                """
+                .formatted(b64);
     }
 }
