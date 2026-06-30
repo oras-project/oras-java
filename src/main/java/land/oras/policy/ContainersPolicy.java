@@ -76,18 +76,12 @@ public class ContainersPolicy {
     }
 
     /**
-     * Load the containers policy from the standard locations and honoring CONTAINERS_POLICY env var if set.
+     * Load the containers policy from the standard locations.
      *
      * @return a {@link ContainersPolicy} instance.
      * @throws OrasException if a candidate file exists but cannot be read or parsed.
      */
     public static ContainersPolicy newPolicy() {
-        String envPath = System.getenv("CONTAINERS_POLICY");
-        if (envPath != null) {
-            LOG.debug("Using containers policy from CONTAINERS_POLICY: {}", envPath);
-            return newPolicy(Path.of(envPath));
-        }
-
         for (Path candidate : defaultPolicyPaths()) {
             LOG.debug("Checking for containers policy at: {}", candidate);
             if (Files.exists(candidate)) {
