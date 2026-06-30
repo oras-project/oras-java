@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,7 @@ import land.oras.auth.Scopes;
 import land.oras.auth.UsernamePasswordProvider;
 import land.oras.exception.OrasException;
 import land.oras.policy.ContainersPolicy;
+import land.oras.policy.PolicyContext;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -504,6 +506,64 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(response);
         handleError(response);
         return JsonUtils.fromJson(response.response(), Referrers.class);
+    }
+
+    /**
+     * Verify a resolved image against the containers trust policy.
+     *
+     * <p>Invoked from the pull path once a manifest/index digest is known. The lightweight scope gate
+     * ({@link ContainerRef#checkBlocked(Registry)}) has already run; this performs the content-based
+     * checks (currently Sigstore signature verification for {@code sigstoreSigned} requirements).
+     *
+     * @param containerRef the reference being pulled.
+     * @param digest       the resolved manifest/index digest.
+     * @throws OrasException if the policy rejects the image.
+     */
+    private void verifyContainersPolicy(ContainerRef containerRef, String digest) {
+        String effectiveRegistry = containerRef.getEffectiveRegistry(this);
+        ContainerRef effectiveRef = containerRef.forRegistry(effectiveRegistry);
+        // Strip a trailing ":tag" and/or "@digest" without touching a "host:port" registry (the tag
+        // colon always follows the last "/").
+        String scope = effectiveRef.toString().replaceFirst("(:[^/@]+)?(@[^/]+)?$", "");
+        ContainerRef digestRef = effectiveRef.withDigest(digest);
+        PolicyContext context = new PolicyContext(
+                "docker", scope, digest, effectiveRef.toString(), () -> fetchSigstoreBundles(digestRef));
+        containersPolicy.verify(context);
+    }
+
+    /**
+     * Fetch the raw bytes of every Sigstore bundle attached to the given image as a referrer.
+     *
+     * <p>Discovers referrers whose artifact type is {@link Const#SIGSTORE_BUNDLE_MEDIA_TYPE} and
+     * returns the bytes of each bundle layer. Uses non-verifying fetches ({@link #getDescriptor} and
+     * {@link #getBlob}) to avoid recursing back into policy verification. Any failure to enumerate or
+     * read signatures yields an empty list, which causes a {@code sigstoreSigned} requirement to fail
+     * closed.
+     *
+     * @param digestRef the image reference pinned to its digest.
+     * @return the bundle blob bytes; empty if none are attached or discovery fails.
+     */
+    private List<byte[]> fetchSigstoreBundles(ContainerRef digestRef) {
+        List<byte[]> bundles = new ArrayList<>();
+        try {
+            Referrers referrers = getReferrers(digestRef, ArtifactType.from(Const.SIGSTORE_BUNDLE_MEDIA_TYPE));
+            for (ManifestDescriptor referrer : referrers.getManifests()) {
+                // Some registries ignore the artifactType filter; enforce it client-side too.
+                if (!Const.SIGSTORE_BUNDLE_MEDIA_TYPE.equals(referrer.getArtifactType())) {
+                    continue;
+                }
+                Descriptor descriptor = getDescriptor(digestRef.withDigest(referrer.getDigest()));
+                Manifest signatureManifest = Manifest.fromJson(descriptor.getJson());
+                for (Layer layer : signatureManifest.getLayers()) {
+                    if (Const.SIGSTORE_BUNDLE_MEDIA_TYPE.equals(layer.getMediaType())) {
+                        bundles.add(getBlob(digestRef.withDigest(layer.getDigest())));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Failed to fetch Sigstore signatures for {}: {}", digestRef, e.getMessage());
+        }
+        return bundles;
     }
 
     /**
@@ -1198,6 +1258,8 @@ public final class Registry extends OCI<ContainerRef> {
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
         Manifest manifest = Manifest.fromJson(json).withDescriptor(manifestDescriptor);
 
+        verifyContainersPolicy(containerRef, digest);
+
         return manifest;
     }
 
@@ -1220,6 +1282,7 @@ public final class Registry extends OCI<ContainerRef> {
             }
         }
         ManifestDescriptor manifestDescriptor = ManifestDescriptor.of(descriptor, digest);
+        verifyContainersPolicy(containerRef, digest);
         return Index.fromJson(json).withDescriptor(manifestDescriptor);
     }
 
@@ -1837,9 +1900,10 @@ public final class Registry extends OCI<ContainerRef> {
          * Set the containers trust policy to enforce during pull operations.
          *
          * <p>When set, all image manifest pulls will be evaluated against the policy before
-         * being returned. Only {@code insecureAcceptAnything} and {@code reject} requirements
-         * are currently implemented; {@code signedBy} and {@code sigstoreSigned} will log a
-         * warning and accept the image without verification.
+         * being returned. The {@code insecureAcceptAnything}, {@code reject}, and
+         * {@code sigstoreSigned} (keyed verification of attached Sigstore bundles) requirements are
+         * enforced. The {@code signedBy} (GPG simple signing) requirement is not implemented and will
+         * log a warning and accept the image without verification.
          *
          * <p>By default, the policy is loaded from standard locations
          * ({@code $HOME/.config/containers/policy.json} or {@code /etc/containers/policy.json}).

@@ -495,4 +495,43 @@ public final class Const {
      * Helm content media type
      */
     public static final String HELM_CONTENT_MEDIA_TYPE = "application/vnd.cncf.helm.chart.content.v1.tar+gzip";
+
+    /**
+     * Sigstore bundle media type, used both as the referrer {@code artifactType} and as the layer
+     * media type of an attached Sigstore signature (the format produced by recent
+     * {@code cosign sign} with the new bundle format).
+     */
+    public static final String SIGSTORE_BUNDLE_MEDIA_TYPE = "application/vnd.dev.sigstore.bundle.v0.3+json";
+
+    /**
+     * The payload type used inside a Sigstore DSSE envelope: an in-toto statement.
+     */
+    public static final String IN_TOTO_PAYLOAD_TYPE = "application/vnd.in-toto+json";
+
+    /**
+     * Annotation describing the content of a Sigstore bundle (e.g. {@code dsse-envelope}).
+     */
+    public static final String ANNOTATION_SIGSTORE_BUNDLE_CONTENT = "dev.sigstore.bundle.content";
+
+    /**
+     * Annotation value for {@link #ANNOTATION_SIGSTORE_BUNDLE_CONTENT} indicating the bundle wraps
+     * a DSSE envelope.
+     */
+    public static final String SIGSTORE_BUNDLE_CONTENT_DSSE = "dsse-envelope";
+
+    /**
+     * Annotation describing the predicate type of a Sigstore bundle (e.g.
+     * {@code https://sigstore.dev/cosign/sign/v1}).
+     */
+    public static final String ANNOTATION_SIGSTORE_BUNDLE_PREDICATE_TYPE = "dev.sigstore.bundle.predicateType";
+
+    /**
+     * The only supported key algorithm for now
+     */
+    public static final String KEY_EC_ALGORITHM = "EC";
+
+    /**
+     * The full signature algorithm
+     */
+    public static final String KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM = "SHA256withECDSA";
 }

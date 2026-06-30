@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import land.oras.exception.OrasException;
+import land.oras.policy.ContainersPolicy;
 import land.oras.utils.Const;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.ZotContainer;
@@ -140,6 +141,55 @@ class OCILayoutTest {
         assertEquals("subject", tags.name());
         assertEquals(1, tags.tags().size());
         assertEquals("latest", tags.tags().get(0));
+    }
+
+    @Test
+    void shouldPushSignedLayoutAndPullItAndValidateSignature(@TempDir Path homeDir) throws Exception {
+
+        // A signed alpine OCI layout
+        String imageDigest = "sha256:9e56ed4cb843f61658fcdb17d4205a87d5e217515f23831314b2173a776174d6";
+        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/alpine-signed@%s".formatted(imageDigest));
+        OCILayout ociLayout =
+                OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
+
+        // Push the image AND its signature referrer to the registry (deep copy = include referrers).
+        Registry pushRegistry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef targetRef =
+                ContainerRef.parse("%s/library/alpine-signed:latest".formatted(registry.getRegistry()));
+        CopyUtils.copy(ociLayout, layoutRef, pushRegistry, targetRef, CopyUtils.CopyOptions.deep());
+
+        // Trust policy: accept only images carrying a valid Sigstore signature made by this key.
+        Path publicKeyPath = Path.of("src/test/resources/keys/sigstore/alpine-signed.pub");
+        Path policyPath = homeDir.resolve("policy.json");
+
+        // language=json
+        Files.writeString(
+                policyPath,
+                """
+                {
+                  "default": [{"type": "reject"}],
+                  "transports": {
+                    "docker": {
+                      "%s/library/alpine-signed": [{"type": "sigstoreSigned", "keyPath": "%s"}]
+                    }
+                  }
+                }
+                """
+                        .formatted(registry.getRegistry(), publicKeyPath.toAbsolutePath()));
+        ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
+
+        // Pull the manifest with the policy: the attached signature is fetched and verified.
+        Registry verifyingRegistry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .withPolicy(policy)
+                .build();
+        Manifest manifest = verifyingRegistry.getManifest(targetRef.withDigest(imageDigest));
+        assertNotNull(manifest);
+        assertEquals(imageDigest, manifest.getDescriptor().getDigest());
     }
 
     @Test

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPair;
 import java.util.List;
 import land.oras.TestUtils;
 import land.oras.exception.OrasException;
@@ -86,27 +87,13 @@ class ContainersPolicyTest {
         assertInstanceOf(
                 PolicyRequirement.Reject.class, policy.getDefaultRequirements().get(0));
 
-        // docker.io scope is insecureAcceptAnything
         assertTrue(policy.isAllowed("docker", "docker.io"));
-
-        // docker.io/library/ubuntu inherits docker.io (prefix match)
         assertTrue(policy.isAllowed("docker", "docker.io/library/ubuntu"));
-
-        // docker.io/library/nginx has an explicit reject override
         assertFalse(policy.isAllowed("docker", "docker.io/library/nginx"));
-
-        // quay.io falls through to transport default "" which is reject
         assertFalse(policy.isAllowed("docker", "quay.io/someimage"));
-
-        // quay.io/myorg is explicitly accepted
         assertTrue(policy.isAllowed("docker", "quay.io/myorg"));
-        // quay.io/myorg/app is a prefix match under quay.io/myorg
         assertTrue(policy.isAllowed("docker", "quay.io/myorg/app"));
-
-        // docker-daemon transport default is insecureAcceptAnything
         assertTrue(policy.isAllowed("docker-daemon", "anything"));
-
-        // Unknown transport falls through to global default (reject)
         assertFalse(policy.isAllowed("oci", "some/image"));
     }
 
@@ -114,8 +101,6 @@ class ContainersPolicyTest {
     void exactScopeMatchTakesPrecedenceOverPrefix() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // docker.io/library/nginx has explicit reject — takes precedence over docker.io accept
         List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "docker.io/library/nginx");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.Reject.class, reqs.get(0));
@@ -125,8 +110,6 @@ class ContainersPolicyTest {
     void longestPrefixMatchIsSelected() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // quay.io/myorg/app/subapp — longest prefix is quay.io/myorg
         List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "quay.io/myorg/app/subapp");
         assertEquals(1, reqs.size());
         assertInstanceOf(PolicyRequirement.InsecureAcceptAnything.class, reqs.get(0));
@@ -136,8 +119,6 @@ class ContainersPolicyTest {
     void wildcardSubdomainMatchAcceptsSubdomain() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // sub.example.com matches *.example.com → insecureAcceptAnything
         assertTrue(policy.isAllowed("docker", "sub.example.com/repo"));
         assertTrue(policy.isAllowed("docker", "other.example.com"));
     }
@@ -146,10 +127,7 @@ class ContainersPolicyTest {
     void wildcardWithPathMatchesMoreSpecificPath() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // sub.example.com/restricted matches *.example.com/restricted → reject
         assertFalse(policy.isAllowed("docker", "sub.example.com/restricted"));
-        // sub.example.com/restricted/deeper also matches *.example.com/restricted
         assertFalse(policy.isAllowed("docker", "sub.example.com/restricted/deeper"));
     }
 
@@ -157,9 +135,6 @@ class ContainersPolicyTest {
     void wildcardDoesNotMatchParentDomain() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // example.com itself does not match *.example.com
-        // falls through to transport "" (reject) → reject
         assertFalse(policy.isAllowed("docker", "example.com/repo"));
     }
 
@@ -167,8 +142,6 @@ class ContainersPolicyTest {
     void transportDefaultAppliesWhenNoScopeMatches() {
         Path path = resourcePath("policy/mixed.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // ghcr.io has no specific entry, transport "" is reject
         assertFalse(policy.isAllowed("docker", "ghcr.io/owner/image"));
     }
 
@@ -205,17 +178,13 @@ class ContainersPolicyTest {
     void evaluatingSignedByAcceptsWithWarning() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // SignedBy is not yet implemented, so it accepts (logs warning) instead of throwing
         assertTrue(policy.isAllowed("docker", "registry.example.com/signed"));
     }
 
     @Test
-    void evaluatingSigstoreSignedAcceptsWithWarning() {
+    void evaluatingSigstoreSignedPassesScopeGate() {
         Path path = resourcePath("policy/signing.json");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
-
-        // SigstoreSigned is not yet implemented, so it accepts (logs warning) instead of throwing
         assertTrue(policy.isAllowed("docker", "registry.example.com/cosign"));
     }
 
@@ -295,7 +264,7 @@ class ContainersPolicyTest {
         assertEquals("insecureAcceptAnything", new PolicyRequirement.InsecureAcceptAnything().getType());
         assertEquals("reject", new PolicyRequirement.Reject().getType());
         assertEquals("signedBy", new PolicyRequirement.SignedBy(null, null, null, null, null).getType());
-        assertEquals("sigstoreSigned", new PolicyRequirement.SigstoreSigned(null, null, null, null, null).getType());
+        assertEquals("sigstoreSigned", new PolicyRequirement.SigstoreSigned(null, null, null).getType());
     }
 
     @Test
@@ -320,6 +289,260 @@ class ContainersPolicyTest {
                 new SignedIdentity.RemapIdentity("mirror.example.com", "docker.io/library");
         assertEquals("mirror.example.com", remap.getPrefix());
         assertEquals("docker.io/library", remap.getSignedPrefix());
+    }
+
+    // ---- sigstoreSigned verification driven by policy.json format ----
+
+    @Test
+    void sigstoreSignedExactScopeVerifiesSignedImage(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy =
+                sigstorePolicy(dir, "registry.example.com/app", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        // A correctly signed image passes.
+        assertDoesNotThrow(() -> policy.verify(context(
+                "registry.example.com/app",
+                "registry.example.com/app:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+
+        // An unsigned image (no bundles attached) fails closed.
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> policy.verify(context("registry.example.com/app", "registry.example.com/app:latest")));
+        assertTrue(e.getMessage().contains("sigstoreSigned"));
+    }
+
+    @Test
+    void sigstoreSignedPrefixScopeAppliesToSubpaths(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy = sigstorePolicy(
+                dir, "registry.example.com/team", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        // Sub-path resolves to the prefix requirement.
+        List<PolicyRequirement> reqs = policy.resolveRequirements("docker", "registry.example.com/team/app");
+        assertEquals(1, reqs.size());
+        assertInstanceOf(PolicyRequirement.SigstoreSigned.class, reqs.get(0));
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "registry.example.com/team/app",
+                "registry.example.com/team/app:1.0",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(context("registry.example.com/team/app", "registry.example.com/team/app:1.0")));
+    }
+
+    @Test
+    void sigstoreSignedWildcardScopeAppliesToSubdomains(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy =
+                sigstorePolicy(dir, "*.example.com", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "sub.example.com/app",
+                "sub.example.com/app:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+        assertThrows(
+                OrasException.class, () -> policy.verify(context("sub.example.com/app", "sub.example.com/app:latest")));
+    }
+
+    @Test
+    void sigstoreSignedTransportDefaultApplies(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        // Empty scope key is the transport default.
+        ContainersPolicy policy = sigstorePolicy(dir, "", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "ghcr.io/owner/image",
+                "ghcr.io/owner/image:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+        assertThrows(
+                OrasException.class, () -> policy.verify(context("ghcr.io/owner/image", "ghcr.io/owner/image:latest")));
+    }
+
+    @Test
+    void sigstoreSignedGlobalDefaultApplies(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        Path path = dir.resolve("policy.json");
+        // language=json
+        Files.writeString(
+                path,
+                """
+                {"default": [{"type": "sigstoreSigned", "keyData": "%s"}]}
+                """
+                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+        ContainersPolicy policy = ContainersPolicy.newPolicy(path);
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "anything.io/x",
+                "anything.io/x:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+    }
+
+    @Test
+    void sigstoreSignedRejectsSignatureFromUntrustedKey(@TempDir Path dir) throws IOException {
+        KeyPair trusted = SigstoreTestSupport.generateKeyPair();
+        KeyPair attacker = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy = sigstorePolicy(
+                dir, "registry.example.com/app", "keyData", SigstoreTestSupport.keyData(trusted.getPublic()));
+
+        // Validly signed, but by a key that is not in the policy.
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(context(
+                        "registry.example.com/app",
+                        "registry.example.com/app:latest",
+                        SigstoreTestSupport.signedBundle(attacker.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+    }
+
+    @Test
+    void sigstoreSignedRejectsSignatureForDifferentDigest(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy =
+                sigstorePolicy(dir, "registry.example.com/app", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        // Bundle signs a different image digest than the one being pulled.
+        byte[] bundleForOtherImage = SigstoreTestSupport.signedBundle(kp.getPrivate(), "sha256:" + "1".repeat(64));
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(
+                        context("registry.example.com/app", "registry.example.com/app:latest", bundleForOtherImage)));
+    }
+
+    @Test
+    void sigstoreSignedWithKeyPathFromFile(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        Path keyFile = dir.resolve("cosign.pub");
+        Files.writeString(keyFile, SigstoreTestSupport.publicKeyPem(kp.getPublic()));
+
+        ContainersPolicy policy = sigstorePolicy(
+                dir, "registry.example.com/app", "keyPath", keyFile.toString().replace("\\", "\\\\"));
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "registry.example.com/app",
+                "registry.example.com/app:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+    }
+
+    @Test
+    void sigstoreSignedWithKeyDataInline(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        ContainersPolicy policy =
+                sigstorePolicy(dir, "registry.example.com/app", "keyData", SigstoreTestSupport.keyData(kp.getPublic()));
+
+        assertDoesNotThrow(() -> policy.verify(context(
+                "registry.example.com/app",
+                "registry.example.com/app:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+    }
+
+    @Test
+    void signedByGpgVerifyAcceptsWithWarning(@TempDir Path dir) throws IOException {
+        Path path = dir.resolve("policy.json");
+        // language=json
+        Files.writeString(
+                path,
+                """
+                {
+                  "default": [{"type": "reject"}],
+                  "transports": {
+                    "docker": {
+                      "registry.example.com/signed": [
+                        {"type": "signedBy", "keyType": "GPGKeys", "keyPath": "/etc/pki/containers/my-key.gpg"}
+                      ]
+                    }
+                  }
+                }
+                """);
+        ContainersPolicy policy = ContainersPolicy.newPolicy(path);
+
+        // GPG simple signing is not implemented: verify() warns and accepts (does not throw).
+        assertDoesNotThrow(
+                () -> policy.verify(context("registry.example.com/signed", "registry.example.com/signed:latest")));
+    }
+
+    @Test
+    void mixedScopesResolveAndVerifyIndependently(@TempDir Path dir) throws IOException {
+        KeyPair kp = SigstoreTestSupport.generateKeyPair();
+        Path path = dir.resolve("policy.json");
+        // language=json
+        Files.writeString(
+                path,
+                """
+                {
+                  "default": [{"type": "reject"}],
+                  "transports": {
+                    "docker": {
+                      "registry.example.com/open": [{"type": "insecureAcceptAnything"}],
+                      "registry.example.com/blocked": [{"type": "reject"}],
+                      "registry.example.com/secure": [{"type": "sigstoreSigned", "keyData": "%s"}]
+                    }
+                  }
+                }
+                """
+                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+        ContainersPolicy policy = ContainersPolicy.newPolicy(path);
+
+        // Open scope: accepted without signatures.
+        assertDoesNotThrow(
+                () -> policy.verify(context("registry.example.com/open", "registry.example.com/open:latest")));
+
+        // Blocked scope: always rejected.
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(context("registry.example.com/blocked", "registry.example.com/blocked:latest")));
+
+        // Secure scope: requires a valid signature.
+        assertDoesNotThrow(() -> policy.verify(context(
+                "registry.example.com/secure",
+                "registry.example.com/secure:latest",
+                SigstoreTestSupport.signedBundle(kp.getPrivate(), SigstoreTestSupport.IMAGE_DIGEST))));
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(context("registry.example.com/secure", "registry.example.com/secure:latest")));
+
+        // Unmatched scope: falls through to the global default (reject).
+        assertThrows(
+                OrasException.class,
+                () -> policy.verify(context("registry.example.com/unknown", "registry.example.com/unknown:latest")));
+    }
+
+    /**
+     * Write a policy.json with a global {@code reject} default and a single {@code sigstoreSigned}
+     * requirement under {@code docker} for the given scope key.
+     *
+     * @param dir      the temp directory to write into.
+     * @param scopeKey the transport scope key (use {@code ""} for the transport default).
+     * @param keyField the key field name, e.g. {@code "keyData"} or {@code "keyPath"}.
+     * @param keyValue the value of the key field.
+     * @return the loaded policy.
+     */
+    private static ContainersPolicy sigstorePolicy(Path dir, String scopeKey, String keyField, String keyValue)
+            throws IOException {
+        Path path = dir.resolve("policy.json");
+        // language=json
+        Files.writeString(
+                path,
+                """
+                {
+                  "default": [{"type": "reject"}],
+                  "transports": {
+                    "docker": {
+                      "%s": [{"type": "sigstoreSigned", "%s": "%s"}]
+                    }
+                  }
+                }
+                """
+                        .formatted(scopeKey, keyField, keyValue));
+        return ContainersPolicy.newPolicy(path);
+    }
+
+    /**
+     * Build a {@link PolicyContext} for the {@code docker} transport bound to
+     * {@link SigstoreTestSupport#IMAGE_DIGEST}, whose signature fetcher returns the given bundles.
+     */
+    private static PolicyContext context(String scope, String reference, byte[]... bundles) {
+        return new PolicyContext("docker", scope, SigstoreTestSupport.IMAGE_DIGEST, reference, () -> List.of(bundles));
     }
 
     private static Path resourcePath(String relative) {
