@@ -84,6 +84,9 @@ class RegistryWireMockTest {
     @TempDir
     private static Path homeDir3;
 
+    @TempDir
+    private static Path homeDir4;
+
     @Test
     void shouldPassBearerTokenWithExternalRequestedToken(WireMockRuntimeInfo wmRuntimeInfo) {
         Registry registry = Registry.Builder.builder()
@@ -267,6 +270,63 @@ class RegistryWireMockTest {
         } finally {
             redirectTarget.stop();
         }
+    }
+
+    @Test
+    void shouldNotForwardParentCredentialsToInsecureMirror(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+
+        String mirrorHost = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+
+        // The "original" registry (localhost:59998) is down and has an insecure mirror pointing at the
+        // WireMock server. The parent registry is configured with static basic-auth credentials — those
+        // credentials must NOT be forwarded to the mirror over plaintext HTTP.
+        // language=toml
+        String config =
+                """
+                [[registry]]
+                prefix = "localhost:59998"
+                location = "localhost:59998"
+
+                [[registry.mirror]]
+                location = "%s"
+                insecure = true
+                """
+                        .formatted(mirrorHost);
+        TestUtils.createRegistriesConfFile(homeDir4, config);
+
+        // language=json
+        String manifestJson =
+                """
+                {"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json",\
+                "config":{"mediaType":"application/vnd.oci.empty.v1+json",\
+                "digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},\
+                "layers":[]}""";
+
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String manifestPath = "/v2/library/cred-mirror/manifests/v1";
+        wireMock.register(WireMock.head(WireMock.urlEqualTo(manifestPath))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(manifestPath))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_MANIFEST_MEDIA_TYPE)
+                        .withBody(manifestJson)));
+
+        TestUtils.withHome(homeDir4, () -> {
+            Registry registry =
+                    Registry.Builder.builder().withAuthProvider(authProvider).build();
+            ContainerRef ref = ContainerRef.parse("localhost:59998/library/cred-mirror:v1");
+            Manifest manifest = registry.getManifest(ref);
+            assertNotNull(manifest, "Manifest should be fetched via the mirror");
+        });
+
+        // The mirror must have been contacted without the parent registry's Authorization header.
+        wireMock.verifyThat(
+                WireMock.getRequestedFor(WireMock.urlEqualTo(manifestPath)).withoutHeader(Const.AUTHORIZATION_HEADER));
+        wireMock.verifyThat(
+                WireMock.headRequestedFor(WireMock.urlEqualTo(manifestPath)).withoutHeader(Const.AUTHORIZATION_HEADER));
     }
 
     @Test

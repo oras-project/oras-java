@@ -505,6 +505,12 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return True if access to this container reference is insecure, false otherwise
      */
     public boolean isInsecure(Registry registry) {
+        // When the transport has been explicitly decided (e.g. for a specific mirror), honor it
+        // rather than re-resolving from registries.conf, so a registry-level insecure entry cannot
+        // silently downgrade an explicitly-secure connection to plaintext HTTP.
+        if (registry.isTransportLocked()) {
+            return registry.isInsecure();
+        }
         String effectiveRegistry = getEffectiveRegistry(registry);
         ContainerRef effectiveRef = forRegistry(effectiveRegistry);
         // Configuration is authoritative over the current registry

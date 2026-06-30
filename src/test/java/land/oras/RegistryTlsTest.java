@@ -285,4 +285,57 @@ class RegistryTlsTest {
             registry.deleteBlob(blobRef.withDigest(layerToDelete.getDigest()));
         });
     }
+
+    @Test
+    @Execution(ExecutionMode.SAME_THREAD)
+    void shouldNotDowngradeSecureMirrorWhenRegistryLevelInsecureSetForMirrorHost(
+            @TempDir Path homeDir, @TempDir Path blobDir) throws Exception {
+
+        // Push an artifact to the secure (HTTPS-only) registry used as the mirror
+        String mirror = tlsRegistry.getRegistry();
+        Registry setup = Registry.builder()
+                .withRegistry(mirror)
+                .withCaContent(tlsRegistry.getCaCertContent())
+                .build();
+        Path testFile = blobDir.resolve("secure-mirror.txt");
+        Files.writeString(testFile, "secure mirror content");
+        ContainerRef mirrorArtifact = ContainerRef.parse(mirror + "/test/secure-mirror:v1");
+        setup.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
+
+        // The "original" registry (localhost:59998) is down. Its mirror is the HTTPS-only registry,
+        // configured secure (the per-mirror insecure flag is not set). A *registry-level* [[registry]]
+        // entry marks the mirror host insecure=true — this MUST NOT downgrade the secure per-mirror
+        // connection to plaintext HTTP. The HTTPS-only container would refuse a plaintext request, so
+        // a successful manifest fetch proves the connection stayed on HTTPS.
+        // language=toml
+        String registriesConf =
+                """
+                [[registry]]
+                prefix = "localhost:59998"
+                location = "localhost:59998"
+
+                [[registry.mirror]]
+                location = "%s"
+
+                [[registry]]
+                prefix = "%s"
+                location = "%s"
+                insecure = true
+                """
+                        .formatted(mirror, mirror, mirror);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder()
+                    .withRegistry("localhost:59998")
+                    .withCaContent(tlsRegistry.getCaCertContent())
+                    .build();
+            ContainerRef ref = ContainerRef.parse("localhost:59998/test/secure-mirror:v1");
+            Manifest manifest = registry.getManifest(ref);
+            assertNotNull(
+                    manifest,
+                    "Secure mirror must be reached over HTTPS and not downgraded to HTTP by a registry-level insecure entry");
+        });
+    }
 }
