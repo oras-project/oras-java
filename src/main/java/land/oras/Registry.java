@@ -110,6 +110,14 @@ public final class Registry extends OCI<ContainerRef> {
     private boolean skipTlsVerify;
 
     /**
+     * Whether the transport (HTTP vs HTTPS) has been explicitly decided for this registry and must
+     * not be re-resolved from registries.conf. Set when a registry is derived to contact a specific
+     * mirror so that a registry-level {@code insecure} entry for the mirror host cannot silently
+     * downgrade an explicitly-secure per-mirror connection to plaintext HTTP.
+     */
+    private boolean transportLocked;
+
+    /**
      * Path to a PEM-encoded CA certificate or bundle for TLS verification
      */
     private @Nullable Path caFilePath;
@@ -268,6 +276,16 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
+     * Return whether the transport has been explicitly decided and must not be re-resolved from
+     * registries.conf. Used for mirror connections so a registry-level insecure entry cannot
+     * downgrade an explicitly-secure mirror.
+     * @return True if the transport is locked
+     */
+    boolean isTransportLocked() {
+        return transportLocked;
+    }
+
+    /**
      * Return the containers policy used for trust verification.
      * @return the containers policy
      */
@@ -297,6 +315,14 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private void setSkipTlsVerify(boolean skipTlsVerify) {
         this.skipTlsVerify = skipTlsVerify;
+    }
+
+    /**
+     * Lock or unlock the transport decision for this registry
+     * @param transportLocked Whether the transport is explicitly decided
+     */
+    private void setTransportLocked(boolean transportLocked) {
+        this.transportLocked = transportLocked;
     }
 
     /**
@@ -415,6 +441,60 @@ public final class Registry extends OCI<ContainerRef> {
                 .withInsecure(false)
                 .withSkipTlsVerify(false)
                 .build();
+    }
+
+    /**
+     * Return a new registry scoped to a specific mirror host, with the same settings as this registry
+     * except transport and credentials, which are taken from the mirror configuration:
+     * <ul>
+     *   <li>The transport is taken from the per-mirror insecure flag and locked, so a registry-level
+     *       {@code insecure} entry for the mirror host cannot silently downgrade a secure mirror to
+     *       plaintext HTTP (and an insecure parent cannot leak HTTP onto a secure mirror).</li>
+     *   <li>Credentials are re-scoped to the mirror host so the parent registry's credentials are
+     *       never forwarded verbatim to a different host, and never sent over plaintext.</li>
+     * </ul>
+     * @param mirrorHost The mirror host[:port] to contact
+     * @param insecureMirror Whether the mirror connection is plaintext HTTP
+     * @return The new registry scoped to the mirror
+     */
+    private Registry copyForMirror(String mirrorHost, boolean insecureMirror) {
+        return new Builder()
+                .from(this)
+                .withRegistry(mirrorHost)
+                .withInsecure(insecureMirror)
+                // Mirror the asSecure() behaviour: a secure mirror always verifies TLS.
+                .withSkipTlsVerify(insecureMirror && skipTlsVerify)
+                .withTransportLocked(true)
+                .withAuthProvider(resolveMirrorAuthProvider(mirrorHost, insecureMirror))
+                .build();
+    }
+
+    /**
+     * Resolve the auth provider to use when contacting a mirror host. Credentials configured for the
+     * parent registry must never be sent to a mirror over plaintext HTTP, and the parent registry's
+     * static credentials (basic / bearer) must not be forwarded verbatim to a different host that the
+     * credentials were not scoped for.
+     * @param mirrorHost The mirror host[:port]
+     * @param insecureMirror Whether the mirror connection is plaintext HTTP
+     * @return The auth provider to use for the mirror
+     */
+    private AuthProvider resolveMirrorAuthProvider(String mirrorHost, boolean insecureMirror) {
+        // Never send credentials over a plaintext connection to a mirror.
+        if (insecureMirror) {
+            return new NoAuthProvider();
+        }
+        // Same host as the parent registry: the credentials already belong to this host.
+        if (registry != null && mirrorHost.equalsIgnoreCase(registry)) {
+            return authProvider;
+        }
+        // Host-scoped providers resolve credentials per target host (from the auth store) and are
+        // safe to reuse — they only emit a header if a credential exists for the mirror host.
+        if (authProvider instanceof AuthStoreAuthenticationProvider) {
+            return authProvider;
+        }
+        // Static credentials (basic / bearer) are scoped to the parent host only — do not forward
+        // them to a different mirror host.
+        return new NoAuthProvider();
     }
 
     /**
@@ -1292,8 +1372,8 @@ public final class Registry extends OCI<ContainerRef> {
             String mirrorLocation = mirror.location();
             if (mirrorLocation == null || mirrorLocation.isBlank()) continue;
             ContainerRef mirrorRef = registriesConf.rewriteForMirror(containerRef, mirror);
-            // Use only the host[:port] for copy() — the path prefix is already baked into mirrorRef
-            // by rewriteForMirror, so including it here would double-apply the path.
+            // Use only the host[:port] for copyForMirror() — the path prefix is already baked into
+            // mirrorRef by rewriteForMirror, so including it here would double-apply the path.
             // Strip any scheme (e.g., "https://") before extracting the host.
             String locationNoScheme = mirrorLocation.contains("://")
                     ? mirrorLocation.substring(mirrorLocation.indexOf("://") + 3)
@@ -1301,11 +1381,7 @@ public final class Registry extends OCI<ContainerRef> {
             String mirrorHost = locationNoScheme.contains("/")
                     ? locationNoScheme.substring(0, locationNoScheme.indexOf('/'))
                     : locationNoScheme;
-            // Transport settings come from the mirror config, not from the parent registry.
-            // Use asInsecure/asSecure unconditionally so an insecure parent never leaks HTTP
-            // onto a secure mirror, and a secure parent never blocks an insecure mirror.
-            Registry mirrorBase = copy(mirrorHost);
-            Registry mirrorRegistry = mirror.isInsecure() ? mirrorBase.asInsecure() : mirrorBase.asSecure();
+            Registry mirrorRegistry = copyForMirror(mirrorHost, mirror.isInsecure());
             try {
                 LOG.debug("Trying mirror {} for {}", mirrorLocation, containerRef);
                 return operation.apply(mirrorRegistry, mirrorRef);
@@ -1654,6 +1730,7 @@ public final class Registry extends OCI<ContainerRef> {
             this.registry.setInsecure(registry.insecure);
             this.registry.setRegistry(registry.registry);
             this.registry.setSkipTlsVerify(registry.skipTlsVerify);
+            this.registry.setTransportLocked(registry.transportLocked);
             this.registry.setExecutorService(registry.executorService);
             this.registry.setParallelism(registry.maxConcurrentDownloads);
             this.registry.setMaxRetries(registry.maxRetries);
@@ -1795,6 +1872,17 @@ public final class Registry extends OCI<ContainerRef> {
          */
         public Builder withSkipTlsVerify(boolean skipTlsVerify) {
             registry.setSkipTlsVerify(skipTlsVerify);
+            return this;
+        }
+
+        /**
+         * Lock the transport decision so it is taken from the {@code insecure} flag of this builder
+         * rather than re-resolved from registries.conf. Used for mirror connections.
+         * @param transportLocked Whether the transport is explicitly decided
+         * @return The builder
+         */
+        Builder withTransportLocked(boolean transportLocked) {
+            registry.setTransportLocked(transportLocked);
             return this;
         }
 
