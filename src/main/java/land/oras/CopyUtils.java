@@ -20,6 +20,7 @@ package land.oras;
  * =LICENSEEND=
  */
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -39,6 +40,12 @@ public final class CopyUtils {
      * The logger
      */
     protected static final Logger LOG = LoggerFactory.getLogger(CopyUtils.class);
+
+    /**
+     * Maximum recursion depth when copying nested indexes and referrer graphs.
+     * Avoid malicious source that serves an unbounded chain, protecting the copier from a StackOverflow.
+     */
+    private static final int MAX_COPY_DEPTH = 32;
 
     /**
      * Private constructor
@@ -194,10 +201,44 @@ public final class CopyUtils {
                     OCI<TargetRefType> target,
                     TargetRefType targetRef,
                     CopyOptions options) {
+        copy(source, sourceRef, target, targetRef, options, new HashSet<>(), 0);
+    }
+
+    /**
+     * Copy a container from source to target, tracking visited digests and recursion depth to guard
+     * against a malicious source that serves a cyclic or unbounded-depth index/referrer graph.
+     * @param visited The digests already copied in this operation (cycle and diamond guard)
+     * @param depth The current recursion depth
+     */
+    private static <
+                    SourceRefType extends Ref<@NonNull SourceRefType>,
+                    TargetRefType extends Ref<@NonNull TargetRefType>>
+            void copy(
+                    OCI<SourceRefType> source,
+                    SourceRefType sourceRef,
+                    OCI<TargetRefType> target,
+                    TargetRefType targetRef,
+                    CopyOptions options,
+                    Set<String> visited,
+                    int depth) {
+
+        if (depth > MAX_COPY_DEPTH) {
+            LOG.error("Depth exceeded for copy of {}", sourceRef.getRepository());
+            throw new OrasException(
+                    "Maximum copy recursion depth (%d) exceeded; the source may serve an unbounded index or referrer graph"
+                            .formatted(MAX_COPY_DEPTH));
+        }
 
         boolean includeReferrers = options.includeReferrers();
 
         Descriptor descriptor = source.probeDescriptor(sourceRef);
+
+        // Guard against cycles from malicious source
+        String probedDigest = descriptor.getDigest();
+        if (probedDigest != null && !visited.add(probedDigest)) {
+            LOG.warn("Skipping already-copied content {} (cycle or shared reference)", probedDigest);
+            return;
+        }
 
         // Get the resolved source registry
         String resolveSourceRegistry = descriptor.getRegistry();
@@ -247,7 +288,9 @@ public final class CopyUtils {
                             effectiveSourceRef.withDigest(referer.getDigest()),
                             target,
                             effectiveTargetRef.withDigest(referer.getDigest()),
-                            options);
+                            options,
+                            visited,
+                            depth + 1);
                 }
             } else {
                 LOG.debug("Not including referrers on copy of manifest {}", manifestDigest);
@@ -318,7 +361,9 @@ public final class CopyUtils {
                             effectiveSourceRef.withDigest(manifestDescriptor.getDigest()),
                             target,
                             effectiveTargetRef.withDigest(manifestDescriptor.getDigest()),
-                            options);
+                            options,
+                            visited,
+                            depth + 1);
                     LOG.debug("Copied nested index {}", manifestDescriptor.getDigest());
                 }
             }
