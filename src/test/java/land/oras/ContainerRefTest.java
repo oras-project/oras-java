@@ -269,14 +269,14 @@ class ContainerRefTest {
     }
 
     @Test
-    void shouldParseImageWithNoTag() {
+    void shouldParseImageWithDigestAndNoTag() {
         ContainerRef containerRef = ContainerRef.parse("docker.io/alpine@sha256:1234567890abcdef");
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("registry-1.docker.io/v2/library/alpine/tags/list", containerRef.getTagsPath());
         assertEquals("library", containerRef.getNamespace());
         assertEquals("library", containerRef.getNamespace(Registry.builder().build()));
         assertEquals("alpine", containerRef.getRepository());
-        assertEquals("latest", containerRef.getTag());
+        assertNull(containerRef.getTag(), "Tag must be null");
         assertEquals(
                 "registry-1.docker.io/v2/library/alpine/blobs/sha256:1234567890abcdef",
                 containerRef.getBlobsPath(null));
@@ -291,7 +291,7 @@ class ContainerRefTest {
         assertEquals("docker.io", containerRef.getRegistry());
         assertEquals("foobar", containerRef.getNamespace());
         assertEquals("alpine", containerRef.getRepository());
-        assertEquals("latest", containerRef.getTag());
+        assertNull(containerRef.getTag(), "Tag must be null");
         assertEquals(
                 "registry-1.docker.io/v2/foobar/alpine/blobs/sha256:1234567890abcdef", containerRef.getBlobsPath(null));
         assertEquals(
