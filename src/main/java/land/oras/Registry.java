@@ -42,8 +42,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-import land.oras.OCI.PullOptions;
-import land.oras.OCI.PushOptions;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
@@ -202,10 +200,10 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = targetRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().mountBlob(sourceRef, targetRef);
+            return copyForNewTransport(ref.getRegistry(), true).mountBlob(sourceRef, ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().mountBlob(sourceRef, targetRef);
+            return copyForNewTransport(ref.getRegistry(), false).mountBlob(sourceRef, ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
         HttpClient.ResponseWrapper<String> response = client.post(
@@ -425,7 +423,7 @@ public final class Registry extends OCI<ContainerRef> {
      * Return a new registry as insecure but with same settings
      * @return The new registry
      */
-    public Registry asInsecure() {
+    Registry asInsecure() {
         LOG.debug("Creating a new registry as insecure (HTTP)");
         return new Builder().from(this).withInsecure(true).build();
     }
@@ -434,7 +432,7 @@ public final class Registry extends OCI<ContainerRef> {
      * Return a new registry as secure (HTTPS, TLS verified) but with same settings
      * @return The new registry
      */
-    public Registry asSecure() {
+    Registry asSecure() {
         LOG.debug("Creating a new registry as secure (HTTPS, TLS verified)");
         return new Builder()
                 .from(this)
@@ -444,57 +442,49 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
-     * Return a new registry scoped to a specific mirror host, with the same settings as this registry
+     * Return a new registry scoped to a specific host with new transport (HTTP/HTTPS), with the same settings as this registry
      * except transport and credentials, which are taken from the mirror configuration:
-     * <ul>
-     *   <li>The transport is taken from the per-mirror insecure flag and locked, so a registry-level
-     *       {@code insecure} entry for the mirror host cannot silently downgrade a secure mirror to
-     *       plaintext HTTP (and an insecure parent cannot leak HTTP onto a secure mirror).</li>
-     *   <li>Credentials are re-scoped to the mirror host so the parent registry's credentials are
-     *       never forwarded verbatim to a different host, and never sent over plaintext.</li>
-     * </ul>
      * @param mirrorHost The mirror host[:port] to contact
      * @param insecureMirror Whether the mirror connection is plaintext HTTP
      * @return The new registry scoped to the mirror
      */
-    private Registry copyForMirror(String mirrorHost, boolean insecureMirror) {
+    private Registry copyForNewTransport(String mirrorHost, boolean insecureMirror) {
+
+        // Never send credentials over a plaintext connection to a mirror.
+        AuthProvider mirrorAuthProvider = null;
+        if (insecureMirror) {
+            LOG.warn(
+                    "Using no authentication due to downgrade to insecure mirror from '{}' to '{}'",
+                    registry,
+                    mirrorHost);
+            mirrorAuthProvider = new NoAuthProvider();
+        }
+
+        // Same host as the parent registry: the credentials already belong to this host.
+        if (mirrorHost.equalsIgnoreCase(registry)) {
+            LOG.debug("Reusing same auth provider for mirror");
+            mirrorAuthProvider = this.authProvider;
+        }
+
+        // Safe to reuse
+        if (authProvider instanceof AuthStoreAuthenticationProvider) {
+            LOG.debug("Using auth store authentication provider for mirror");
+            mirrorAuthProvider = authProvider;
+        }
+
+        if (mirrorAuthProvider == null) {
+            LOG.debug("Using no authentication provider for mirror");
+            mirrorAuthProvider = new NoAuthProvider();
+        }
+
         return new Builder()
                 .from(this)
                 .withRegistry(mirrorHost)
                 .withInsecure(insecureMirror)
-                // Mirror the asSecure() behaviour: a secure mirror always verifies TLS.
                 .withSkipTlsVerify(insecureMirror && skipTlsVerify)
                 .withTransportLocked(true)
-                .withAuthProvider(resolveMirrorAuthProvider(mirrorHost, insecureMirror))
+                .withAuthProvider(mirrorAuthProvider)
                 .build();
-    }
-
-    /**
-     * Resolve the auth provider to use when contacting a mirror host. Credentials configured for the
-     * parent registry must never be sent to a mirror over plaintext HTTP, and the parent registry's
-     * static credentials (basic / bearer) must not be forwarded verbatim to a different host that the
-     * credentials were not scoped for.
-     * @param mirrorHost The mirror host[:port]
-     * @param insecureMirror Whether the mirror connection is plaintext HTTP
-     * @return The auth provider to use for the mirror
-     */
-    private AuthProvider resolveMirrorAuthProvider(String mirrorHost, boolean insecureMirror) {
-        // Never send credentials over a plaintext connection to a mirror.
-        if (insecureMirror) {
-            return new NoAuthProvider();
-        }
-        // Same host as the parent registry: the credentials already belong to this host.
-        if (registry != null && mirrorHost.equalsIgnoreCase(registry)) {
-            return authProvider;
-        }
-        // Host-scoped providers resolve credentials per target host (from the auth store) and are
-        // safe to reuse — they only emit a header if a credential exists for the mirror host.
-        if (authProvider instanceof AuthStoreAuthenticationProvider) {
-            return authProvider;
-        }
-        // Static credentials (basic / bearer) are scoped to the parent host only — do not forward
-        // them to a different mirror host.
-        return new NoAuthProvider();
     }
 
     /**
@@ -514,10 +504,10 @@ public final class Registry extends OCI<ContainerRef> {
     public Tags getTags(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getTags(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).getTags(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getTags(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).getTags(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
@@ -532,10 +522,10 @@ public final class Registry extends OCI<ContainerRef> {
     public Tags getTags(ContainerRef containerRef, int n, @Nullable String last) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getTags(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).getTags(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getTags(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).getTags(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this, n, last)));
         HttpClient.ResponseWrapper<String> response = client.get(
@@ -576,10 +566,10 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getReferrers(containerRef, artifactType);
+            return copyForNewTransport(ref.getRegistry(), true).getReferrers(ref, artifactType);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getReferrers(containerRef, artifactType);
+            return copyForNewTransport(ref.getRegistry(), false).getReferrers(ref, artifactType);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType)));
         HttpClient.ResponseWrapper<String> response = client.get(
@@ -624,10 +614,10 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushManifest(ref, manifest);
+            return copyForNewTransport(ref.getRegistry(), true).pushManifest(ref, manifest);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushManifest(ref, manifest);
+            return copyForNewTransport(ref.getRegistry(), false).pushManifest(ref, manifest);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] manifestData = manifest.getJson() != null
@@ -668,10 +658,10 @@ public final class Registry extends OCI<ContainerRef> {
 
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushIndex(containerRef, index);
+            return copyForNewTransport(ref.getRegistry(), true).pushIndex(ref, index);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushIndex(containerRef, index);
+            return copyForNewTransport(ref.getRegistry(), false).pushIndex(ref, index);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         byte[] indexData = JsonUtils.toJson(index).getBytes();
@@ -801,10 +791,10 @@ public final class Registry extends OCI<ContainerRef> {
         LOG.debug("Digest: {}", digest);
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlob(ref, blob, annotations);
+            return copyForNewTransport(ref.getRegistry(), true).pushBlob(ref, blob, annotations);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushBlob(ref, blob, annotations);
+            return copyForNewTransport(ref.getRegistry(), false).pushBlob(ref, blob, annotations);
         }
         // This might not works with registries performing HEAD request
         if (hasBlob(ref.withDigest(digest))) {
@@ -865,10 +855,10 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef containerRef = ref.forRegistry(this).checkBlocked(this);
         if (containerRef.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlob(ref, size, stream, annotations);
+            return copyForNewTransport(ref.getRegistry(), true).pushBlob(ref, size, stream, annotations);
         }
         if (!containerRef.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushBlob(ref, size, stream, annotations);
+            return copyForNewTransport(ref.getRegistry(), false).pushBlob(ref, size, stream, annotations);
         }
         if (hasBlob(containerRef)) {
             LOG.info("Blob already exists: {}", digest);
@@ -917,10 +907,10 @@ public final class Registry extends OCI<ContainerRef> {
         String digest = containerRef.getAlgorithm().digest(data);
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlob(containerRef, data);
+            return copyForNewTransport(ref.getRegistry(), true).pushBlob(ref, data);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushBlob(containerRef, data);
+            return copyForNewTransport(ref.getRegistry(), false).pushBlob(ref, data);
         }
         if (ref.getDigest() != null) {
             ensureDigest(ref, data);
@@ -989,10 +979,10 @@ public final class Registry extends OCI<ContainerRef> {
         String digest = containerRef.getAlgorithm().digest(blob);
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlobChunked(containerRef, blob, chunkSize);
+            return copyForNewTransport(ref.getRegistry(), true).pushBlobChunked(ref, blob, chunkSize);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushBlobChunked(containerRef, blob, chunkSize);
+            return copyForNewTransport(ref.getRegistry(), false).pushBlobChunked(ref, blob, chunkSize);
         }
         if (hasBlob(ref.withDigest(digest))) {
             LOG.info("Blob already exists: {}", digest);
@@ -1029,10 +1019,10 @@ public final class Registry extends OCI<ContainerRef> {
         }
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().pushBlobChunked(containerRef, stream, totalSize, chunkSize);
+            return copyForNewTransport(ref.getRegistry(), true).pushBlobChunked(ref, stream, totalSize, chunkSize);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().pushBlobChunked(containerRef, stream, totalSize, chunkSize);
+            return copyForNewTransport(ref.getRegistry(), false).pushBlobChunked(ref, stream, totalSize, chunkSize);
         }
         if (hasBlob(ref)) {
             LOG.info("Blob already exists: {}", digest);
@@ -1144,10 +1134,10 @@ public final class Registry extends OCI<ContainerRef> {
     private HttpClient.ResponseWrapper<String> headBlob(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().headBlob(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).headBlob(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().headBlob(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).headBlob(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
@@ -1172,10 +1162,10 @@ public final class Registry extends OCI<ContainerRef> {
     private byte[] getBlobDirect(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getBlobDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).getBlobDirect(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getBlobDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).getBlobDirect(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
@@ -1228,10 +1218,10 @@ public final class Registry extends OCI<ContainerRef> {
     private InputStream fetchBlobDirect(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().fetchBlobDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).fetchBlobDirect(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().fetchBlobDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).fetchBlobDirect(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<InputStream> response = client.download(
@@ -1347,10 +1337,10 @@ public final class Registry extends OCI<ContainerRef> {
     boolean exists(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().exists(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).exists(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().exists(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).exists(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
@@ -1381,7 +1371,7 @@ public final class Registry extends OCI<ContainerRef> {
             String mirrorHost = locationNoScheme.contains("/")
                     ? locationNoScheme.substring(0, locationNoScheme.indexOf('/'))
                     : locationNoScheme;
-            Registry mirrorRegistry = copyForMirror(mirrorHost, mirror.isInsecure());
+            Registry mirrorRegistry = copyForNewTransport(mirrorHost, mirror.isInsecure());
             try {
                 LOG.debug("Trying mirror {} for {}", mirrorLocation, containerRef);
                 return operation.apply(mirrorRegistry, mirrorRef);
@@ -1404,10 +1394,10 @@ public final class Registry extends OCI<ContainerRef> {
     private HttpClient.ResponseWrapper<String> getManifestResponseDirect(ContainerRef containerRef) {
         ContainerRef ref = containerRef.forRegistry(this).checkBlocked(this);
         if (ref.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getManifestResponseDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), true).getManifestResponseDirect(ref);
         }
         if (!ref.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getManifestResponseDirect(containerRef);
+            return copyForNewTransport(ref.getRegistry(), false).getManifestResponseDirect(ref);
         }
         URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
@@ -1636,13 +1626,13 @@ public final class Registry extends OCI<ContainerRef> {
      * @return The resolved registry and headers
      */
     ResolvedRegistry getResolvedHeaders(ContainerRef containerRef) {
-        if (containerRef.isInsecure(this) && !this.isInsecure()) {
-            return asInsecure().getResolvedHeaders(containerRef);
-        }
-        if (!containerRef.isInsecure(this) && this.isInsecure()) {
-            return asSecure().getResolvedHeaders(containerRef);
-        }
         ContainerRef ref = containerRef.forRegistry(this);
+        if (ref.isInsecure(this) && !this.isInsecure()) {
+            return copyForNewTransport(ref.getRegistry(), true).getResolvedHeaders(ref);
+        }
+        if (!ref.isInsecure(this) && this.isInsecure()) {
+            return copyForNewTransport(ref.getRegistry(), false).getResolvedHeaders(ref);
+        }
         URI uri = URI.create(
                 "%s://%s".formatted(getScheme(), ref.forRegistry(this).getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
