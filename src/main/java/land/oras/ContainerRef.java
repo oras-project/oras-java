@@ -446,7 +446,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
             registry = Const.DEFAULT_REGISTRY;
             unqualified = true;
         }
-        if (tag == null) {
+        if (tag == null && digest == null) {
             tag = Const.DEFAULT_TAG;
         }
         // Strip the trailing slash from the namespace
