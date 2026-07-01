@@ -165,6 +165,35 @@ All models are immutable-style; use `with*()` methods to derive modified copies.
 
 The empty config blob (`{}`, base64 `e30=`, digest `sha256:44136fa3...`) is used as the standard no-op config for non-image ORAS artifacts.
 
+### Reference resolution and security evaluation order
+
+Security decisions are always evaluated against the **effective (resolved)**
+reference, never the raw reference passed by the caller. The order is fixed:
+
+1. **Resolve** — short-name / unqualified-search expansion (`nginx` →
+   `docker.io/library/nginx`), `registries.conf` `prefix` → `location` rewrites, and
+   mirror selection. See `RegistriesConf.rewrite` / `rewriteForMirror` and
+   `ContainerRef.getEffectiveRegistry`.
+2. **Evaluate** — `ContainerRef.isBlocked` / `isInsecure` and the containers trust
+   policy, all computed on the resolved reference (`ContainerRef.checkBlocked`,
+   `Registry.verifyContainersPolicy`).
+3. **Connect** — HTTP request.
+
+Do **not** move blocked/insecure/policy checks before rewriting. Binding them to the
+resolved host is deliberate: it prevents a mirror or alias from redirecting traffic
+to a blocked or plaintext host that was only cleared under its original name.
+`transportLocked` (`ContainerRef.isInsecure:511`) further prevents a registry-level
+`insecure` entry from downgrading an explicitly-secure mirror connection.
+
+Known, intentional limitations (do not "fix" without a design discussion):
+- **Repo-level policy scope.** `ContainerRef.java` strips `:tag`/`@digest` before
+  policy matching (the `policy.json` format is repository-scoped). Policy cannot
+  target an individual tag or digest.
+- **Policy is a pull-time gate.** `getManifest` runs `verifyContainersPolicy`;
+  `deleteManifest` only runs `checkBlocked`. Deletes are not content-verified.
+- **Config is trusted.** `registries.conf` / `policy.json` are operator-controlled;
+  an attacker able to edit them is outside the threat model.
+
 ### Authentication
 
 `AuthProvider` interface with implementations:

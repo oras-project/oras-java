@@ -303,6 +303,36 @@ mirror-by-digest-only = false   # set to true to restrict all mirrors to digest-
   pull-from-mirror = "digest-only"
 ```
 
+### Resolution and evaluation order
+
+Reference resolution always happens **before** any security decision, and every
+security decision is evaluated against the **effective (resolved) reference** — not
+the reference originally supplied. For each operation the SDK:
+
+1. **Resolves** the reference: short-name / unqualified-search expansion (e.g.
+   `nginx` → `docker.io/library/nginx`), `prefix` → `location` rewrites, and mirror
+   selection.
+2. **Evaluates** `blocked`, `insecure` (HTTP vs HTTPS) and the trust policy against
+   that resolved reference.
+3. **Connects** and transfers bytes.
+
+This ordering is intentional: block-list and plaintext decisions must bind to the
+host the request actually reaches. Evaluating them on the pre-rewrite reference
+would let a mirror or alias redirect traffic to a blocked or plaintext host while
+the check passed on the original name. `registries.conf` and `policy.json` are
+trusted operator-controlled configuration; a threat model in which an attacker can
+edit those files is out of scope (that host is already compromised).
+
+Two consequences worth noting:
+
+- **Policy scope is repository-level.** The `policy.json` format scopes rules to
+  `registry[/namespace/repository]` only — tags and digests are stripped before
+  matching. A policy rule *cannot* protect (or single out) a specific tag or digest.
+- **The trust policy is a pull-time gate.** Manifest/index *pulls* are verified
+  against the policy; *deletes* are only checked against `blocked`/`insecure`, never
+  content-verified. Protecting a specific digest from deletion must be enforced by
+  registry-side RBAC / tag immutability, not by the client trust policy.
+
 ## Trust policy
 
 The ORAS Java SDK can enforce a containers trust policy when pulling, using the
