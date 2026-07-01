@@ -215,6 +215,8 @@ public final class CopyUtils {
         SourceRefType effectiveSourceRef = sourceRef.forTarget(source).forTarget(resolveSourceRegistry);
         TargetRefType effectiveTargetRef = targetRef.forTarget(target).forTarget(effectiveTargetRegistry);
 
+        LOG.info("Copying from {} to {}", effectiveSourceRef.getRepository(), effectiveTargetRef.getRepository());
+
         // Single manifest
         if (source.isManifestMediaType(contentType)) {
 

@@ -943,14 +943,11 @@ class RegistryTest {
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldListReferrers(@TempDir Path homeDir) throws Exception {
-        Registry registry = Registry.Builder.builder()
-                .defaults("myuser", "mypass")
-                .withInsecure(true)
-                .build();
+        Registry registry = Registry.Builder.builder().withInsecure(true).build();
 
         // Manifest 1
         ContainerRef containerRef1 =
-                ContainerRef.parse("%s/library/manifest1:latest".formatted(this.registry.getRegistry()));
+                ContainerRef.parse("%s/library/manifest1:latest".formatted(this.unsecureRegistry.getRegistry()));
 
         String content1 = "hello";
         String content2 = "world";
@@ -980,7 +977,7 @@ class RegistryTest {
         // Push second manifest with its digest
         ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest1@%s"
                 .formatted(
-                        this.registry.getRegistry(),
+                        this.unsecureRegistry.getRegistry(),
                         SupportedAlgorithm.SHA256.digest(manifest2.toJson().getBytes(StandardCharsets.UTF_8))));
         registry.pushManifest(containerRef2, manifest2);
 
@@ -1033,7 +1030,7 @@ class RegistryTest {
             location = "%s"
             insecure = true
             """
-                        .formatted(this.registry.getRegistry());
+                        .formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -1235,7 +1232,7 @@ class RegistryTest {
             location = "%s"
             insecure = true
             """
-                        .formatted(this.registry.getRegistry(), this.registry.getRegistry());
+                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         // Copy to same registry
@@ -1265,7 +1262,7 @@ class RegistryTest {
     @Execution(ExecutionMode.SAME_THREAD)
     void testShouldCopyFromAliasToAlias(@TempDir Path homeDir) throws Exception {
 
-        try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
+        try (ZotUnsecureContainer otherRegistryContainer = new ZotUnsecureContainer()) {
 
             otherRegistryContainer.start();
 
@@ -1285,18 +1282,16 @@ class RegistryTest {
                 insecure = true
                 """
                             .formatted(
-                                    this.registry.getRegistry(),
+                                    this.unsecureRegistry.getRegistry(),
                                     otherRegistryContainer.getRegistry(),
-                                    this.registry.getRegistry(),
+                                    this.unsecureRegistry.getRegistry(),
                                     otherRegistryContainer.getRegistry());
             TestUtils.createRegistriesConfFile(homeDir, config);
 
             // Copy to same registry
             TestUtils.withHome(homeDir, () -> {
                 try {
-                    Registry registry = Registry.Builder.builder()
-                            .defaults("myuser", "mypass")
-                            .build();
+                    Registry registry = Registry.Builder.builder().build();
 
                     ContainerRef containerSource = ContainerRef.parse("the-source");
                     Path file1 = blobDir.resolve("source.txt");
@@ -2498,7 +2493,7 @@ class RegistryTest {
         Registry registryNormal = Registry.Builder.builder()
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
-                .withPolicy(land.oras.policy.ContainersPolicy.acceptAll())
+                .withPolicy(ContainersPolicy.acceptAll())
                 .build();
 
         ContainerRef containerRef =

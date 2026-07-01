@@ -376,14 +376,14 @@ class RegistryMirrorTest {
         TestUtils.withHome(homeDir, () -> {
             Registry registry = Registry.builder().insecure().defaults().build();
 
-            // Tag pull → mirror-by-digest-only skips all mirrors → fails with original down
+            // Tag pull, mirror-by-digest-only skips all mirrors. Fail with original down
             ContainerRef tagRef = ContainerRef.parse("localhost:59998/test/mbd-mirror:v1");
             assertThrows(
                     land.oras.exception.OrasException.class,
                     () -> registry.getManifest(tagRef),
                     "mirror-by-digest-only must skip mirrors for tag-based pulls");
 
-            // Digest pull → mirror is used
+            // Digest pull, mirror is used
             ContainerRef digestRef =
                     ContainerRef.parse("localhost:59998/test/mbd-mirror:v1").withDigest(digest);
             Manifest manifest = registry.getManifest(digestRef);

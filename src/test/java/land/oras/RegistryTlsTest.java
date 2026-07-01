@@ -141,17 +141,8 @@ class RegistryTlsTest {
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldDowngradeToSecureWhenConfigExplicitlyNotInsecure(@TempDir Path homeDir) throws Exception {
-        // Build a registry as insecure (HTTP) but with the CA cert preserved so that
-        // after asSecure() the TLS handshake can succeed.
-        Registry insecureWithCa = Registry.builder()
-                .withRegistry(tlsRegistry.getRegistry())
-                .withInsecure(true)
-                .withCaContent(tlsRegistry.getCaCertContent())
-                .build();
 
-        // Config entry with insecure=false makes the config authoritative over the parent's
-        // insecure flag — ContainerRef.isInsecure() returns false, triggering the downgrade
-        // guard which calls asSecure() and routes the request over HTTPS.
+        // Authoritative parent
         // language=toml
         String registriesConf =
                 """
