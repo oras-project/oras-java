@@ -480,4 +480,111 @@ class AuthStoreTest {
         // Clean up by deleting the temporary file
         Files.delete(tempDir);
     }
+
+    @Test
+    void testPasswordContainingColonIsPreserved() throws Exception {
+        String user = "user";
+        String password = "p@ss:with:colons";
+        String auth = java.util.Base64.getEncoder()
+                .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // language=json
+        String config =
+                """
+                {
+                    "auths": {
+                        "colon.registry.com": { "auth": "%s" }
+                    }
+                }
+                """
+                        .formatted(auth);
+        Path configFile = tempDir.resolve("colon-config.json");
+        Files.writeString(configFile, config);
+
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+        AuthStore.Credential credential = store.get(ContainerRef.parse("colon.registry.com/foo/bar:latest"));
+
+        assertNotNull(credential);
+        assertEquals(user, credential.username());
+        assertEquals(password, credential.password());
+    }
+
+    @Test
+    void testMalformedEntryIsSkippedWithoutDroppingOtherCredentials() throws Exception {
+        String malformed = java.util.Base64.getEncoder()
+                .encodeToString("no-colon-here".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String valid = java.util.Base64.getEncoder()
+                .encodeToString("user:password".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // language=json
+        String config =
+                """
+                {
+                    "auths": {
+                        "bad.registry.com": { "auth": "%s" },
+                        "good.registry.com": { "auth": "%s" }
+                    }
+                }
+                """
+                        .formatted(malformed, valid);
+        Path configFile = tempDir.resolve("malformed-config.json");
+        Files.writeString(configFile, config);
+
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+        assertNull(store.get(ContainerRef.parse("bad.registry.com/foo/bar:latest")));
+        AuthStore.Credential credential = store.get(ContainerRef.parse("good.registry.com/foo/bar:latest"));
+        assertNotNull(credential);
+        assertEquals("user", credential.username());
+        assertEquals("password", credential.password());
+    }
+
+    @Test
+    void testEmptyPasswordIsPreserved() throws Exception {
+        String auth =
+                java.util.Base64.getEncoder().encodeToString("user:".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // language=json
+        String config =
+                """
+                {
+                    "auths": {
+                        "empty.registry.com": { "auth": "%s" }
+                    }
+                }
+                """
+                        .formatted(auth);
+        Path configFile = tempDir.resolve("empty-pass-config.json");
+        Files.writeString(configFile, config);
+
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+        AuthStore.Credential credential = store.get(ContainerRef.parse("empty.registry.com/foo/bar:latest"));
+
+        assertNotNull(credential);
+        assertEquals("user", credential.username());
+        assertEquals("", credential.password());
+    }
+
+    @Test
+    void testPasswordWithArbitraryCharactersIsPreserved() throws Exception {
+        String user = "user";
+        String password = "p:ä ss\"w0rd\\:with=🔒:tail";
+        String auth = java.util.Base64.getEncoder()
+                .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // language=json
+        String config =
+                """
+                {
+                    "auths": {
+                        "any.registry.com": { "auth": "%s" }
+                    }
+                }
+                """
+                        .formatted(auth);
+        Path configFile = tempDir.resolve("any-char-config.json");
+        Files.writeString(configFile, config);
+
+        AuthStore store = AuthStore.newStore(List.of(configFile));
+        AuthStore.Credential credential = store.get(ContainerRef.parse("any.registry.com/foo/bar:latest"));
+
+        assertNotNull(credential);
+        assertEquals(user, credential.username());
+        assertEquals(password, credential.password());
+    }
 }

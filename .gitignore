@@ -1,3 +1,7 @@
+# Audit file
+AUDIT.md
+SECURITY_ADVISORIES.md
+
 # Compiled class file
 *.class
 

@@ -212,10 +212,13 @@ public class AuthStore {
                     String auth = value.get("auth");
                     if (auth != null) {
                         String base64Decoded =
-                                new String(java.util.Base64.getDecoder().decode(auth));
-                        String[] parts = base64Decoded.split(":");
+                                new String(java.util.Base64.getDecoder().decode(auth), StandardCharsets.UTF_8);
+                        String[] parts = base64Decoded.split(":", 2);
                         if (parts.length != 2) {
-                            throw new OrasException("Invalid credential format");
+                            LOG.warn(
+                                    "Skipping credential for '{}': malformed auth entry (expected user:password)",
+                                    host);
+                            return;
                         }
                         config.credentialStore.put(host, new Credential(parts[0], parts[1]));
                     }
