@@ -1426,4 +1426,132 @@ class RegistryWireMockTest {
                 exStream.getMessage(),
                 "Exception message should include the unexpected status code");
     }
+
+    @Test
+    void shouldFailCopyWhenIndexNestingExceedsMaxDepth(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String repo = "library/deep-chain";
+
+        // A malicious source serves an unbounded chain of nested indexes
+        int levels = 40;
+        String[] digests = new String[levels + 2];
+        for (int i = 0; i < digests.length; i++) {
+            digests[i] = SupportedAlgorithm.SHA256.digest(("deep-chain-" + i).getBytes(StandardCharsets.UTF_8));
+        }
+
+        // Deeper levels
+        stubNestedSourceIndex(wireMock, repo, "chain", digests[0], digests[1]);
+        for (int i = 1; i <= levels; i++) {
+            stubNestedSourceIndex(wireMock, repo, digests[i], digests[i], digests[i + 1]);
+        }
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef source = ContainerRef.parse("localhost:%d/%s:chain".formatted(wmRuntimeInfo.getHttpPort(), repo));
+        ContainerRef target = ContainerRef.parse(
+                "localhost:%d/library/deep-chain-target:copy".formatted(wmRuntimeInfo.getHttpPort()));
+
+        OrasException e = assertThrows(
+                OrasException.class,
+                () -> CopyUtils.copy(registry, source, registry, target, CopyUtils.CopyOptions.deep()));
+        assertTrue(
+                e.getMessage().contains("recursion depth"),
+                "Expected a recursion depth error but got: " + e.getMessage());
+    }
+
+    @Test
+    void shouldCopyWithoutLoopingOnCyclicIndexGraph(WireMockRuntimeInfo wmRuntimeInfo) {
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String srcRepo = "library/cyclic-src";
+        String dstRepo = "library/cyclic-dst";
+
+        // A malicious source serves a self-referential index
+        String digestA = SupportedAlgorithm.SHA256.digest("cyclic-self".getBytes(StandardCharsets.UTF_8));
+
+        // Reference itself
+        stubNestedSourceIndex(wireMock, srcRepo, "self", digestA, digestA);
+        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA)))
+                .willReturn(WireMock.ok()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
+
+        // Generic target: accept any manifest push and return an empty index on the follow-up read.
+        String emptyIndex =
+                """
+                {
+                  "schemaVersion": 2,
+                  "mediaType": "%s",
+                  "manifests": []
+                }"""
+                        .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE);
+        wireMock.register(WireMock.put(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+                .willReturn(WireMock.created().withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
+        wireMock.register(WireMock.head(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+                .willReturn(WireMock.ok()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
+        wireMock.register(WireMock.get(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+                .willReturn(WireMock.ok()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)
+                        .withBody(emptyIndex)));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+
+        ContainerRef source =
+                ContainerRef.parse("localhost:%d/%s:self".formatted(wmRuntimeInfo.getHttpPort(), srcRepo));
+        ContainerRef target =
+                ContainerRef.parse("localhost:%d/%s:copy".formatted(wmRuntimeInfo.getHttpPort(), dstRepo));
+
+        // Terminates rather than looping / overflowing.
+        CopyUtils.copy(registry, source, registry, target, CopyUtils.CopyOptions.deep());
+
+        // The cycle guard returned before getIndex
+        wireMock.verifyThat(
+                0, WireMock.getRequestedFor(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA))));
+        wireMock.verifyThat(
+                WireMock.headRequestedFor(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA))));
+    }
+
+    /**
+     * Build the JSON of an index whose single entry is another index (the child).
+     */
+    private static String nestedIndexJson(String childDigest) {
+        return """
+                {
+                  "schemaVersion": 2,
+                  "mediaType": "%s",
+                  "manifests": [
+                    {
+                      "mediaType": "%s",
+                      "digest": "%s",
+                      "size": 100
+                    }
+                  ]
+                }"""
+                .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE, Const.DEFAULT_INDEX_MEDIA_TYPE, childDigest);
+    }
+
+    /**
+     * Stub HEAD + GET on a source index that references a single nested (child) index.
+     */
+    private static void stubNestedSourceIndex(
+            WireMock wireMock, String repo, String ref, String selfDigest, String childDigest) {
+        String url = "/v2/%s/manifests/%s".formatted(repo, ref);
+        wireMock.register(WireMock.head(WireMock.urlEqualTo(url))
+                .willReturn(WireMock.ok()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, selfDigest)));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(url))
+                .willReturn(WireMock.ok()
+                        .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
+                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, selfDigest)
+                        .withBody(nestedIndexJson(childDigest))));
+    }
 }
