@@ -85,4 +85,28 @@ class AuthStoreAuthenticationProviderTest {
     void testDefaultLocation() {
         new AuthStoreAuthenticationProvider();
     }
+
+    @Test
+    void identityShouldFollowTheResolvedCredentialPerRegistry() {
+        ContainerRef alpine = ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine"));
+        ContainerRef busybox = ContainerRef.parse("%s/%s".formatted(REGISTRY, "busybox"));
+
+        doReturn(new Credential("alice", "alice-pass")).when(mockAuthStore).get(alpine);
+        doReturn(new Credential("bob", "bob-pass")).when(mockAuthStore).get(busybox);
+
+        AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
+
+        assertEquals("BASIC:alice", authProvider.getIdentity(alpine));
+        assertEquals("BASIC:bob", authProvider.getIdentity(busybox));
+    }
+
+    @Test
+    void identityShouldFallBackToAnonymousWhenNoCredentialIsStored() {
+        doReturn(null).when(mockAuthStore).get(any(ContainerRef.class));
+
+        AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
+
+        assertEquals(
+                "BASIC:anonymous", authProvider.getIdentity(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine"))));
+    }
 }

@@ -42,4 +42,14 @@ public interface AuthProvider {
      * @return The authentication scheme
      */
     AuthScheme getAuthScheme();
+
+    /**
+     * Get an opaque identity marker for the credentials this provider resolves for the given registry. This marker is
+     * used to key {@link TokenCache} entries alongside the requested {@link Scopes}
+     * @param registry The registry
+     * @return A non-null identity marker
+     */
+    default String getIdentity(ContainerRef registry) {
+        return getAuthScheme().name();
+    }
 }

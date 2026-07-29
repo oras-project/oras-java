@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import land.oras.ContainerRef;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -83,5 +86,26 @@ public final class BearerTokenProvider implements AuthProvider {
     @Override
     public AuthScheme getAuthScheme() {
         return AuthScheme.BEARER;
+    }
+
+    @Override
+    public String getIdentity(ContainerRef registry) {
+        if (token == null) {
+            return "BEARER:none";
+        }
+        return "BEARER:" + fingerprint(token.token());
+    }
+
+    private static String fingerprint(String secret) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 6; i++) {
+                sb.append(String.format("%02x", hash[i]));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

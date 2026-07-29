@@ -42,11 +42,12 @@ class ScopesTest {
         assertSame(containerRef, scopes.getContainerRef());
         assertEquals("localhost:5000", scopes.getRegistry());
         assertEquals("docker", scopes.withService("docker").getService());
+        assertNull(scopes.getIdentity(), "Identity should be null by default");
         assertEquals(
-                "Scopes{scopes=[repository:library/test:pull], service='null', registry=localhost:5000}",
+                "Scopes{scopes=[repository:library/test:pull], service='null', identity='null', registry=localhost:5000}",
                 scopes.toString());
         assertEquals(
-                "Scopes{scopes=[repository:library/test:pull], service='docker', registry=localhost:5000}",
+                "Scopes{scopes=[repository:library/test:pull], service='docker', identity='null', registry=localhost:5000}",
                 scopes.withService("docker").toString());
         assertFalse(scopes.isGlobal(), "Scopes should not be global");
         assertTrue(
@@ -67,5 +68,44 @@ class ScopesTest {
         assertNotSame(newScopes, newScopes2, "Scopes should be immutable");
         assertEquals(1, newScopes2.getScopes().size());
         assertEquals("repository:library/test:pull,push", newScopes2.getScopes().get(0));
+    }
+
+    @Test
+    void shouldCarryIdentityThroughAllWithers() {
+        ContainerRef containerRef = ContainerRef.parse("localhost:5000/library/test:latest");
+        Scopes scopes = Scopes.of(containerRef, Scope.PULL).withIdentity("BASIC:alice");
+        assertEquals("BASIC:alice", scopes.getIdentity());
+
+        // Every wither must preserve the identity bound on the original instance
+        assertEquals("BASIC:alice", scopes.withService("docker").getIdentity());
+        assertEquals("BASIC:alice", scopes.withRegistryScopes(Scope.PUSH).getIdentity());
+        assertEquals("BASIC:alice", scopes.withAddedRegistryScopes(Scope.PUSH).getIdentity());
+        assertEquals("BASIC:alice", scopes.withAddedGlobalScopes("aws").getIdentity());
+        assertEquals(
+                "BASIC:alice",
+                scopes.withAddedGlobalScopes("aws").withOnlyGlobalScopes().getIdentity());
+        assertEquals(
+                "BASIC:alice",
+                scopes.withAddedGlobalScopes("aws").withoutGlobalScopes().getIdentity());
+        assertEquals("BASIC:alice", scopes.withNewScope("aws").getIdentity());
+
+        // Overriding the identity replaces it, everything else stays the same
+        Scopes rebound = scopes.withIdentity("BASIC:bob");
+        assertEquals("BASIC:bob", rebound.getIdentity());
+        assertEquals(scopes.getScopes(), rebound.getScopes());
+    }
+
+    @Test
+    void scopesWithDifferentIdentityShouldNotBeEqual() {
+        ContainerRef containerRef = ContainerRef.parse("localhost:5000/library/test:latest");
+        Scopes anonymous = Scopes.of(containerRef, Scope.PULL).withIdentity("NONE");
+        Scopes alice = Scopes.of(containerRef, Scope.PULL).withIdentity("BASIC:alice");
+        Scopes bob = Scopes.of(containerRef, Scope.PULL).withIdentity("BASIC:bob");
+        Scopes aliceAgain = Scopes.of(containerRef, Scope.PULL).withIdentity("BASIC:alice");
+
+        assertNotEquals(anonymous, alice, "Anonymous and a credentialed identity must not collide");
+        assertNotEquals(alice, bob, "Two distinct credentialed identities must not collide");
+        assertEquals(alice, aliceAgain, "Same identity for the same scope should still be equal");
+        assertEquals(alice.hashCode(), aliceAgain.hashCode(), "Equal scopes must have equal hash codes");
     }
 }

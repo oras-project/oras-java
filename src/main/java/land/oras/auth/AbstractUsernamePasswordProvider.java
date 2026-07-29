@@ -74,4 +74,9 @@ public abstract sealed class AbstractUsernamePasswordProvider implements AuthPro
     public AuthScheme getAuthScheme() {
         return AuthScheme.BASIC;
     }
+
+    @Override
+    public String getIdentity(ContainerRef registry) {
+        return "BASIC:" + username;
+    }
 }
