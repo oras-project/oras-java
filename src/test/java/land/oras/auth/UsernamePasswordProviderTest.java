@@ -21,6 +21,8 @@
 package land.oras.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import land.oras.ContainerRef;
 import org.junit.jupiter.api.Test;
@@ -47,5 +49,23 @@ class UsernamePasswordProviderTest {
         // Getters
         assertEquals("user", authProvider.getUsername(), "Username should be correct");
         assertEquals("pass", authProvider.getPassword(), "Password should be correct");
+    }
+
+    @Test
+    void identityShouldDependOnUsernameOnlyAndNeverLeakThePassword() {
+        ContainerRef registry = ContainerRef.parse("localhost:5000/foo");
+        AbstractUsernamePasswordProvider user = new UsernamePasswordProvider("user", "pass");
+        AbstractUsernamePasswordProvider sameUserOtherPassword = new UsernamePasswordProvider("user", "other-pass");
+        AbstractUsernamePasswordProvider otherUser = new UsernamePasswordProvider("other-user", "pass");
+
+        assertEquals(
+                user.getIdentity(registry),
+                sameUserOtherPassword.getIdentity(registry),
+                "Identity should not depend on the password");
+        assertNotEquals(
+                user.getIdentity(registry),
+                otherUser.getIdentity(registry),
+                "Different usernames are different identities");
+        assertFalse(user.getIdentity(registry).contains("pass"), "Identity must never contain the raw password");
     }
 }

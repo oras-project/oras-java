@@ -20,6 +20,9 @@
 
 package land.oras.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import land.oras.ContainerRef;
@@ -38,5 +41,28 @@ class BearerTokenProviderTest {
     void shouldHaveNoAuthHeader() {
         BearerTokenProvider provider = new BearerTokenProvider();
         assertNull(provider.getAuthHeader(containerRef), "No token should be returned");
+    }
+
+    @Test
+    void identityShouldDependOnTheTokenValueAndNeverLeakIt() {
+        BearerTokenProvider noToken = new BearerTokenProvider();
+        assertEquals("BEARER:none", noToken.getIdentity(containerRef));
+
+        BearerTokenProvider tokenA = new BearerTokenProvider("secret-token-a");
+        BearerTokenProvider sameTokenA = new BearerTokenProvider("secret-token-a");
+        BearerTokenProvider tokenB = new BearerTokenProvider("secret-token-b");
+
+        assertNotEquals(noToken.getIdentity(containerRef), tokenA.getIdentity(containerRef));
+        assertEquals(
+                tokenA.getIdentity(containerRef),
+                sameTokenA.getIdentity(containerRef),
+                "Same token value should yield the same identity");
+        assertNotEquals(
+                tokenA.getIdentity(containerRef),
+                tokenB.getIdentity(containerRef),
+                "Different token values are different identities");
+        assertFalse(
+                tokenA.getIdentity(containerRef).contains("secret-token-a"),
+                "Identity must never contain the raw token");
     }
 }

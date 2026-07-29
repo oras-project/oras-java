@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import land.oras.ContainerRef;
@@ -34,5 +35,16 @@ class NoAuthProviderTest {
     void shouldHaveNoAuthHeader() {
         NoAuthProvider authProvider = new NoAuthProvider();
         assertNull(authProvider.getAuthHeader(ContainerRef.parse("localhost:5000/foo/bar")));
+    }
+
+    @Test
+    void shouldHaveDistinctIdentityFromCredentialedProviders() {
+        NoAuthProvider authProvider = new NoAuthProvider();
+        ContainerRef registry = ContainerRef.parse("localhost:5000/foo/bar");
+        assertEquals(AuthScheme.NONE.name(), authProvider.getIdentity(registry));
+        assertEquals(
+                authProvider.getIdentity(registry),
+                authProvider.getIdentity(ContainerRef.parse("localhost:5000/other/repo")),
+                "Anonymous identity should not depend on the target repository");
     }
 }

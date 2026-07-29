@@ -694,8 +694,10 @@ public final class HttpClient {
                     case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
                     default -> throw new OrasException("Unsupported HTTP method: " + method);
                 };
+        newScopes = newScopes.withIdentity(authProvider.getIdentity(containerRef));
         LOG.debug("Existing scopes: {}", scopes.getScopes());
         LOG.debug("New scopes: {}", newScopes.getScopes());
+        LOG.debug("With identity {}", newScopes.getIdentity());
 
         int maxAttempts = retryEnabled ? this.maxRetries : 1;
 

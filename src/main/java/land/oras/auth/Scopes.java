@@ -49,25 +49,37 @@ public final class Scopes {
     private final ContainerRef containerRef;
 
     /**
-     * Private constructor
+     * Opaque identity marker for the {@link AuthProvider} that resolved (or will resolve) this scope. Two
+     * {@link AuthProvider} instances that are not equivalent
+     */
+    private final @Nullable String identity;
+
+    /**
+     * Canonical private constructor
      * @param containerRef The container reference
      * @param service The service
+     * @param identity The auth provider identity marker
      * @param scopes The scopes
      */
-    private Scopes(ContainerRef containerRef, @Nullable String service, Scope... scopes) {
-        this(containerRef, service, ScopeUtils.appendRepositoryScope(List.of(), containerRef, scopes));
+    private Scopes(
+            ContainerRef containerRef, @Nullable String service, @Nullable String identity, List<String> scopes) {
+        this.containerRef = containerRef;
+        this.service = service;
+        this.identity = identity;
+        this.scopes = scopes;
     }
 
     /**
-     * Private constructor
+     * Return Scopes with new scopes
      * @param containerRef The container reference
      * @param service The service
+     * @param identity The auth provider identity marker
      * @param scopes The scopes
      */
-    private Scopes(ContainerRef containerRef, @Nullable String service, List<String> scopes) {
-        this.containerRef = containerRef;
-        this.service = service;
-        this.scopes = scopes;
+    private static Scopes withRepositoryScopes(
+            ContainerRef containerRef, @Nullable String service, @Nullable String identity, Scope... scopes) {
+        return new Scopes(
+                containerRef, service, identity, ScopeUtils.appendRepositoryScope(List.of(), containerRef, scopes));
     }
 
     /**
@@ -77,7 +89,7 @@ public final class Scopes {
      * @return A new Scopes object
      */
     public static Scopes of(ContainerRef containerRef, Scope... scopes) {
-        return new Scopes(containerRef, null, scopes);
+        return withRepositoryScopes(containerRef, null, null, scopes);
     }
 
     /**
@@ -88,7 +100,7 @@ public final class Scopes {
      * @return A new Scopes object
      */
     public static Scopes of(String service, ContainerRef containerRef, Scope... scopes) {
-        return new Scopes(containerRef, service, scopes);
+        return withRepositoryScopes(containerRef, service, null, scopes);
     }
 
     /**
@@ -98,7 +110,7 @@ public final class Scopes {
      * @return A new Scopes object with no scopes
      */
     public static Scopes empty(ContainerRef containerRef, String service) {
-        return new Scopes(containerRef, service, List.of());
+        return new Scopes(containerRef, service, null, List.of());
     }
 
     /**
@@ -107,7 +119,7 @@ public final class Scopes {
      * @return A new Scopes object with the given scopes
      */
     public Scopes withRegistryScopes(Scope... scopes) {
-        return new Scopes(containerRef, service, scopes);
+        return withRepositoryScopes(containerRef, service, identity, scopes);
     }
 
     /**
@@ -117,7 +129,10 @@ public final class Scopes {
      */
     public Scopes withAddedRegistryScopes(Scope... newScopes) {
         return new Scopes(
-                containerRef, service, ScopeUtils.appendRepositoryScope(this.scopes, containerRef, newScopes));
+                containerRef,
+                service,
+                identity,
+                ScopeUtils.appendRepositoryScope(this.scopes, containerRef, newScopes));
     }
 
     /**
@@ -129,7 +144,10 @@ public final class Scopes {
         List<String> newScopes = new LinkedList<>(scopes);
         newScopes.addAll(List.of(globalScopes));
         return new Scopes(
-                containerRef, service, newScopes.stream().sorted().distinct().toList());
+                containerRef,
+                service,
+                identity,
+                newScopes.stream().sorted().distinct().toList());
     }
 
     /**
@@ -142,7 +160,7 @@ public final class Scopes {
                 .sorted()
                 .distinct()
                 .toList();
-        return new Scopes(containerRef, service, globalScopes);
+        return new Scopes(containerRef, service, identity, globalScopes);
     }
 
     /**
@@ -155,7 +173,7 @@ public final class Scopes {
                 .sorted()
                 .distinct()
                 .toList();
-        return new Scopes(containerRef, service, nonGlobalScopes);
+        return new Scopes(containerRef, service, identity, nonGlobalScopes);
     }
 
     /**
@@ -166,7 +184,7 @@ public final class Scopes {
     public Scopes withNewScope(String scope) {
         List<String> newScopes = new LinkedList<>(scopes);
         newScopes.add(scope);
-        return new Scopes(containerRef, service, ScopeUtils.cleanScopes(newScopes));
+        return new Scopes(containerRef, service, identity, ScopeUtils.cleanScopes(newScopes));
     }
 
     /**
@@ -175,7 +193,16 @@ public final class Scopes {
      * @return A new Scopes object with the given service
      */
     public Scopes withService(@Nullable String service) {
-        return new Scopes(containerRef, service, scopes);
+        return new Scopes(containerRef, service, identity, scopes);
+    }
+
+    /**
+     * Return a new copy of the Scopes object bound to the given auth provider identity
+     * @param identity The identity
+     * @return The new Scopes object
+     */
+    public Scopes withIdentity(@Nullable String identity) {
+        return new Scopes(containerRef, service, identity, scopes);
     }
 
     /**
@@ -184,6 +211,14 @@ public final class Scopes {
      */
     public @Nullable String getService() {
         return service;
+    }
+
+    /**
+     * Get the auth provider identity marker bound to this scope, or {@code null} if not bound to any.
+     * @return The identity marker
+     */
+    public @Nullable String getIdentity() {
+        return identity;
     }
 
     /**
@@ -241,6 +276,7 @@ public final class Scopes {
         Scopes scopes1 = (Scopes) o;
         return Objects.equals(getScopes(), scopes1.getScopes())
                 && Objects.equals(getService(), scopes1.getService())
+                && Objects.equals(getIdentity(), scopes1.getIdentity())
                 && Objects.equals(
                         getContainerRef().getRegistry(),
                         scopes1.getContainerRef().getRegistry());
@@ -248,14 +284,16 @@ public final class Scopes {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getScopes(), getService(), getContainerRef().getRegistry());
+        return Objects.hash(
+                getScopes(), getService(), getIdentity(), getContainerRef().getRegistry());
     }
 
     @Override
     public String toString() {
         return "Scopes{" + "scopes="
                 + scopes + ", service='"
-                + service + '\'' + ", registry="
+                + service + '\'' + ", identity='"
+                + identity + '\'' + ", registry="
                 + containerRef.getRegistry() + '}';
     }
 }

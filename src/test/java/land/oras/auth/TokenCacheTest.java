@@ -22,6 +22,7 @@ package land.oras.auth;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micrometer.core.instrument.FunctionCounter;
@@ -121,5 +122,35 @@ class TokenCacheTest {
         TokenCache.put(scopes, tokenResponse);
         Scopes pullOnlyScopes = Scopes.of(containerRef, Scope.PULL); // Pull only
         assertEquals(tokenResponse, TokenCache.get(pullOnlyScopes), "Should retrieve the token using pull-only scopes");
+    }
+
+    /**
+     * Regression test for a token cache poisoning scenario: a first, anonymous, request for a given
+     * registry/repository/action scope is answered with an (anonymously-scoped) token, which gets cached. A later
+     * request for the exact same scope, but resolved with real credentials, must NOT be served that stale anonymous
+     * token from the cache — it must be treated as a cache miss so the caller falls back to its own AuthProvider.
+     */
+    @Test
+    void shouldNotServeATokenCachedForOneIdentityToADifferentIdentity() {
+        ContainerRef containerRef = ContainerRef.parse("docker.io/library/jenkins-common-configuration:main");
+        HttpClient.TokenResponse anonymousToken =
+                new HttpClient.TokenResponse("anonymous-token", null, "prj-sso-oci", 3600, null);
+
+        Scopes anonymousScope =
+                Scopes.of(containerRef, Scope.PULL).withService("prj-sso-oci").withIdentity("NONE");
+        TokenCache.put(anonymousScope, anonymousToken);
+
+        // Same registry, same repository, same pull action, but a different (credentialed) identity
+        Scopes credentialedScope =
+                Scopes.of(containerRef, Scope.PULL).withService("prj-sso-oci").withIdentity("BASIC:sa_elca-samples");
+
+        assertEquals(
+                anonymousToken,
+                TokenCache.get(anonymousScope),
+                "The anonymous identity should still get its own cached token");
+        assertNull(
+                TokenCache.get(credentialedScope),
+                "A different identity must never be served a token cached for another identity, "
+                        + "even for the exact same registry/repository/action scope");
     }
 }

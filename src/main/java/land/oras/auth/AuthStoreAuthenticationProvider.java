@@ -64,4 +64,10 @@ public final class AuthStoreAuthenticationProvider implements AuthProvider {
     public AuthScheme getAuthScheme() {
         return AuthScheme.BASIC;
     }
+
+    @Override
+    public String getIdentity(ContainerRef registry) {
+        Credential credential = authStore.get(registry);
+        return credential == null ? "BASIC:anonymous" : "BASIC:" + credential.username();
+    }
 }
