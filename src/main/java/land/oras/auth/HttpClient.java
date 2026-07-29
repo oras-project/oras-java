@@ -583,11 +583,13 @@ public final class HttpClient {
         String wwwAuthHeader = response.headers().getOrDefault(Const.WWW_AUTHENTICATE_HEADER.toLowerCase(), "");
         LOG.debug("WWW-Authenticate header: {}", wwwAuthHeader);
         if (wwwAuthHeader.isEmpty()) {
+            logResponse(response);
             throw new OrasException(response.statusCode(), "No WWW-Authenticate header found in response");
         }
 
         Matcher matcher = WWW_AUTH_VALUE_PATTERN.matcher(wwwAuthHeader);
         if (!matcher.matches()) {
+            logResponse(response);
             throw new OrasException(response.statusCode(), "Invalid WWW-Authenticate header");
         }
 
@@ -913,6 +915,21 @@ public final class HttpClient {
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey, e -> e.getValue().get(0))),
                 service);
+    }
+
+    /**
+     * Log the response
+     * @param response The response
+     */
+    private void logResponse(HttpClient.ResponseWrapper<?> response) {
+        LOG.debug("Status Code: {}", response.statusCode());
+        LOG.debug("Headers: {}", response.headers());
+        LOG.debug("Service: {}", response.service());
+        String contentType = response.headers().get(Const.CONTENT_TYPE_HEADER.toLowerCase());
+        boolean isBinaryResponse = contentType != null && contentType.contains("octet-stream");
+        if (response.response() instanceof String && !isBinaryResponse) {
+            LOG.debug("Response: {}", response.response());
+        }
     }
 
     /**
