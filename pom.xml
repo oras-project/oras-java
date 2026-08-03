@@ -55,7 +55,7 @@
 
     <!-- Version -->
     <slf4j.version>2.0.18</slf4j.version>
-    <jspecify.version>1.0.0</jspecify.version>
+    <jspecify.version>1.0.1</jspecify.version>
     <jackson.version>3.2.1</jackson.version>
     <apache.common-compress.version>1.28.0</apache.common-compress.version>
     <zstd-jni.version>1.5.7-12</zstd-jni.version>
