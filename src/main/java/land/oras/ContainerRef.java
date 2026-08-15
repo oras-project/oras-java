@@ -672,7 +672,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         for (String searchRegistry : unqualifiedRegistries) {
             Registry targetRegistry = registry.copy(searchRegistry);
             LOG.debug("Checking if container {} exists in unqualified search registry {}", this, searchRegistry);
-            if (targetRegistry.exists(this)) {
+            if (targetRegistry.existsWithMirrorFallback(this)) {
                 LOG.debug("Found container {} in unqualified search registry {}", this, searchRegistry);
                 return searchRegistry;
             }

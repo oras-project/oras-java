@@ -1457,14 +1457,47 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     /**
-     * Execute an operation with mirror fallback. Mirrors are tried in order; if all fail the
-     * operation is retried against the original registry.
-     * @param containerRef The original container reference used to look up mirrors
-     * @param operation A function (registry, ref) → result; called for each candidate
-     * @return The result from the first successful invocation
+     * Return if the container ref manifests or index exists, trying configured mirrors before this registry.
+     * Used to probe unqualified-search-registries candidates so that a registry fronted by a mirror
+     * (e.g. a pull-through cache) is checked via the mirror rather than only the upstream host. Unlike
+     * {@link #withMirrorFallback}, a mirror reporting "not found" (false, not an exception) is treated the
+     * same as a mirror failure: the next mirror is tried, and the final fallback to this registry preserves
+     * {@link #exists(ContainerRef)}'s exact behavior (return its result, or propagate its exception).
+     * @param containerRef The container
+     * @return True if found on a mirror or this registry
      */
-    private <T> T withMirrorFallback(ContainerRef containerRef, BiFunction<Registry, ContainerRef, T> operation) {
+    boolean existsWithMirrorFallback(ContainerRef containerRef) {
+        for (MirrorCandidate candidate : resolveMirrorCandidates(containerRef)) {
+            try {
+                if (candidate.registry().exists(candidate.ref())) {
+                    return true;
+                }
+            } catch (OrasException e) {
+                LOG.warn(
+                        "Mirror {} failed for {}: {}",
+                        candidate.registry().getRegistry(),
+                        containerRef,
+                        e.getMessage());
+            }
+        }
+        return exists(containerRef);
+    }
+
+    /**
+     * A mirror registry paired with the container reference rewritten to point at it.
+     * @param registry The registry pointed at the mirror's location
+     * @param ref The container reference rewritten for the mirror
+     */
+    private record MirrorCandidate(Registry registry, ContainerRef ref) {}
+
+    /**
+     * Resolve the mirrors applicable to the given container reference, in configured order.
+     * @param containerRef The original container reference used to look up mirrors
+     * @return The candidate registry/ref pairs, one per applicable mirror
+     */
+    private List<MirrorCandidate> resolveMirrorCandidates(ContainerRef containerRef) {
         List<RegistriesConf.MirrorConfig> mirrors = registriesConf.getApplicableMirrors(containerRef);
+        List<MirrorCandidate> candidates = new ArrayList<>();
         for (RegistriesConf.MirrorConfig mirror : mirrors) {
             String mirrorLocation = mirror.location();
             if (mirrorLocation == null || mirrorLocation.isBlank()) continue;
@@ -1478,12 +1511,29 @@ public final class Registry extends OCI<ContainerRef> {
             String mirrorHost = locationNoScheme.contains("/")
                     ? locationNoScheme.substring(0, locationNoScheme.indexOf('/'))
                     : locationNoScheme;
-            Registry mirrorRegistry = copyForNewTransport(mirrorHost, mirror.isInsecure());
+            candidates.add(new MirrorCandidate(copyForNewTransport(mirrorHost, mirror.isInsecure()), mirrorRef));
+        }
+        return candidates;
+    }
+
+    /**
+     * Execute an operation with mirror fallback. Mirrors are tried in order; if all fail the
+     * operation is retried against the original registry.
+     * @param containerRef The original container reference used to look up mirrors
+     * @param operation A function (registry, ref) → result; called for each candidate
+     * @return The result from the first successful invocation
+     */
+    private <T> T withMirrorFallback(ContainerRef containerRef, BiFunction<Registry, ContainerRef, T> operation) {
+        for (MirrorCandidate candidate : resolveMirrorCandidates(containerRef)) {
             try {
-                LOG.debug("Trying mirror {} for {}", mirrorLocation, containerRef);
-                return operation.apply(mirrorRegistry, mirrorRef);
+                LOG.debug("Trying mirror {} for {}", candidate.registry().getRegistry(), containerRef);
+                return operation.apply(candidate.registry(), candidate.ref());
             } catch (OrasException e) {
-                LOG.warn("Mirror {} failed for {}: {}", mirrorLocation, containerRef, e.getMessage());
+                LOG.warn(
+                        "Mirror {} failed for {}: {}",
+                        candidate.registry().getRegistry(),
+                        containerRef,
+                        e.getMessage());
             }
         }
         return operation.apply(this, containerRef);
