@@ -21,6 +21,7 @@
 package land.oras;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import land.oras.exception.OrasException;
 import land.oras.utils.ZotUnsecureContainer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -241,6 +243,10 @@ class RegistryMirrorTest {
         // language=toml
         String registriesConf =
                 """
+                short-name-mode = "disabled"
+
+                unqualified-search-registries = ["docker.io"]
+
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -261,6 +267,89 @@ class RegistryMirrorTest {
             assertTrue(ref.isUnqualified());
             Manifest manifest = registry.getManifest(ref);
             assertNotNull(manifest, "Manifest should be fetched via mirror for unqualified reference");
+        });
+    }
+
+    @Test
+    void shouldResolveUnqualifiedRegistryViaFallbackWhenMirrorIsDown(@TempDir Path blobDir) throws Exception {
+
+        // Push directly to the registry that will act as the (only) unqualified search registry —
+        // no mirror is involved in this push.
+        String searchRegistry = mirrorUp.getRegistry();
+        Registry setupRegistry = Registry.builder().insecure(searchRegistry).build();
+        Path testFile = createTestFile(blobDir, "unqualified-fallback.txt", "unqualified fallback content");
+        ContainerRef pushedArtifact = ContainerRef.parse(searchRegistry + "/library/unqualified-fallback:v1");
+        setupRegistry.pushArtifact(pushedArtifact, LocalPath.of(testFile));
+
+        // Any unqualified reference defaults to "docker.io" at parse time, so mirror matching during
+        // unqualified-search-registry resolution is keyed off "docker.io" regardless of which registry
+        // is actually configured as the search registry below. The mirror here is unreachable: resolution
+        // must catch that failure and fall back to probing the search registry directly.
+        // language=toml
+        String registriesConf =
+                """
+                short-name-mode = "disabled"
+
+                unqualified-search-registries = ["%s"]
+
+                [[registry]]
+                prefix = "docker.io"
+
+                [[registry.mirror]]
+                location = "localhost:59999"
+                insecure = true
+                """
+                        .formatted(searchRegistry);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            ContainerRef ref = ContainerRef.parse("library/unqualified-fallback:v1");
+            assertTrue(ref.isUnqualified());
+            String effectiveRegistry = ref.getEffectiveRegistry(registry);
+            assertEquals(
+                    searchRegistry,
+                    effectiveRegistry,
+                    "Should fall back to the search registry directly once the mirror failed");
+        });
+    }
+
+    @Test
+    void shouldThrowWhenMirrorIsDownAndSearchRegistryLacksArtifact() throws Exception {
+
+        // Nothing is pushed anywhere for this reference: the mirror is unreachable and the search
+        // registry, though reachable, does not have the artifact either.
+        String searchRegistry = mirrorUp.getRegistry();
+
+        // language=toml
+        String registriesConf =
+                """
+                short-name-mode = "disabled"
+
+                unqualified-search-registries = ["%s"]
+
+                [[registry]]
+                prefix = "docker.io"
+
+                [[registry.mirror]]
+                location = "localhost:59999"
+                insecure = true
+                """
+                        .formatted(searchRegistry);
+
+        TestUtils.createRegistriesConfFile(homeDir, registriesConf);
+
+        TestUtils.withHome(homeDir, () -> {
+            Registry registry = Registry.builder().insecure().defaults().build();
+            ContainerRef ref = ContainerRef.parse("library/does-not-exist:v1");
+            assertTrue(ref.isUnqualified());
+            OrasException e = assertThrows(OrasException.class, () -> ref.getEffectiveRegistry(registry));
+            assertTrue(
+                    e.getMessage()
+                            .startsWith("Container reference library/does-not-exist:v1 is unqualified"
+                                    + " and cannot be found in any of the unqualified search registries"),
+                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
         });
     }
 

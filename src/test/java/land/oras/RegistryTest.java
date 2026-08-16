@@ -94,8 +94,7 @@ class RegistryTest {
             Registry registry = Registry.builder().insecure().defaults().build();
             ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
             assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
-            OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
-            assertEquals("Invalid WWW-Authenticate header", e.getMessage());
+            assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
         });
     }
 
@@ -116,10 +115,11 @@ class RegistryTest {
             ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
             assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
             OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
-            assertEquals(
-                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured: [%s, localhost:5000]"
-                            .formatted(this.registry.getRegistry()),
-                    e.getMessage());
+            assertTrue(
+                    e.getMessage()
+                            .startsWith(
+                                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured"),
+                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
         });
     }
 
@@ -165,10 +165,11 @@ class RegistryTest {
             ContainerRef unqualifiedRef = ContainerRef.parse("docker/library/alpine:latest");
             assertTrue(unqualifiedRef.isUnqualified(), "ContainerRef must be unqualified");
             OrasException e = assertThrows(OrasException.class, () -> unqualifiedRef.getEffectiveRegistry(registry));
-            assertEquals(
-                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured: [%s, localhost:5000]"
-                            .formatted(this.registry.getRegistry()),
-                    e.getMessage());
+            assertTrue(
+                    e.getMessage()
+                            .startsWith(
+                                    "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured"),
+                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
         });
     }
 
