@@ -1488,6 +1488,7 @@ public final class Registry extends OCI<ContainerRef> {
      * @param registry The registry pointed at the mirror's location
      * @param ref The container reference rewritten for the mirror
      */
+    @OrasModel
     private record MirrorCandidate(Registry registry, ContainerRef ref) {}
 
     /**
