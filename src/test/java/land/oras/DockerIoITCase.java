@@ -90,7 +90,7 @@ class DockerIoITCase {
     @Test
     void shouldPullOneBlob() {
         Registry registry = Registry.builder().build();
-        ContainerRef containerRef1 = ContainerRef.parse("jbangdev/jbang-action");
+        ContainerRef containerRef1 = ContainerRef.parse("docker.io/jbangdev/jbang-action");
         String effectiveRegistry = containerRef1.getEffectiveRegistry(registry);
         Manifest manifest = registry.getManifest(containerRef1);
         Layer oneLayer = manifest.getLayers().get(0);
