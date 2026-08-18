@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
  * @param <T> The type of the ref
  */
 @NullMarked
-public abstract sealed class Ref<T extends Ref<T>> permits ContainerRef, LayoutRef {
+public abstract class Ref<T extends Ref<T>> {
 
     /**
      * The tag of the container.

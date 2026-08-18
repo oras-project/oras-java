@@ -83,10 +83,7 @@ class RegistryTest {
     void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config = """
-                unqualified-search-registries = ["%s"]
-                """
-                .formatted(registry.getRegistry());
+        String config = String.format("unqualified-search-registries = [\"%s\"]\n", registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -103,10 +100,8 @@ class RegistryTest {
     void shouldEnforceMultipleRegistriesWithDefaultEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config = """
-                unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                .formatted(registry.getRegistry());
+        String config =
+                String.format("unqualified-search-registries = [\"%s\", \"localhost:5000\"]\n", registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -119,7 +114,7 @@ class RegistryTest {
                     e.getMessage()
                             .startsWith(
                                     "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured"),
-                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
+                    String.format("Wrong exception message: got '%s'", e.getMessage()));
         });
     }
 
@@ -128,12 +123,9 @@ class RegistryTest {
     void shouldAllowMultipleRegistriesWithDisabledEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-                short-name-mode = "disabled"
-                unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                        .formatted(registry.getRegistry());
+        String config = String.format(
+                "short-name-mode = \"disabled\"\n" + "unqualified-search-registries = [\"%s\", \"localhost:5000\"]\n",
+                registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -151,12 +143,9 @@ class RegistryTest {
     void shouldEnforceMultipleRegistriesWithPermissiveEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-                short-name-mode = "permissive"
-                unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                        .formatted(registry.getRegistry());
+        String config = String.format(
+                "short-name-mode = \"permissive\"\n" + "unqualified-search-registries = [\"%s\", \"localhost:5000\"]\n",
+                registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -169,7 +158,7 @@ class RegistryTest {
                     e.getMessage()
                             .startsWith(
                                     "Short name mode is set to ENFORCING/PERMISSION but multiple unqualified registries are configured"),
-                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
+                    String.format("Wrong exception message: got '%s'", e.getMessage()));
         });
     }
 
@@ -191,13 +180,8 @@ class RegistryTest {
     void shouldListRepositoriesInsecure(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -290,13 +274,8 @@ class RegistryTest {
     void shouldMountWithInsecureRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -399,9 +378,9 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-text@sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
-                        .formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(String.format(
+                "%s/library/artifact-text@sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
+                this.registry.getRegistry()));
         Layer layer = registry.pushBlob(containerRef, "hello".getBytes());
         assertEquals(
                 "sha512:9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043",
@@ -427,7 +406,7 @@ class RegistryTest {
     void shouldFailWithoutAuthentication() {
         Registry registry = Registry.Builder.builder().insecure().build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-text", this.registry.getRegistry()));
         assertThrows(OrasException.class, () -> {
             registry.pushBlob(containerRef, "hello".getBytes());
         });
@@ -437,7 +416,7 @@ class RegistryTest {
     void shouldPushUnsecure() {
         Registry registry = Registry.Builder.builder().insecure().build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-text".formatted(this.unsecureRegistry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-text", this.unsecureRegistry.getRegistry()));
         registry.pushBlob(containerRef, "hello".getBytes());
     }
 
@@ -448,13 +427,8 @@ class RegistryTest {
         ExecutorService customExecutor = Executors.newSingleThreadExecutor();
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -462,7 +436,7 @@ class RegistryTest {
                     .withExecutorService(customExecutor)
                     .build();
             ContainerRef containerRef = ContainerRef.parse(
-                    "%s/library/artifact-text-manifest-blobs".formatted(this.unsecureRegistry.getRegistry()));
+                    String.format("%s/library/artifact-text-manifest-blobs", this.unsecureRegistry.getRegistry()));
 
             registry.pushBlob(containerRef, "hello".getBytes());
             registry.pushBlob(containerRef, "other-hello".getBytes());
@@ -523,7 +497,7 @@ class RegistryTest {
         Registry registry =
                 Registry.Builder.builder().defaults().withInsecure(true).build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-text", this.registry.getRegistry()));
         assertThrows(
                 OrasException.class,
                 () -> {
@@ -539,7 +513,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-text".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-text", this.registry.getRegistry()));
         Files.createFile(blobDir.resolve("temp.txt"));
         Files.writeString(blobDir.resolve("temp.txt"), "hello");
         Layer layer = registry.pushBlob(containerRef, blobDir.resolve("temp.txt"));
@@ -580,7 +554,7 @@ class RegistryTest {
 
         // Empty manifest
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/empty-manifest".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/empty-manifest", this.registry.getRegistry()));
         Layer emptyLayer = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
         Manifest emptyManifest = Manifest.empty().withLayers(List.of(Layer.fromDigest(emptyLayer.getDigest(), 2)));
         Manifest pushedManifest = registry.pushManifest(containerRef, emptyManifest);
@@ -625,7 +599,8 @@ class RegistryTest {
                 .build();
 
         // Empty manifest
-        ContainerRef containerRef = ContainerRef.parse("%s/library/empty-index".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef =
+                ContainerRef.parse(String.format("%s/library/empty-index", this.registry.getRegistry()));
         Index emptyIndex = Index.fromManifests(List.of());
         Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
 
@@ -650,13 +625,8 @@ class RegistryTest {
     void shouldPushManifestWithRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -664,7 +634,7 @@ class RegistryTest {
 
             // Empty manifest
             ContainerRef containerRef =
-                    ContainerRef.parse("%s/library/empty-index".formatted(this.unsecureRegistry.getRegistry()));
+                    ContainerRef.parse(String.format("%s/library/empty-index", this.unsecureRegistry.getRegistry()));
             Index emptyIndex = Index.fromManifests(List.of());
             Index pushIndex = registry.pushIndex(containerRef, emptyIndex);
 
@@ -690,16 +660,14 @@ class RegistryTest {
     void shouldPushManifestWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-
-            [aliases]
-            "my-library/my-namespace"="%s/test/bar"
-            """
-                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n"
+                        + "\n"
+                        + "[aliases]\n"
+                        + "\"my-library/my-namespace\"=\"%s/test/bar\"\n",
+                this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -732,11 +700,9 @@ class RegistryTest {
     void shouldDetermineRegistryFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config = """
-            [aliases]
-            "my-library/my-namespace"="localhost/test"
-            """
-                .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[aliases]\n" + "\"my-library/my-namespace\"=\"localhost/test\"\n",
+                this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -781,7 +747,7 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef1 = ContainerRef.parse("%s/empty-layers".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef1 = ContainerRef.parse(String.format("%s/empty-layers", this.registry.getRegistry()));
         Config emptyConfig = Config.empty();
         Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
         registry.pushConfig(containerRef1, emptyConfig);
@@ -797,7 +763,8 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef1 = ContainerRef.parse("%s/empty-layers-title".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef1 =
+                ContainerRef.parse(String.format("%s/empty-layers-title", this.registry.getRegistry()));
         Config emptyConfig = Config.empty();
         Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
         Layer layer = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8))
@@ -817,7 +784,8 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef1 = ContainerRef.parse("%s/no-layers-title".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef1 =
+                ContainerRef.parse(String.format("%s/no-layers-title", this.registry.getRegistry()));
         Config emptyConfig = Config.empty();
         Manifest manifest1 = Manifest.empty().withConfig(emptyConfig);
         Layer layer = registry.pushBlob(containerRef1, "hello".getBytes(StandardCharsets.UTF_8))
@@ -839,8 +807,10 @@ class RegistryTest {
                 .build();
 
         // Manifest 1
-        ContainerRef containerRef1 = ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry()));
-        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest2".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef1 =
+                ContainerRef.parse(String.format("%s/library/manifest1", this.registry.getRegistry()));
+        ContainerRef containerRef2 =
+                ContainerRef.parse(String.format("%s/library/manifest2", this.registry.getRegistry()));
 
         String content1 = "hello";
         String content2 = "world";
@@ -895,8 +865,10 @@ class RegistryTest {
                 .build();
 
         // Manifest 1
-        ContainerRef containerRef1 = ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry()));
-        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest2".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef1 =
+                ContainerRef.parse(String.format("%s/library/manifest1", this.registry.getRegistry()));
+        ContainerRef containerRef2 =
+                ContainerRef.parse(String.format("%s/library/manifest2", this.registry.getRegistry()));
 
         String content1 = "hello";
         String content2 = "world";
@@ -948,7 +920,7 @@ class RegistryTest {
 
         // Manifest 1
         ContainerRef containerRef1 =
-                ContainerRef.parse("%s/library/manifest1:latest".formatted(this.unsecureRegistry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/manifest1:latest", this.unsecureRegistry.getRegistry()));
 
         String content1 = "hello";
         String content2 = "world";
@@ -976,10 +948,10 @@ class RegistryTest {
                 .withArtifactType(ArtifactType.from("text/plain"));
 
         // Push second manifest with its digest
-        ContainerRef containerRef2 = ContainerRef.parse("%s/library/manifest1@%s"
-                .formatted(
-                        this.unsecureRegistry.getRegistry(),
-                        SupportedAlgorithm.SHA256.digest(manifest2.toJson().getBytes(StandardCharsets.UTF_8))));
+        ContainerRef containerRef2 = ContainerRef.parse(String.format(
+                "%s/library/manifest1@%s",
+                this.unsecureRegistry.getRegistry(),
+                SupportedAlgorithm.SHA256.digest(manifest2.toJson().getBytes(StandardCharsets.UTF_8))));
         registry.pushManifest(containerRef2, manifest2);
 
         // Pull via artifact 2
@@ -1025,13 +997,8 @@ class RegistryTest {
         // Use config
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -1054,7 +1021,8 @@ class RegistryTest {
                 OrasException.class,
                 () -> {
                     registry.getReferrers(
-                            ContainerRef.parse("%s/library/manifest1".formatted(this.registry.getRegistry())), null);
+                            ContainerRef.parse(String.format("%s/library/manifest1", this.registry.getRegistry())),
+                            null);
                 },
                 "Digest is required to get referrers");
     }
@@ -1068,7 +1036,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/artifact-mount-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-mount-source", this.registry.getRegistry()));
 
         // Create files
         Path file1 = blobDir.resolve("source1.txt");
@@ -1094,7 +1062,7 @@ class RegistryTest {
 
         // Copy to other registry
         ContainerRef containerTarget =
-                ContainerRef.parse("%s/library/artifact-mount-target".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-mount-target", this.registry.getRegistry()));
         CopyUtils.copy(
                 registry,
                 containerSource.withTag("index2"),
@@ -1114,7 +1082,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/artifact-index-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-index-source", this.registry.getRegistry()));
 
         // Create files
         Path file1 = blobDir.resolve("source1.txt");
@@ -1142,7 +1110,7 @@ class RegistryTest {
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
             otherRegistryContainer.start();
             ContainerRef containerTarget = ContainerRef.parse(
-                    "%s/library/artifact-index-target".formatted(otherRegistryContainer.getRegistry()));
+                    String.format("%s/library/artifact-index-target", otherRegistryContainer.getRegistry()));
             CopyUtils.copy(
                     registry,
                     containerSource.withTag("index2"),
@@ -1163,7 +1131,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/artifact-source:foo".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-source:foo", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("source.txt");
         Files.writeString(file1, "foobar");
 
@@ -1175,7 +1143,7 @@ class RegistryTest {
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
             otherRegistryContainer.start();
             ContainerRef containerTarget = ContainerRef.parse(
-                    "%s/library/artifact-target:bar".formatted(otherRegistryContainer.getRegistry()));
+                    String.format("%s/library/artifact-target:bar", otherRegistryContainer.getRegistry()));
             CopyUtils.copy(registry, containerSource, registry, containerTarget, CopyUtils.CopyOptions.shallow());
             registry.pullArtifact(containerTarget, artifactDir, true);
             assertEquals("foobar", Files.readString(artifactDir.resolve("source.txt")));
@@ -1193,7 +1161,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/artifact-source:foo".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-source:foo", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("source.txt");
         Files.writeString(file1, "foobar");
 
@@ -1204,8 +1172,8 @@ class RegistryTest {
         // Copy to other registry
         try (RegistryContainer otherRegistryContainer = new RegistryContainer()) {
             otherRegistryContainer.start();
-            ContainerRef containerTarget =
-                    ContainerRef.parse("%s/library/artifact-target".formatted(otherRegistryContainer.getRegistry()));
+            ContainerRef containerTarget = ContainerRef.parse(
+                    String.format("%s/library/artifact-target", otherRegistryContainer.getRegistry()));
             CopyUtils.copy(
                     registry,
                     containerSource.withDigest(manifest.getDigest()),
@@ -1224,16 +1192,14 @@ class RegistryTest {
     void testShouldArtifactWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [aliases]
-            "the-target" = "%s/test/artifact-target"
-
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[aliases]\n"
+                        + "\"the-target\" = \"%s/test/artifact-target\"\n"
+                        + "\n"
+                        + "[[registry]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         // Copy to same registry
@@ -1268,25 +1234,22 @@ class RegistryTest {
             otherRegistryContainer.start();
 
             // language=toml
-            String config =
-                    """
-                [aliases]
-                "the-source" = "%s/test/artifact-source"
-                "the-target" = "%s/test/artifact-target"
-
-                [[registry]]
-                location = "%s"
-                insecure = true
-
-                [[registry]]
-                location = "%s"
-                insecure = true
-                """
-                            .formatted(
-                                    this.unsecureRegistry.getRegistry(),
-                                    otherRegistryContainer.getRegistry(),
-                                    this.unsecureRegistry.getRegistry(),
-                                    otherRegistryContainer.getRegistry());
+            String config = String.format(
+                    "[aliases]\n"
+                            + "\"the-source\" = \"%s/test/artifact-source\"\n"
+                            + "\"the-target\" = \"%s/test/artifact-target\"\n"
+                            + "\n"
+                            + "[[registry]]\n"
+                            + "location = \"%s\"\n"
+                            + "insecure = true\n"
+                            + "\n"
+                            + "[[registry]]\n"
+                            + "location = \"%s\"\n"
+                            + "insecure = true\n",
+                    this.unsecureRegistry.getRegistry(),
+                    otherRegistryContainer.getRegistry(),
+                    this.unsecureRegistry.getRegistry(),
+                    otherRegistryContainer.getRegistry());
             TestUtils.createRegistriesConfFile(homeDir, config);
 
             // Copy to same registry
@@ -1324,7 +1287,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef targetRef =
-                ContainerRef.parse("%s/library/copied-from-oci-layout".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/copied-from-oci-layout", this.registry.getRegistry()));
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
         OCILayout ociLayout =
@@ -1358,7 +1321,7 @@ class RegistryTest {
         // Registry to copy
         Registry registry = Registry.builder().withInsecure(true).build();
         ContainerRef targetRef = ContainerRef.parse(
-                "%s/library/copied-from-oci-layout-recursive".formatted(this.unsecureRegistry.getRegistry()));
+                String.format("%s/library/copied-from-oci-layout-recursive", this.unsecureRegistry.getRegistry()));
 
         LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/subject:latest");
         OCILayout ociLayout =
@@ -1390,7 +1353,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-image-pull", this.registry.getRegistry()));
 
         Layer emptyLayer = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
 
@@ -1422,9 +1385,9 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-full", this.registry.getRegistry()));
         ContainerRef unknown =
-                ContainerRef.parse("%s/library/artifact-full:unknown".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-full:unknown", this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Files.writeString(file1, "foobar");
@@ -1495,7 +1458,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-maven".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-maven", this.registry.getRegistry()));
 
         Path pomFile = blobDir.resolve("pom.xml");
         Files.writeString(pomFile, "my pom file");
@@ -1536,7 +1499,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-maven".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-maven", this.registry.getRegistry()));
 
         Path pomFile = blobDir.resolve("pom.xml");
         Files.writeString(pomFile, "my pom file");
@@ -1585,7 +1548,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-maven".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-maven", this.registry.getRegistry()));
 
         Path pomFile = blobDir.resolve("pom.xml");
         Files.writeString(pomFile, "my pom file");
@@ -1628,7 +1591,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-zip".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-zip", this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Path file2 = blobDir.resolve("file2.txt");
@@ -1653,7 +1616,7 @@ class RegistryTest {
 
         // Title must container filename
         assertEquals(
-                "%s.%s".formatted(blobDir.getFileName().toString(), SupportedCompression.ZIP.getFileExtension()),
+                String.format("%s.%s", blobDir.getFileName().toString(), SupportedCompression.ZIP.getFileExtension()),
                 annotations.get(Const.ANNOTATION_TITLE));
 
         // Pull
@@ -1674,7 +1637,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-full", this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Path file2 = blobDir.resolve("file2.txt");
@@ -1719,7 +1682,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-not-compressed".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-not-compressed", this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Path file2 = blobDir.resolve("file2.txt");
@@ -1764,7 +1727,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-relative-path".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-relative-path", this.registry.getRegistry()));
 
         // Source
         Manifest manifest = registry.pushArtifact(
@@ -1801,7 +1764,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-full", this.registry.getRegistry()));
 
         Path file1 = blobDir.resolve("file1.txt");
         Path file2 = blobDir.resolve("file2.txt");
@@ -1846,7 +1809,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-full".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-full", this.registry.getRegistry()));
 
         assertThrows(
                 OrasException.class,
@@ -1863,7 +1826,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Create a file with test data to get accurate stream size
         Path testFile = Files.createTempFile("test-data-", ".tmp");
@@ -1899,9 +1862,9 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-stream-sha512@sha512:ea0d8750d01f5fbd0da5d020d981b377fa2177874751063cb3da2117e481720774c0d985845a56c32ee6dde144901d92b2bdc8d0cb02373da141241aa2409859"
-                        .formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(String.format(
+                "%s/library/artifact-stream-sha512@sha512:ea0d8750d01f5fbd0da5d020d981b377fa2177874751063cb3da2117e481720774c0d985845a56c32ee6dde144901d92b2bdc8d0cb02373da141241aa2409859",
+                this.registry.getRegistry()));
 
         // Create a file with test data to get accurate stream size
         Path testFile = Files.createTempFile("test-data-", ".tmp");
@@ -1938,7 +1901,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Create test file
         Path testFile = Files.createTempFile("test-data-", ".tmp");
@@ -1971,7 +1934,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Create a failing input stream
         InputStream failingStream = new InputStream() {
@@ -1994,7 +1957,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Try to get non-existent blob
         String nonExistentDigest = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -2010,7 +1973,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Try to get non-existent blob
         String nonExistentDigest =
@@ -2027,7 +1990,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-stream", this.registry.getRegistry()));
 
         // Create temp file with 5MB of random data
         Path largeFile = Files.createTempFile("large-test-", ".tmp");
@@ -2055,7 +2018,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-path".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-chunked-path", this.registry.getRegistry()));
 
         // Create a file with known content
         byte[] content = "hello chunked world".getBytes(StandardCharsets.UTF_8);
@@ -2085,8 +2048,8 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-path-single".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(
+                String.format("%s/library/artifact-chunked-path-single", this.registry.getRegistry()));
 
         // Content that fits in one chunk
         byte[] content = "hi".getBytes(StandardCharsets.UTF_8);
@@ -2108,7 +2071,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-stream".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-chunked-stream", this.registry.getRegistry()));
 
         byte[] content = "hello chunked stream".getBytes(StandardCharsets.UTF_8);
         String expectedDigest = SupportedAlgorithm.SHA256.digest(content);
@@ -2138,7 +2101,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-large".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-chunked-large", this.registry.getRegistry()));
 
         // 1 MB of random content
         byte[] content = new byte[1024 * 1024];
@@ -2168,7 +2131,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-err".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-chunked-err", this.registry.getRegistry()));
 
         OrasException e = assertThrows(
                 OrasException.class,
@@ -2184,7 +2147,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-chunked-err".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-chunked-err", this.registry.getRegistry()));
 
         byte[] content = "data".getBytes(StandardCharsets.UTF_8);
         Path blobFile = blobDir.resolve("err.txt");
@@ -2207,13 +2170,8 @@ class RegistryTest {
     void shouldPushBlobChunkedFromPathViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -2246,13 +2204,8 @@ class RegistryTest {
     void shouldPushBlobChunkedFromStreamViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+        String config = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -2282,7 +2235,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/multi-platform-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/multi-platform-source", this.registry.getRegistry()));
 
         // Push two manifests with different content
         Path fileAmd64 = blobDir.resolve("amd64.txt");
@@ -2304,8 +2257,8 @@ class RegistryTest {
         registry.pushIndex(containerSource.withTag("latest"), sourceIndex);
 
         // Copy only linux/amd64 to target
-        ContainerRef containerTarget =
-                ContainerRef.parse("%s/library/multi-platform-target:latest".formatted(this.registry.getRegistry()));
+        ContainerRef containerTarget = ContainerRef.parse(
+                String.format("%s/library/multi-platform-target:latest", this.registry.getRegistry()));
         CopyUtils.copy(
                 registry,
                 containerSource.withTag("latest"),
@@ -2340,7 +2293,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerSource =
-                ContainerRef.parse("%s/library/no-match-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/no-match-source", this.registry.getRegistry()));
 
         // Push a single manifest and build an index with linux/amd64
         Path file = blobDir.resolve("no-match.txt");
@@ -2352,7 +2305,7 @@ class RegistryTest {
         registry.pushIndex(containerSource.withTag("latest"), sourceIndex);
 
         ContainerRef containerTarget =
-                ContainerRef.parse("%s/library/no-match-target:latest".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/no-match-target:latest", this.registry.getRegistry()));
 
         // Filtering for a platform not present in the index must throw
         assertThrows(
@@ -2372,8 +2325,8 @@ class RegistryTest {
                 .defaults("myuser", "mypass")
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-push-options-chunked".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(
+                String.format("%s/library/artifact-push-options-chunked", this.registry.getRegistry()));
 
         Path file = blobDir.resolve("chunked-artifact.txt");
         Files.writeString(file, "hello chunked artifact");
@@ -2398,7 +2351,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-push-options-chunked-type".formatted(this.registry.getRegistry()));
+                String.format("%s/library/artifact-push-options-chunked-type", this.registry.getRegistry()));
 
         Path file = blobDir.resolve("chunked-artifact-type.txt");
         Files.writeString(file, "chunked with artifact type");
@@ -2421,7 +2374,7 @@ class RegistryTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-push-options-chunked-annotations".formatted(this.registry.getRegistry()));
+                String.format("%s/library/artifact-push-options-chunked-annotations", this.registry.getRegistry()));
 
         Path file = blobDir.resolve("chunked-artifact-annotations.txt");
         Files.writeString(file, "chunked with annotations");
@@ -2461,7 +2414,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/policy-reject-test".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/policy-reject-test", this.registry.getRegistry()));
 
         Path file = blobDir.resolve("policy-test.txt");
         Files.writeString(file, "This artifact should be blocked");
@@ -2484,9 +2437,7 @@ class RegistryTest {
     void shouldBlockPullWithPolicyFromPath() throws IOException {
         // Create a temporary policy file with reject-all
         Path policyFile = Files.createTempFile("policy", ".json");
-        Files.writeString(policyFile, """
-                {"default": [{"type": "reject"}]}
-                """);
+        Files.writeString(policyFile, "{\"default\": [{\"type\": \"reject\"}]}\n");
 
         // Create a registry with policy loaded from file path
         Registry registryWithPolicy = Registry.Builder.builder()
@@ -2502,7 +2453,7 @@ class RegistryTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/policy-path-test".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/policy-path-test", this.registry.getRegistry()));
 
         Path file = blobDir.resolve("policy-path-test.txt");
         Files.writeString(file, "This artifact should be blocked by policy from file");
@@ -2514,7 +2465,7 @@ class RegistryTest {
         // Pull fails with policy from file - verify exact error message format
         OrasException ex = assertThrows(OrasException.class, () -> registryWithPolicy.getManifest(containerRef));
         String expectedMessage =
-                "Access to container reference %s is blocked by registry configuration".formatted(containerRef);
+                String.format("Access to container reference %s is blocked by registry configuration", containerRef);
         assertEquals(expectedMessage, ex.getMessage());
 
         Files.deleteIfExists(policyFile);
@@ -2525,11 +2476,7 @@ class RegistryTest {
         Files.writeString(
                 output,
                 // language=json
-                """
-                {
-                  "default": [{"type": "reject"}]
-                }
-                """);
+                "{\n" + "  \"default\": [{\"type\": \"reject\"}]\n" + "}\n");
         return output;
     }
 
@@ -2538,11 +2485,7 @@ class RegistryTest {
         Files.writeString(
                 output,
                 // language=json
-                """
-                {
-                  "default": [{"type": "insecureAcceptAnything"}]
-                }
-                """);
+                "{\n" + "  \"default\": [{\"type\": \"insecureAcceptAnything\"}]\n" + "}\n");
         return output;
     }
 }

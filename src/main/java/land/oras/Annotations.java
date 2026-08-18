@@ -21,30 +21,86 @@
 package land.oras;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import land.oras.utils.JsonUtils;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Record for annotations
- *
- * @param manifestAnnotations Annotations for the manifest
- * @param configAnnotations   Annotations for the config
- * @param filesAnnotations    Annotations for the layers/files
+ * Annotations for an OCI artifact
  */
 @NullMarked
 @OrasModel
-public record Annotations(
-        Map<String, String> configAnnotations,
-        Map<String, String> manifestAnnotations,
-        Map<String, Map<String, String>> filesAnnotations) {
+public final class Annotations {
+
+    private final Map<String, String> configAnnotations;
+    private final Map<String, String> manifestAnnotations;
+    private final Map<String, Map<String, String>> filesAnnotations;
+
+    /**
+     * Create a new annotations instance
+     * @param configAnnotations Annotations for the config
+     * @param manifestAnnotations Annotations for the manifest
+     * @param filesAnnotations Annotations for the layers/files
+     */
+    public Annotations(
+            Map<String, String> configAnnotations,
+            Map<String, String> manifestAnnotations,
+            Map<String, Map<String, String>> filesAnnotations) {
+        this.configAnnotations = configAnnotations;
+        this.manifestAnnotations = manifestAnnotations;
+        this.filesAnnotations = filesAnnotations;
+    }
 
     @JsonCreator
     private Annotations() {
         this(new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
+
+    /**
+     * Get the config annotations
+     * @return The config annotations
+     */
+    @JsonProperty("configAnnotations")
+    public Map<String, String> configAnnotations() {
+        return configAnnotations;
+    }
+
+    /**
+     * Get the manifest annotations
+     * @return The manifest annotations
+     */
+    @JsonProperty("manifestAnnotations")
+    public Map<String, String> manifestAnnotations() {
+        return manifestAnnotations;
+    }
+
+    /**
+     * Get the files annotations
+     * @return The files annotations
+     */
+    @JsonProperty("filesAnnotations")
+    public Map<String, Map<String, String>> filesAnnotations() {
+        return filesAnnotations;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Annotations)) return false;
+        Annotations that = (Annotations) o;
+        return Objects.equals(configAnnotations, that.configAnnotations)
+                && Objects.equals(manifestAnnotations, that.manifestAnnotations)
+                && Objects.equals(filesAnnotations, that.filesAnnotations);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(configAnnotations, manifestAnnotations, filesAnnotations);
     }
 
     /**

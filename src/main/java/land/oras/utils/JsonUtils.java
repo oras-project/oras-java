@@ -21,6 +21,10 @@
 package land.oras.utils;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -30,13 +34,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for JSON operations.
- * Use Jackson 3 internally for JSON operations
+ * Use Jackson internally for JSON operations
  */
 @NullMarked
 public final class JsonUtils {
@@ -54,9 +55,11 @@ public final class JsonUtils {
     }
 
     static {
-        jsonMapper = JsonMapper.builder()
-                .changeDefaultPropertyInclusion(incl -> incl.withValueInclusion(JsonInclude.Include.NON_EMPTY))
-                .build();
+        jsonMapper = JsonMapper.builder().build();
+        jsonMapper.setDefaultPropertyInclusion(
+                JsonInclude.Value.construct(JsonInclude.Include.NON_EMPTY, JsonInclude.Include.USE_DEFAULTS));
+        jsonMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        jsonMapper.registerModule(new JavaTimeModule());
     }
 
     /**
@@ -67,7 +70,7 @@ public final class JsonUtils {
     public static String toJson(Object object) {
         try {
             return jsonMapper.writeValueAsString(object);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to convert object to JSON string", e);
         }
     }
@@ -82,7 +85,7 @@ public final class JsonUtils {
     public static <T> T fromJson(String json, Class<T> clazz) {
         try {
             return jsonMapper.readValue(json, clazz);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to parse JSON string", e);
         }
     }
@@ -97,7 +100,7 @@ public final class JsonUtils {
     public static <T> T fromJson(InputStream is, Class<T> clazz) {
         try {
             return jsonMapper.readValue(is, clazz);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to parse JSON string", e);
         }
     }
@@ -115,8 +118,6 @@ public final class JsonUtils {
         try {
             return jsonMapper.readValue(Files.readString(path, StandardCharsets.UTF_8), clazz);
         } catch (IOException e) {
-            throw new OrasException("Unable to read JSON file due to IO error", e);
-        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON file", e);
         }
     }
@@ -136,8 +137,6 @@ public final class JsonUtils {
                     Files.readString(path, StandardCharsets.UTF_8),
                     jsonMapper.getTypeFactory().constructType(type));
         } catch (IOException e) {
-            throw new OrasException("Unable to read JSON file due to IO error", e);
-        } catch (JacksonException e) {
             throw new OrasException("Unable to parse JSON file", e);
         }
     }
@@ -154,7 +153,7 @@ public final class JsonUtils {
     public static <T> T fromJson(Reader reader, Type type) {
         try {
             return jsonMapper.readValue(reader, jsonMapper.getTypeFactory().constructType(type));
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to parse JSON content", e);
         }
     }

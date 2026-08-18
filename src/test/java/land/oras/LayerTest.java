@@ -77,14 +77,11 @@ class LayerTest {
 
     @Test
     void shouldReadNullAnnotations() {
-        String json =
-                """
-            {
-              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-              "size": 32654
-            }
-        """;
+        String json = "    {\n"
+                + "      \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                + "      \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                + "      \"size\": 32654\n"
+                + "    }\n";
         Layer layer = Layer.fromJson(json);
         assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
         assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
@@ -94,14 +91,11 @@ class LayerTest {
 
     @Test
     void shouldReadBlobData() {
-        String json =
-                """
-            {
-              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-              "data": "e30="
-            }
-        """;
+        String json = "    {\n"
+                + "      \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                + "      \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                + "      \"data\": \"e30=\"\n"
+                + "    }\n";
         Layer layer = Layer.fromJson(json);
         assertEquals("application/vnd.oci.image.layer.v1.tar+gzip", layer.getMediaType());
         assertEquals("sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890", layer.getDigest());
@@ -139,15 +133,13 @@ class LayerTest {
     }
 
     private String emptyLayer() {
-        return """
-            {
-              "mediaType": "application/vnd.oci.empty.v1+json",
-              "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-              "size": 2,
-              "data": "e30=",
-              "annotations": {}
-            }
-        """;
+        return "    {\n"
+                + "      \"mediaType\": \"application/vnd.oci.empty.v1+json\",\n"
+                + "      \"digest\": \"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\n"
+                + "      \"size\": 2,\n"
+                + "      \"data\": \"e30=\",\n"
+                + "      \"annotations\": {}\n"
+                + "    }\n";
     }
 
     /**
@@ -155,14 +147,11 @@ class LayerTest {
      * @return The manifest
      */
     private String sampleLayer() {
-        return Layer.fromJson(
-                        """
-                            {
-                              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-                              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                              "size": 32654
-                            }
-                        """)
+        return Layer.fromJson("    {\n"
+                        + "      \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                        + "      \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                        + "      \"size\": 32654\n"
+                        + "    }\n")
                 .toJson();
     }
 }

@@ -70,21 +70,19 @@ class RegistryMirrorTest {
         //   mirror 1: localhost:59999 (down, connection refused)
         //   mirror 2: the running mirrorUp container
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "localhost:59999"
-                insecure = true
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"localhost:59999\"\n"
+                        + "insecure = true\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -107,21 +105,19 @@ class RegistryMirrorTest {
         setupRegistry.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
 
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "localhost:59999"
-                insecure = true
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"localhost:59999\"\n"
+                        + "insecure = true\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -147,17 +143,15 @@ class RegistryMirrorTest {
 
         // Mirror location includes a path prefix → covers mirrorLocation.contains("/") branch.
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "%s/prefix"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s/prefix\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -182,21 +176,19 @@ class RegistryMirrorTest {
         Layer layer = setupRegistry.pushBlob(mirrorRef, blobContent);
 
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "localhost:59999"
-                insecure = true
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"localhost:59999\"\n"
+                        + "insecure = true\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -241,21 +233,19 @@ class RegistryMirrorTest {
 
         // Configure docker.io with a mirror — unqualified refs resolve to docker.io by default
         // language=toml
-        String registriesConf =
-                """
-                short-name-mode = "disabled"
-
-                unqualified-search-registries = ["docker.io"]
-
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "short-name-mode = \"disabled\"\n"
+                        + "\n"
+                        + "unqualified-search-registries = [\"docker.io\"]\n"
+                        + "\n"
+                        + "[[registry]]\n"
+                        + "prefix = \"docker.io\"\n"
+                        + "location = \"docker.io\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -286,20 +276,18 @@ class RegistryMirrorTest {
         // is actually configured as the search registry below. The mirror here is unreachable: resolution
         // must catch that failure and fall back to probing the search registry directly.
         // language=toml
-        String registriesConf =
-                """
-                short-name-mode = "disabled"
-
-                unqualified-search-registries = ["%s"]
-
-                [[registry]]
-                prefix = "docker.io"
-
-                [[registry.mirror]]
-                location = "localhost:59999"
-                insecure = true
-                """
-                        .formatted(searchRegistry);
+        String registriesConf = String.format(
+                "short-name-mode = \"disabled\"\n"
+                        + "\n"
+                        + "unqualified-search-registries = [\"%s\"]\n"
+                        + "\n"
+                        + "[[registry]]\n"
+                        + "prefix = \"docker.io\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"localhost:59999\"\n"
+                        + "insecure = true\n",
+                searchRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -323,20 +311,18 @@ class RegistryMirrorTest {
         String searchRegistry = mirrorUp.getRegistry();
 
         // language=toml
-        String registriesConf =
-                """
-                short-name-mode = "disabled"
-
-                unqualified-search-registries = ["%s"]
-
-                [[registry]]
-                prefix = "docker.io"
-
-                [[registry.mirror]]
-                location = "localhost:59999"
-                insecure = true
-                """
-                        .formatted(searchRegistry);
+        String registriesConf = String.format(
+                "short-name-mode = \"disabled\"\n"
+                        + "\n"
+                        + "unqualified-search-registries = [\"%s\"]\n"
+                        + "\n"
+                        + "[[registry]]\n"
+                        + "prefix = \"docker.io\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"localhost:59999\"\n"
+                        + "insecure = true\n",
+                searchRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -349,7 +335,7 @@ class RegistryMirrorTest {
                     e.getMessage()
                             .startsWith("Container reference library/does-not-exist:v1 is unqualified"
                                     + " and cannot be found in any of the unqualified search registries"),
-                    "Wrong exception message: got '%s'".formatted(e.getMessage()));
+                    String.format("Wrong exception message: got '%s'", e.getMessage()));
         });
     }
 
@@ -365,18 +351,16 @@ class RegistryMirrorTest {
 
         // Mirror configured as digest-only — a tag-based pull must NOT use it
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                pull-from-mirror = "digest-only"
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n"
+                        + "pull-from-mirror = \"digest-only\"\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -407,18 +391,16 @@ class RegistryMirrorTest {
         String digest = pushed.getDescriptor().getDigest();
 
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                pull-from-mirror = "digest-only"
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n"
+                        + "pull-from-mirror = \"digest-only\"\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -447,18 +429,16 @@ class RegistryMirrorTest {
         String digest = pushed.getDescriptor().getDigest();
 
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-                mirror-by-digest-only = true
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorRegistry);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "mirror-by-digest-only = true\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 

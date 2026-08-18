@@ -178,20 +178,17 @@ class HarborS3ITCase {
     void shouldPushJenkinsScriptArtifact() {
 
         // language=groovy
-        String jenkinsfile =
-                """
-                    node {
-                        stage('Build') {
-                            echo 'Building...'
-                        }
-                        stage('Test') {
-                            echo 'Testing...'
-                        }
-                        stage('Deploy') {
-                            echo 'Deploying...'
-                        }
-                    }
-                    """;
+        String jenkinsfile = "node {\n"
+                + "    stage('Build') {\n"
+                + "        echo 'Building...'\n"
+                + "    }\n"
+                + "    stage('Test') {\n"
+                + "        echo 'Testing...'\n"
+                + "    }\n"
+                + "    stage('Deploy') {\n"
+                + "        echo 'Deploying...'\n"
+                + "    }\n"
+                + "}\n";
 
         // The compressed manifests
         Path image = Paths.get("src/test/resources/img").resolve("jenkins.png");

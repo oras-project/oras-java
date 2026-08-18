@@ -40,20 +40,17 @@ class ContainerRefTest {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldReadRegistriesConfig(@TempDir Path homeDir) throws Exception {
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "public.ecr.aws"
-            blocked = true
-
-            [[registry]]
-            location = "docker.io/library/alpine"
-            blocked = true
-
-            [[registry]]
-            location = "localhost:5000"
-            insecure = true
-            """;
+        String config = "[[registry]]\n"
+                + "location = \"public.ecr.aws\"\n"
+                + "blocked = true\n"
+                + "\n"
+                + "[[registry]]\n"
+                + "location = \"docker.io/library/alpine\"\n"
+                + "blocked = true\n"
+                + "\n"
+                + "[[registry]]\n"
+                + "location = \"localhost:5000\"\n"
+                + "insecure = true\n";
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -82,12 +79,9 @@ class ContainerRefTest {
     void shouldDetermineFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [aliases]
-            "my-library/my-namespace"="localhost:5000/test"
-            "my-library"="localhost:5000/test2"
-            """;
+        String config = "[aliases]\n"
+                + "\"my-library/my-namespace\"=\"localhost:5000/test\"\n"
+                + "\"my-library\"=\"localhost:5000/test2\"\n";
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -105,16 +99,13 @@ class ContainerRefTest {
     void shouldRewriteAllSubdomainToLocalProxy(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-                [[registry]]
-                prefix = "*.example.com"
-                location = "localhost:5000/example-com"
-
-                [[registry]]
-                prefix = "*.otherexample.io/library"
-                location = "localhost:5001/docker"
-                """;
+        String config = "[[registry]]\n"
+                + "prefix = \"*.example.com\"\n"
+                + "location = \"localhost:5000/example-com\"\n"
+                + "\n"
+                + "[[registry]]\n"
+                + "prefix = \"*.otherexample.io/library\"\n"
+                + "location = \"localhost:5001/docker\"\n";
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 

@@ -27,7 +27,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.Security;
-import java.util.HexFormat;
 import land.oras.exception.OrasException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jspecify.annotations.NullMarked;
@@ -37,8 +36,6 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 final class DigestUtils {
-
-    private static final HexFormat HEX_FORMAT = HexFormat.of();
 
     static {
         Security.addProvider(new BouncyCastleProvider());
@@ -118,8 +115,16 @@ final class DigestUtils {
         }
     }
 
+    static String toHexString(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+            sb.append(Character.forDigit(b & 0xF, 16));
+        }
+        return sb.toString();
+    }
+
     private static String formatHex(String prefix, final byte[] hashBytes) {
-        String formatHex = HEX_FORMAT.formatHex(hashBytes);
-        return prefix + ":" + formatHex;
+        return prefix + ":" + toHexString(hashBytes);
     }
 }

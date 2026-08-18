@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -30,13 +31,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Record for platform information
- * @param os The operating system of the platform
- * @param architecture The architecture of the platform
- * @param variant The variant of the platform, which is optional and may be null
- * @param osVersion The operating system version of the platform, which is optional and may be
- * @param features The features of the platform, which is optional and may be null
- * @param osFeatures The operating system features of the platform, which is optional and may be
+ * Platform information for an OCI manifest
  */
 @NullMarked
 @OrasModel
@@ -48,13 +43,50 @@ import org.jspecify.annotations.Nullable;
     Const.PLATFORM_OS_FEATURES
 })
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record Platform(
-        @Nullable @JsonProperty(Const.PLATFORM_OS) String os,
-        @Nullable @JsonProperty(Const.PLATFORM_ARCHITECTURE) String architecture,
-        @Nullable @JsonProperty(Const.PLATFORM_OS_VERSION) String osVersion,
-        @Nullable @JsonProperty(Const.PLATFORM_VARIANT) String variant,
-        @Nullable @JsonProperty(Const.PLATFORM_FEATURES) List<String> features,
-        @Nullable @JsonProperty(Const.PLATFORM_OS_FEATURES) List<String> osFeatures) {
+public final class Platform {
+
+    @Nullable
+    private final String os;
+
+    @Nullable
+    private final String architecture;
+
+    @Nullable
+    private final String osVersion;
+
+    @Nullable
+    private final String variant;
+
+    @Nullable
+    private final List<String> features;
+
+    @Nullable
+    private final List<String> osFeatures;
+
+    /**
+     * Create a new platform
+     * @param os The operating system
+     * @param architecture The architecture
+     * @param osVersion The os version
+     * @param variant The variant
+     * @param features The features
+     * @param osFeatures The os features
+     */
+    @JsonCreator
+    public Platform(
+            @Nullable @JsonProperty(Const.PLATFORM_OS) String os,
+            @Nullable @JsonProperty(Const.PLATFORM_ARCHITECTURE) String architecture,
+            @Nullable @JsonProperty(Const.PLATFORM_OS_VERSION) String osVersion,
+            @Nullable @JsonProperty(Const.PLATFORM_VARIANT) String variant,
+            @Nullable @JsonProperty(Const.PLATFORM_FEATURES) List<String> features,
+            @Nullable @JsonProperty(Const.PLATFORM_OS_FEATURES) List<String> osFeatures) {
+        this.os = os;
+        this.architecture = architecture;
+        this.osVersion = osVersion;
+        this.variant = variant;
+        this.features = features;
+        this.osFeatures = osFeatures;
+    }
 
     /**
      * Create a new platform linux/amd64
@@ -169,7 +201,7 @@ public record Platform(
      * Return the os of the platform, or "unknown" if the os is null
      * @return The os of the platform
      */
-    @Override
+    @JsonProperty(Const.PLATFORM_OS)
     public String os() {
         return os != null ? os : Const.PLATFORM_UNKNOWN;
     }
@@ -178,9 +210,49 @@ public record Platform(
      * Return the os of the platform, or "unknown" if the os is null
      * @return The os of the platform
      */
-    @Override
+    @JsonProperty(Const.PLATFORM_ARCHITECTURE)
     public String architecture() {
         return architecture != null ? architecture : Const.PLATFORM_UNKNOWN;
+    }
+
+    /**
+     * Return the os version of the platform
+     * @return The os version
+     */
+    @Nullable
+    @JsonProperty(Const.PLATFORM_OS_VERSION)
+    public String osVersion() {
+        return osVersion;
+    }
+
+    /**
+     * Return the variant of the platform
+     * @return The variant
+     */
+    @Nullable
+    @JsonProperty(Const.PLATFORM_VARIANT)
+    public String variant() {
+        return variant;
+    }
+
+    /**
+     * Return the features of the platform
+     * @return The features
+     */
+    @Nullable
+    @JsonProperty(Const.PLATFORM_FEATURES)
+    public List<String> features() {
+        return features;
+    }
+
+    /**
+     * Return the os features of the platform
+     * @return The os features
+     */
+    @Nullable
+    @JsonProperty(Const.PLATFORM_OS_FEATURES)
+    public List<String> osFeatures() {
+        return osFeatures;
     }
 
     /**
@@ -256,5 +328,29 @@ public record Platform(
             return Objects.equals(platform.osVersion(), target.osVersion());
         }
         return true;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Platform)) return false;
+        Platform platform = (Platform) o;
+        return Objects.equals(os, platform.os)
+                && Objects.equals(architecture, platform.architecture)
+                && Objects.equals(osVersion, platform.osVersion)
+                && Objects.equals(variant, platform.variant)
+                && Objects.equals(features, platform.features)
+                && Objects.equals(osFeatures, platform.osFeatures);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(os, architecture, osVersion, variant, features, osFeatures);
+    }
+
+    @Override
+    public String toString() {
+        return "Platform[os=" + os + ", architecture=" + architecture + ", osVersion=" + osVersion + ", variant="
+                + variant + ", features=" + features + ", osFeatures=" + osFeatures + "]";
     }
 }

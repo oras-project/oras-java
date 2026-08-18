@@ -53,10 +53,7 @@ class TomlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseToml() {
-        String tomlMap = """
-                key1 = "value1"
-                key2 = "value2"
-                """;
+        String tomlMap = "key1 = \"value1\"\n" + "key2 = \"value2\"\n";
         Map<String, String> map = TomlUtils.fromToml(tomlMap, Map.class);
         assertNotNull(map);
         assertEquals(2, map.size());
@@ -67,10 +64,7 @@ class TomlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseTomlFile() throws IOException {
-        String tomlMap = """
-                key1 = "value1"
-                key2 = "value2"
-                """;
+        String tomlMap = "key1 = \"value1\"\n" + "key2 = \"value2\"\n";
         Path tomlFile = dir.resolve("test.toml");
         Files.writeString(tomlFile, tomlMap);
         Map<String, String> map = TomlUtils.fromToml(tomlFile, Map.class);
@@ -87,10 +81,7 @@ class TomlUtilsTest {
         map.put("key2", "value2");
         String toml = TomlUtils.toToml(map);
         assertNotNull(toml);
-        String expected = """
-            key1 = 'value1'
-            key2 = 'value2'
-            """;
+        String expected = "key1 = 'value1'\n" + "key2 = 'value2'\n";
         assertEquals(expected, toml);
     }
 }

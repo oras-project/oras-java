@@ -217,13 +217,13 @@ public final class Const {
     /**
      * The default accept type for the manifest
      */
-    public static final String MANIFEST_ACCEPT_TYPE = "%s, %s, %s, %s, %s"
-            .formatted(
-                    DEFAULT_INDEX_MEDIA_TYPE,
-                    DEFAULT_MANIFEST_MEDIA_TYPE,
-                    ARTIFACT_MANIFEST_MEDIA_TYPE,
-                    DOCKER_INDEX_MEDIA_TYPE,
-                    DOCKER_MANIFEST_MEDIA_TYPE);
+    public static final String MANIFEST_ACCEPT_TYPE = String.format(
+            "%s, %s, %s, %s, %s",
+            DEFAULT_INDEX_MEDIA_TYPE,
+            DEFAULT_MANIFEST_MEDIA_TYPE,
+            ARTIFACT_MANIFEST_MEDIA_TYPE,
+            DOCKER_INDEX_MEDIA_TYPE,
+            DOCKER_MANIFEST_MEDIA_TYPE);
 
     /**
      * Annotation for the title

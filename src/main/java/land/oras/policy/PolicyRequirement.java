@@ -46,11 +46,7 @@ import org.slf4j.LoggerFactory;
     @JsonSubTypes.Type(value = PolicyRequirement.SigstoreSigned.class, name = PolicyRequirement.SigstoreSigned.TYPE),
 })
 @OrasModel
-public abstract sealed class PolicyRequirement
-        permits PolicyRequirement.InsecureAcceptAnything,
-                PolicyRequirement.Reject,
-                PolicyRequirement.SignedBy,
-                PolicyRequirement.SigstoreSigned {
+public abstract class PolicyRequirement {
 
     /**
      * Private constructor

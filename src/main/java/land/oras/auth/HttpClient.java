@@ -20,6 +20,8 @@
 
 package land.oras.auth;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
@@ -605,7 +607,7 @@ public final class HttpClient {
 
         LOG.debug("WWW-Authenticate header: realm={}, service={}, scope={}, error={}", realm, service, scope, error);
 
-        String query = "scope=%s&service=%s".formatted(scope, URLEncoder.encode(service, StandardCharsets.UTF_8));
+        String query = String.format("scope=%s&service=%s", scope, URLEncoder.encode(service, StandardCharsets.UTF_8));
 
         URI uri = URI.create(realm + "?" + query);
 
@@ -687,13 +689,16 @@ public final class HttpClient {
         // Scopes are invariant across retries — compute once.
         ContainerRef containerRef = scopes.getContainerRef();
         LOG.debug("Scopes are adding registry scopes");
-        Scopes newScopes =
-                switch (method) {
-                    case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
-                    case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
-                    case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
-                    default -> throw new OrasException("Unsupported HTTP method: " + method);
-                };
+        Scopes newScopes;
+        if ("GET".equals(method) || "HEAD".equals(method)) {
+            newScopes = scopes.withAddedRegistryScopes(Scope.PULL);
+        } else if ("POST".equals(method) || "PUT".equals(method) || "PATCH".equals(method)) {
+            newScopes = scopes.withAddedRegistryScopes(Scope.PUSH);
+        } else if ("DELETE".equals(method)) {
+            newScopes = scopes.withAddedRegistryScopes(Scope.DELETE);
+        } else {
+            throw new OrasException("Unsupported HTTP method: " + method);
+        }
         newScopes = newScopes.withIdentity(authProvider.getIdentity(containerRef));
         LOG.debug("Existing scopes: {}", scopes.getScopes());
         LOG.debug("New scopes: {}", newScopes.getScopes());
@@ -890,8 +895,25 @@ public final class HttpClient {
                     boolean includeAuthHeaderForRedirect = isSameOrigin(originUri, redirectUri);
                     if (!includeAuthHeaderForRedirect) {
                         LOG.debug("Skipping auth header for redirect from {} to {}", originUri, redirectUri);
-                        builder = HttpRequest.newBuilder(
-                                builder.build(), (name, value) -> !name.equalsIgnoreCase(Const.AUTHORIZATION_HEADER));
+                        HttpRequest existingReq = builder.build();
+                        HttpRequest.Builder redirectBuilder =
+                                HttpRequest.newBuilder().uri(existingReq.uri());
+                        existingReq.timeout().ifPresent(redirectBuilder::timeout);
+                        existingReq.headers().map().forEach((headerName, values) -> {
+                            if (!headerName.equalsIgnoreCase(Const.AUTHORIZATION_HEADER)) {
+                                for (String v : values) {
+                                    redirectBuilder.header(headerName, v);
+                                }
+                            }
+                        });
+                        if (existingReq.bodyPublisher().isPresent()) {
+                            redirectBuilder.method(
+                                    existingReq.method(),
+                                    existingReq.bodyPublisher().get());
+                        } else {
+                            redirectBuilder.method(existingReq.method(), HttpRequest.BodyPublishers.noBody());
+                        }
+                        builder = redirectBuilder;
                     }
 
                     return toResponseWrapper(
@@ -958,13 +980,81 @@ public final class HttpClient {
     /**
      * Response wrapper
      * @param <T> The response type
-     * @param response The response
-     * @param statusCode The status code
-     * @param headers The headers
-     * @param service The service (not on response but on HTTP headers)
      */
-    public record ResponseWrapper<T>(
-            T response, int statusCode, Map<String, String> headers, @Nullable String service) {}
+    public static final class ResponseWrapper<T> {
+        private final T response;
+        private final int statusCode;
+        private final Map<String, String> headers;
+        private final @Nullable String service;
+
+        /**
+         * Create a new response wrapper
+         * @param response The response
+         * @param statusCode The status code
+         * @param headers The headers
+         * @param service The service (not on response but on HTTP headers)
+         */
+        public ResponseWrapper(T response, int statusCode, Map<String, String> headers, @Nullable String service) {
+            this.response = response;
+            this.statusCode = statusCode;
+            this.headers = headers;
+            this.service = service;
+        }
+
+        /**
+         * Get the response
+         * @return The response
+         */
+        public T response() {
+            return response;
+        }
+
+        /**
+         * Get the status code
+         * @return The status code
+         */
+        public int statusCode() {
+            return statusCode;
+        }
+
+        /**
+         * Get the headers
+         * @return The headers
+         */
+        public Map<String, String> headers() {
+            return headers;
+        }
+
+        /**
+         * Get the service
+         * @return The service
+         */
+        public @Nullable String service() {
+            return service;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ResponseWrapper<?> that = (ResponseWrapper<?>) o;
+            return statusCode == that.statusCode
+                    && Objects.equals(response, that.response)
+                    && Objects.equals(headers, that.headers)
+                    && Objects.equals(service, that.service);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(response, statusCode, headers, service);
+        }
+
+        @Override
+        public String toString() {
+            return "ResponseWrapper[response=" + response + ", statusCode=" + statusCode + ", headers=" + headers
+                    + ", service=" + service + "]";
+        }
+    }
 
     /**
      * Insecure trust manager when skipping TLS verification
@@ -996,19 +1086,81 @@ public final class HttpClient {
 
     /**
      * The token response
-     * @param token The token
-     * @param service The service (not on response but on HTTP headers)
-     * @param access_token The access token
-     * @param expires_in The expires in
-     * @param issued_at The issued at
      */
     @OrasModel
-    public record TokenResponse(
-            String token,
-            @Nullable String access_token,
-            @Nullable String service,
-            @Nullable Integer expires_in,
-            @Nullable ZonedDateTime issued_at) {
+    public static final class TokenResponse {
+        private final String token;
+        private final @Nullable String access_token;
+        private final @Nullable String service;
+        private final @Nullable Integer expires_in;
+        private final @Nullable ZonedDateTime issued_at;
+
+        /**
+         * Create a new token response
+         * @param token The token
+         * @param access_token The access token
+         * @param service The service (not on response but on HTTP headers)
+         * @param expires_in The expires in
+         * @param issued_at The issued at
+         */
+        @JsonCreator
+        public TokenResponse(
+                @JsonProperty("token") String token,
+                @JsonProperty("access_token") @Nullable String access_token,
+                @JsonProperty("service") @Nullable String service,
+                @JsonProperty("expires_in") @Nullable Integer expires_in,
+                @JsonProperty("issued_at") @Nullable ZonedDateTime issued_at) {
+            this.token = token;
+            this.access_token = access_token;
+            this.service = service;
+            this.expires_in = expires_in;
+            this.issued_at = issued_at;
+        }
+
+        /**
+         * Get the token
+         * @return The token
+         */
+        @JsonProperty("token")
+        public String token() {
+            return token;
+        }
+
+        /**
+         * Get the access token
+         * @return The access token
+         */
+        @JsonProperty("access_token")
+        public @Nullable String access_token() {
+            return access_token;
+        }
+
+        /**
+         * Get the service
+         * @return The service
+         */
+        @JsonProperty("service")
+        public @Nullable String service() {
+            return service;
+        }
+
+        /**
+         * Get the expires in
+         * @return The expires in
+         */
+        @JsonProperty("expires_in")
+        public @Nullable Integer expires_in() {
+            return expires_in;
+        }
+
+        /**
+         * Get the issued at
+         * @return The issued at
+         */
+        @JsonProperty("issued_at")
+        public @Nullable ZonedDateTime issued_at() {
+            return issued_at;
+        }
 
         /**
          * Create a new token response with the service field set
@@ -1026,6 +1178,23 @@ public final class HttpClient {
          */
         public String getEffectiveToken() {
             return access_token != null ? access_token : token;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            TokenResponse that = (TokenResponse) o;
+            return Objects.equals(token, that.token)
+                    && Objects.equals(access_token, that.access_token)
+                    && Objects.equals(service, that.service)
+                    && Objects.equals(expires_in, that.expires_in)
+                    && Objects.equals(issued_at, that.issued_at);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(token, access_token, service, expires_in, issued_at);
         }
 
         @Override

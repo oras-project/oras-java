@@ -53,12 +53,7 @@ class YamlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseYaml() {
-        String yamlMap =
-                """
-                ---
-                key1: "value1"
-                key2: "value2"
-                """;
+        String yamlMap = "---\n" + "key1: \"value1\"\n" + "key2: \"value2\"\n";
         Map<String, String> map = YamlUtils.fromYaml(yamlMap, Map.class);
         assertNotNull(map);
         assertEquals(2, map.size());
@@ -69,12 +64,7 @@ class YamlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseYamlFile() throws IOException {
-        String yamlMap =
-                """
-                ---
-                key1: "value1"
-                key2: "value2"
-                """;
+        String yamlMap = "---\n" + "key1: \"value1\"\n" + "key2: \"value2\"\n";
         Path yamlFile = dir.resolve("test.yaml");
         Files.writeString(yamlFile, yamlMap);
         Map<String, String> map = YamlUtils.fromYaml(yamlFile, Map.class);
@@ -97,11 +87,7 @@ class YamlUtilsTest {
         map.put("key2", "value2");
         String yaml = YamlUtils.toYaml(map);
         assertNotNull(yaml);
-        String expected = """
-            ---
-            key1: "value1"
-            key2: "value2"
-            """;
+        String expected = "---\n" + "key1: \"value1\"\n" + "key2: \"value2\"\n";
         assertEquals(expected, yaml);
     }
 }

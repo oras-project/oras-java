@@ -22,12 +22,15 @@ package land.oras.policy;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.OrasModel;
 import land.oras.exception.OrasException;
 import land.oras.utils.JsonUtils;
@@ -35,8 +38,6 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Represents the containers trust policy loaded from a {@code policy.json} file.
@@ -62,7 +63,13 @@ public class ContainersPolicy {
      * that would interfere with the {@code @JsonTypeInfo} resolution here, so we use a separate
      * instance.
      */
-    static final ObjectMapper POLICY_MAPPER = JsonMapper.builder().build();
+    static final ObjectMapper POLICY_MAPPER;
+
+    static {
+        POLICY_MAPPER = JsonMapper.builder().build();
+        POLICY_MAPPER.configure(
+                com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     private final PolicyFile policyFile;
 
@@ -152,8 +159,9 @@ public class ContainersPolicy {
         List<PolicyRequirement> requirements = resolveRequirements(context.getTransport(), context.getScope());
         for (PolicyRequirement req : requirements) {
             if (!req.verify(context)) {
-                throw new OrasException("Image '%s' rejected by containers policy requirement '%s'"
-                        .formatted(context.getReference(), req.getType()));
+                throw new OrasException(String.format(
+                        "Image '%s' rejected by containers policy requirement '%s'",
+                        context.getReference(), req.getType()));
             }
         }
         LOG.debug("Policy verification passed for {}", context.getReference());
@@ -279,15 +287,45 @@ public class ContainersPolicy {
 
     /**
      * The raw JSON model for a {@code policy.json} file.
-     *
-     * @param defaultRequirements the mandatory global default requirement list (key
-     *                            {@code "default"} in JSON).
-     * @param transports          optional per-transport requirement map.
      */
     @OrasModel
-    record PolicyFile(
-            List<PolicyRequirement> defaultRequirements,
-            Map<Transport, Map<String, List<PolicyRequirement>>> transports) {
+    static final class PolicyFile {
+
+        private final List<PolicyRequirement> defaultRequirements;
+        private final Map<Transport, Map<String, List<PolicyRequirement>>> transports;
+
+        /**
+         * Construct a new PolicyFile.
+         *
+         * @param defaultRequirements the mandatory global default requirement list.
+         * @param transports          the per-transport requirement map.
+         */
+        PolicyFile(
+                List<PolicyRequirement> defaultRequirements,
+                Map<Transport, Map<String, List<PolicyRequirement>>> transports) {
+            this.defaultRequirements = defaultRequirements;
+            this.transports = transports;
+        }
+
+        /**
+         * Return the default requirements.
+         *
+         * @return the default requirements.
+         */
+        @JsonProperty("default")
+        List<PolicyRequirement> defaultRequirements() {
+            return defaultRequirements;
+        }
+
+        /**
+         * Return the transports.
+         *
+         * @return the transports.
+         */
+        @JsonProperty("transports")
+        Map<Transport, Map<String, List<PolicyRequirement>>> transports() {
+            return transports;
+        }
 
         /**
          * Deserialize a {@link PolicyFile} from its JSON form, mapping the raw transport keys to the
@@ -310,6 +348,25 @@ public class ContainersPolicy {
                         .putAll(scopes));
             }
             return new PolicyFile(defaults, byTransport);
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof PolicyFile)) return false;
+            PolicyFile that = (PolicyFile) o;
+            return Objects.equals(defaultRequirements, that.defaultRequirements)
+                    && Objects.equals(transports, that.transports);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(defaultRequirements, transports);
+        }
+
+        @Override
+        public String toString() {
+            return "PolicyFile[defaultRequirements=" + defaultRequirements + ", transports=" + transports + "]";
         }
     }
 }

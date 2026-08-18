@@ -20,7 +20,10 @@
 
 package land.oras.policy;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +36,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import land.oras.OrasModel;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
@@ -40,8 +44,6 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Verifies keyed <a href="https://docs.sigstore.dev/about/bundle/">Sigstore bundles</a> attached to
@@ -79,7 +81,12 @@ final class SigstoreVerifier {
     /**
      * The JSON mapper for parsing Sigstore bundles and in-toto statements.
      */
-    private static final ObjectMapper MAPPER = JsonMapper.builder().build();
+    private static final ObjectMapper MAPPER;
+
+    static {
+        MAPPER = JsonMapper.builder().build();
+        MAPPER.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     /**
      * DSSE prefix as byte
@@ -187,7 +194,13 @@ final class SigstoreVerifier {
      * digest in one of its subjects.
      */
     private static boolean digestMatches(byte[] payload, String imageDigest) {
-        InTotoStatement statement = MAPPER.readValue(payload, InTotoStatement.class);
+        InTotoStatement statement;
+        try {
+            statement = MAPPER.readValue(payload, InTotoStatement.class);
+        } catch (IOException e) {
+            LOG.warn("Failed to parse in-toto statement: {}", e.getMessage());
+            return false;
+        }
         if (statement.subject() == null) {
             LOG.warn("Sigstore bundle in-toto statement does not contain any subjects");
             return false;
@@ -213,11 +226,12 @@ final class SigstoreVerifier {
      */
     private static boolean verifySignature(PublicKey key, byte[] content, byte[] signature) {
         // Might support other algorithm in the future
-        String algorithm =
-                switch (key.getAlgorithm()) {
-                    case Const.KEY_EC_ALGORITHM -> Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM;
-                    default -> null;
-                };
+        String algorithm;
+        if (Const.KEY_EC_ALGORITHM.equals(key.getAlgorithm())) {
+            algorithm = Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM;
+        } else {
+            algorithm = null;
+        }
         if (algorithm == null) {
             LOG.warn("Unsupported public key algorithm for Sigstore verification: {}", key.getAlgorithm());
             return false;
@@ -365,38 +379,273 @@ final class SigstoreVerifier {
      * Only the DSSE envelope is modeled; verification material (tlog/timestamps) is ignored.
      */
     @OrasModel
-    record Bundle(@JsonProperty("dsseEnvelope") @Nullable DsseEnvelope dsseEnvelope) {}
+    static final class Bundle {
+
+        private final @Nullable DsseEnvelope dsseEnvelope;
+
+        /**
+         * Construct a new Bundle.
+         *
+         * @param dsseEnvelope the DSSE envelope.
+         */
+        @JsonCreator
+        Bundle(@JsonProperty("dsseEnvelope") @Nullable DsseEnvelope dsseEnvelope) {
+            this.dsseEnvelope = dsseEnvelope;
+        }
+
+        /**
+         * Return the DSSE envelope.
+         *
+         * @return the DSSE envelope.
+         */
+        @JsonProperty("dsseEnvelope")
+        @Nullable
+        DsseEnvelope dsseEnvelope() {
+            return dsseEnvelope;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Bundle)) return false;
+            Bundle that = (Bundle) o;
+            return Objects.equals(dsseEnvelope, that.dsseEnvelope);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(dsseEnvelope);
+        }
+
+        @Override
+        public String toString() {
+            return "Bundle[dsseEnvelope=" + dsseEnvelope + "]";
+        }
+    }
 
     /**
      * DSSE envelope containing a base64-encoded payload and one or more signatures.
-     * @param payload The payload
-     * @param payloadType Type of payload
-     * @param signatures List of signatures
      */
     @OrasModel
-    record DsseEnvelope(
-            @JsonProperty("payload") @Nullable String payload,
-            @JsonProperty("payloadType") @Nullable String payloadType,
-            @JsonProperty("signatures") @Nullable List<DsseSignature> signatures) {}
+    static final class DsseEnvelope {
+
+        private final @Nullable String payload;
+        private final @Nullable String payloadType;
+        private final @Nullable List<DsseSignature> signatures;
+
+        /**
+         * Construct a new DsseEnvelope.
+         *
+         * @param payload    The payload.
+         * @param payloadType Type of payload.
+         * @param signatures List of signatures.
+         */
+        @JsonCreator
+        DsseEnvelope(
+                @JsonProperty("payload") @Nullable String payload,
+                @JsonProperty("payloadType") @Nullable String payloadType,
+                @JsonProperty("signatures") @Nullable List<DsseSignature> signatures) {
+            this.payload = payload;
+            this.payloadType = payloadType;
+            this.signatures = signatures;
+        }
+
+        /**
+         * Return the payload.
+         *
+         * @return the payload.
+         */
+        @JsonProperty("payload")
+        @Nullable
+        String payload() {
+            return payload;
+        }
+
+        /**
+         * Return the payload type.
+         *
+         * @return the payload type.
+         */
+        @JsonProperty("payloadType")
+        @Nullable
+        String payloadType() {
+            return payloadType;
+        }
+
+        /**
+         * Return the signatures.
+         *
+         * @return the signatures.
+         */
+        @JsonProperty("signatures")
+        @Nullable
+        List<DsseSignature> signatures() {
+            return signatures;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DsseEnvelope)) return false;
+            DsseEnvelope that = (DsseEnvelope) o;
+            return Objects.equals(payload, that.payload)
+                    && Objects.equals(payloadType, that.payloadType)
+                    && Objects.equals(signatures, that.signatures);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(payload, payloadType, signatures);
+        }
+
+        @Override
+        public String toString() {
+            return "DsseEnvelope[payload=" + payload + ", payloadType=" + payloadType + ", signatures=" + signatures
+                    + "]";
+        }
+    }
 
     /**
      * A single DSSE signature (base64-encoded, DER for ECDSA)
-     * @param sig Signature
      */
     @OrasModel
-    record DsseSignature(@JsonProperty("sig") @Nullable String sig) {}
+    static final class DsseSignature {
+
+        private final @Nullable String sig;
+
+        /**
+         * Construct a new DsseSignature.
+         *
+         * @param sig Signature.
+         */
+        @JsonCreator
+        DsseSignature(@JsonProperty("sig") @Nullable String sig) {
+            this.sig = sig;
+        }
+
+        /**
+         * Return the signature.
+         *
+         * @return the signature.
+         */
+        @JsonProperty("sig")
+        @Nullable
+        String sig() {
+            return sig;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DsseSignature)) return false;
+            DsseSignature that = (DsseSignature) o;
+            return Objects.equals(sig, that.sig);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(sig);
+        }
+
+        @Override
+        public String toString() {
+            return "DsseSignature[sig=" + sig + "]";
+        }
+    }
 
     /**
      * Minimal model of an in-toto statement, capturing only its subjects
-     * @param subject The subject
      */
     @OrasModel
-    record InTotoStatement(@JsonProperty("subject") @Nullable List<Subject> subject) {}
+    static final class InTotoStatement {
+
+        private final @Nullable List<Subject> subject;
+
+        /**
+         * Construct a new InTotoStatement.
+         *
+         * @param subject The subject.
+         */
+        @JsonCreator
+        InTotoStatement(@JsonProperty("subject") @Nullable List<Subject> subject) {
+            this.subject = subject;
+        }
+
+        /**
+         * Return the subject.
+         *
+         * @return the subject.
+         */
+        @JsonProperty("subject")
+        @Nullable
+        List<Subject> subject() {
+            return subject;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof InTotoStatement)) return false;
+            InTotoStatement that = (InTotoStatement) o;
+            return Objects.equals(subject, that.subject);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(subject);
+        }
+
+        @Override
+        public String toString() {
+            return "InTotoStatement[subject=" + subject + "]";
+        }
+    }
 
     /**
      * An in-toto subject: a map of digest algorithm to hex value
-     * @param digest The digest
      */
     @OrasModel
-    record Subject(@JsonProperty("digest") @Nullable Map<String, String> digest) {}
+    static final class Subject {
+
+        private final @Nullable Map<String, String> digest;
+
+        /**
+         * Construct a new Subject.
+         *
+         * @param digest The digest.
+         */
+        @JsonCreator
+        Subject(@JsonProperty("digest") @Nullable Map<String, String> digest) {
+            this.digest = digest;
+        }
+
+        /**
+         * Return the digest.
+         *
+         * @return the digest.
+         */
+        @JsonProperty("digest")
+        @Nullable
+        Map<String, String> digest() {
+            return digest;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Subject)) return false;
+            Subject that = (Subject) o;
+            return Objects.equals(digest, that.digest);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(digest);
+        }
+
+        @Override
+        public String toString() {
+            return "Subject[digest=" + digest + "]";
+        }
+    }
 }

@@ -20,19 +20,18 @@
 
 package land.oras.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.dataformat.yaml.YAMLMapper;
 
 /**
  * Utility class for YAML operations.
- * Use Jackson 3 internally for YAML operations
+ * Use Jackson internally for YAML operations
  */
 @NullMarked
 public final class YamlUtils {
@@ -61,7 +60,7 @@ public final class YamlUtils {
     public static String toYaml(Object object) {
         try {
             return yamlMapper.writeValueAsString(object);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to convert object to YAML string", e);
         }
     }
@@ -76,7 +75,7 @@ public final class YamlUtils {
     public static <T> T fromYaml(String yaml, Class<T> clazz) {
         try {
             return yamlMapper.readValue(yaml, clazz);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to parse YAML string", e);
         }
     }
@@ -92,7 +91,7 @@ public final class YamlUtils {
     public static <T> T fromYaml(Path path, Class<T> clazz) {
         try {
             return yamlMapper.readValue(Files.readString(path, StandardCharsets.UTF_8), clazz);
-        } catch (IOException | JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to read YAML from file", e);
         }
     }

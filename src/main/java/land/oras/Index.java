@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -163,7 +164,7 @@ public final class Index extends Descriptor implements Describable {
     public List<ManifestDescriptor> filter(Platform platform, BiPredicate<Platform, Platform> comparator) {
         return getManifests().stream()
                 .filter(descriptor -> comparator.test(descriptor.getPlatform(), platform))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**
@@ -173,7 +174,7 @@ public final class Index extends Descriptor implements Describable {
     public List<ManifestDescriptor> unspecifiedPlatforms() {
         return getManifests().stream()
                 .filter(descriptor -> Platform.unspecified(descriptor.getPlatform()))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**

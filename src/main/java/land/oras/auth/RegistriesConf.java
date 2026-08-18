@@ -145,15 +145,60 @@ public class RegistriesConf {
 
     /**
      * The model of a mirror entry within a [[registry]] table.
-     * @param location The mirror registry location (host[:port][/path]).
-     * @param insecure Whether the mirror is insecure.
-     * @param pullFromMirror Controls which pull operations may use this mirror (default: {@link PullFromMirror#ALL}).
      */
     @OrasModel
-    public record MirrorConfig(
-            @Nullable @JsonProperty("location") String location,
-            @Nullable @JsonProperty("insecure") Boolean insecure,
-            @Nullable @JsonProperty("pull-from-mirror") PullFromMirror pullFromMirror) {
+    public static final class MirrorConfig {
+
+        private final @Nullable String location;
+        private final @Nullable Boolean insecure;
+        private final @Nullable PullFromMirror pullFromMirror;
+
+        /**
+         * Constructor for MirrorConfig.
+         * @param location The mirror registry location (host[:port][/path]).
+         * @param insecure Whether the mirror is insecure.
+         * @param pullFromMirror Controls which pull operations may use this mirror (default: {@link PullFromMirror#ALL}).
+         */
+        @JsonCreator
+        public MirrorConfig(
+                @Nullable @JsonProperty("location") String location,
+                @Nullable @JsonProperty("insecure") Boolean insecure,
+                @Nullable @JsonProperty("pull-from-mirror") PullFromMirror pullFromMirror) {
+            this.location = location;
+            this.insecure = insecure;
+            this.pullFromMirror = pullFromMirror;
+        }
+
+        /**
+         * Return the mirror registry location.
+         * @return the mirror registry location
+         */
+        @Nullable
+        @JsonProperty("location")
+        public String location() {
+            return location;
+        }
+
+        /**
+         * Return whether the mirror is insecure.
+         * @return whether the mirror is insecure
+         */
+        @Nullable
+        @JsonProperty("insecure")
+        public Boolean insecure() {
+            return insecure;
+        }
+
+        /**
+         * Return the pull-from-mirror setting.
+         * @return the pull-from-mirror setting
+         */
+        @Nullable
+        @JsonProperty("pull-from-mirror")
+        public PullFromMirror pullFromMirror() {
+            return pullFromMirror;
+        }
+
         /**
          * Return true if this mirror should be accessed over plain HTTP or with unverified TLS.
          * @return true if insecure
@@ -169,25 +214,127 @@ public class RegistriesConf {
         public PullFromMirror effectivePullFromMirror() {
             return pullFromMirror != null ? pullFromMirror : PullFromMirror.ALL;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof MirrorConfig)) return false;
+            MirrorConfig that = (MirrorConfig) o;
+            return Objects.equals(location, that.location)
+                    && Objects.equals(insecure, that.insecure)
+                    && Objects.equals(pullFromMirror, that.pullFromMirror);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(location, insecure, pullFromMirror);
+        }
+
+        @Override
+        public String toString() {
+            return "MirrorConfig[location=" + location + ", insecure=" + insecure + ", pullFromMirror=" + pullFromMirror
+                    + "]";
+        }
     }
 
     /**
      * The model of the registry configuration
-     * @param prefix The prefix to match against container references.
-     * @param location The registry location
-     * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
-     * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
-     * @param mirrorByDigestOnly If true, all mirrors for this registry are treated as digest-only (equivalent to setting pull-from-mirror=digest-only on every mirror).
-     * @param mirrors Ordered list of mirror entries to try before the registry location.
      */
     @OrasModel
-    record RegistryConfig(
-            @Nullable @JsonProperty("prefix") String prefix,
-            @Nullable @JsonProperty("location") String location,
-            @Nullable @JsonProperty("blocked") Boolean blocked,
-            @Nullable @JsonProperty("insecure") Boolean insecure,
-            @Nullable @JsonProperty("mirror-by-digest-only") Boolean mirrorByDigestOnly,
-            @Nullable @JsonProperty("mirror") List<MirrorConfig> mirrors) {
+    static final class RegistryConfig {
+
+        private final @Nullable String prefix;
+        private final @Nullable String location;
+        private final @Nullable Boolean blocked;
+        private final @Nullable Boolean insecure;
+        private final @Nullable Boolean mirrorByDigestOnly;
+        private final @Nullable List<MirrorConfig> mirrors;
+
+        /**
+         * Constructor for RegistryConfig.
+         * @param prefix The prefix to match against container references.
+         * @param location The registry location
+         * @param blocked Whether the registry is blocked. If true, the registry is blocked and cannot be used for pulling or pushing images.
+         * @param insecure Whether the registry is insecure. If true, the registry is considered insecure and may allow connections over HTTP or with invalid TLS certificates.
+         * @param mirrorByDigestOnly If true, all mirrors for this registry are treated as digest-only (equivalent to setting pull-from-mirror=digest-only on every mirror).
+         * @param mirrors Ordered list of mirror entries to try before the registry location.
+         */
+        @JsonCreator
+        RegistryConfig(
+                @Nullable @JsonProperty("prefix") String prefix,
+                @Nullable @JsonProperty("location") String location,
+                @Nullable @JsonProperty("blocked") Boolean blocked,
+                @Nullable @JsonProperty("insecure") Boolean insecure,
+                @Nullable @JsonProperty("mirror-by-digest-only") Boolean mirrorByDigestOnly,
+                @Nullable @JsonProperty("mirror") List<MirrorConfig> mirrors) {
+            this.prefix = prefix;
+            this.location = location;
+            this.blocked = blocked;
+            this.insecure = insecure;
+            this.mirrorByDigestOnly = mirrorByDigestOnly;
+            this.mirrors = mirrors;
+        }
+
+        /**
+         * Return the prefix to match against container references.
+         * @return the prefix
+         */
+        @Nullable
+        @JsonProperty("prefix")
+        String prefix() {
+            return prefix;
+        }
+
+        /**
+         * Return the registry location.
+         * @return the registry location
+         */
+        @Nullable
+        @JsonProperty("location")
+        String location() {
+            return location;
+        }
+
+        /**
+         * Return whether the registry is blocked.
+         * @return whether the registry is blocked
+         */
+        @Nullable
+        @JsonProperty("blocked")
+        Boolean blocked() {
+            return blocked;
+        }
+
+        /**
+         * Return whether the registry is insecure.
+         * @return whether the registry is insecure
+         */
+        @Nullable
+        @JsonProperty("insecure")
+        Boolean insecure() {
+            return insecure;
+        }
+
+        /**
+         * Return the mirror-by-digest-only setting.
+         * @return the mirror-by-digest-only setting
+         */
+        @Nullable
+        @JsonProperty("mirror-by-digest-only")
+        Boolean mirrorByDigestOnly() {
+            return mirrorByDigestOnly;
+        }
+
+        /**
+         * Return the list of mirror configurations.
+         * @return the list of mirror configurations
+         */
+        @Nullable
+        @JsonProperty("mirror")
+        List<MirrorConfig> mirrors() {
+            return mirrors;
+        }
+
         /**
          * Return true if this registry is blocked and cannot be used for pulling or pushing images.
          * @return true if blocked
@@ -211,15 +358,67 @@ public class RegistriesConf {
         public boolean isMirrorByDigestOnly() {
             return mirrorByDigestOnly != null && mirrorByDigestOnly;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof RegistryConfig)) return false;
+            RegistryConfig that = (RegistryConfig) o;
+            return Objects.equals(prefix, that.prefix)
+                    && Objects.equals(location, that.location)
+                    && Objects.equals(blocked, that.blocked)
+                    && Objects.equals(insecure, that.insecure)
+                    && Objects.equals(mirrorByDigestOnly, that.mirrorByDigestOnly)
+                    && Objects.equals(mirrors, that.mirrors);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(prefix, location, blocked, insecure, mirrorByDigestOnly, mirrors);
+        }
+
+        @Override
+        public String toString() {
+            return "RegistryConfig[prefix=" + prefix + ", location=" + location + ", blocked=" + blocked
+                    + ", insecure=" + insecure + ", mirrorByDigestOnly=" + mirrorByDigestOnly + ", mirrors=" + mirrors
+                    + "]";
+        }
     }
 
     /**
      * The model of the parsed prefix, which contains the host and path components of the prefix.
-     * @param host The host component of the prefix, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
-     * @param path The path component of the prefix, which can be a specific path or a path prefix (e.g., namespace/repo).
      */
     @OrasModel
-    record ParsedPrefix(String host, String path) {
+    static final class ParsedPrefix {
+
+        private final String host;
+        private final String path;
+
+        /**
+         * Constructor for ParsedPrefix.
+         * @param host The host component of the prefix, which can be a specific hostname or a wildcard pattern (e.g., *.example.com).
+         * @param path The path component of the prefix, which can be a specific path or a path prefix (e.g., namespace/repo).
+         */
+        ParsedPrefix(String host, String path) {
+            this.host = host;
+            this.path = path;
+        }
+
+        /**
+         * Return the host component of the prefix.
+         * @return the host
+         */
+        String host() {
+            return host;
+        }
+
+        /**
+         * Return the path component of the prefix.
+         * @return the path
+         */
+        String path() {
+            return path;
+        }
 
         static ParsedPrefix parse(String prefix) {
             int slash = prefix.indexOf('/');
@@ -227,6 +426,24 @@ public class RegistriesConf {
                 return new ParsedPrefix(prefix, "");
             }
             return new ParsedPrefix(prefix.substring(0, slash), prefix.substring(slash + 1));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ParsedPrefix)) return false;
+            ParsedPrefix that = (ParsedPrefix) o;
+            return Objects.equals(host, that.host) && Objects.equals(path, that.path);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(host, path);
+        }
+
+        @Override
+        public String toString() {
+            return "ParsedPrefix[host=" + host + ", path=" + path + "]";
         }
     }
 
@@ -320,16 +537,96 @@ public class RegistriesConf {
 
     /**
      * The model of the configuration file, which contains the list of registry configurations, aliases, and unqualified registries.
-     * @param registries The list of registry configurations, each containing the registry location, whether it is blocked, and whether it is insecure.
-     * @param aliases The map of registry aliases, where the key is the alias and the value is the actual registry URL.
-     * @param unqualifiedRegistries The list of unqualified registries, which are registries that can be used without specifying a registry.
      */
     @OrasModel
-    record ConfigFile(
-            @JsonProperty("short-name-mode") @Nullable ShortNameMode shortNameMode,
-            @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
-            @JsonProperty("aliases") @Nullable Map<String, String> aliases,
-            @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
+    static final class ConfigFile {
+
+        private final @Nullable ShortNameMode shortNameMode;
+        private final @Nullable List<RegistryConfig> registries;
+        private final @Nullable Map<String, String> aliases;
+        private final @Nullable List<String> unqualifiedRegistries;
+
+        /**
+         * Constructor for ConfigFile.
+         * @param shortNameMode The short name mode for the configuration.
+         * @param registries The list of registry configurations, each containing the registry location, whether it is blocked, and whether it is insecure.
+         * @param aliases The map of registry aliases, where the key is the alias and the value is the actual registry URL.
+         * @param unqualifiedRegistries The list of unqualified registries, which are registries that can be used without specifying a registry.
+         */
+        @JsonCreator
+        ConfigFile(
+                @JsonProperty("short-name-mode") @Nullable ShortNameMode shortNameMode,
+                @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
+                @JsonProperty("aliases") @Nullable Map<String, String> aliases,
+                @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {
+            this.shortNameMode = shortNameMode;
+            this.registries = registries;
+            this.aliases = aliases;
+            this.unqualifiedRegistries = unqualifiedRegistries;
+        }
+
+        /**
+         * Return the short name mode.
+         * @return the short name mode
+         */
+        @JsonProperty("short-name-mode")
+        @Nullable
+        ShortNameMode shortNameMode() {
+            return shortNameMode;
+        }
+
+        /**
+         * Return the list of registry configurations.
+         * @return the list of registry configurations
+         */
+        @JsonProperty("registry")
+        @Nullable
+        List<RegistryConfig> registries() {
+            return registries;
+        }
+
+        /**
+         * Return the map of aliases.
+         * @return the map of aliases
+         */
+        @JsonProperty("aliases")
+        @Nullable
+        Map<String, String> aliases() {
+            return aliases;
+        }
+
+        /**
+         * Return the list of unqualified registries.
+         * @return the list of unqualified registries
+         */
+        @JsonProperty("unqualified-search-registries")
+        @Nullable
+        List<String> unqualifiedRegistries() {
+            return unqualifiedRegistries;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ConfigFile)) return false;
+            ConfigFile that = (ConfigFile) o;
+            return Objects.equals(shortNameMode, that.shortNameMode)
+                    && Objects.equals(registries, that.registries)
+                    && Objects.equals(aliases, that.aliases)
+                    && Objects.equals(unqualifiedRegistries, that.unqualifiedRegistries);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(shortNameMode, registries, aliases, unqualifiedRegistries);
+        }
+
+        @Override
+        public String toString() {
+            return "ConfigFile[shortNameMode=" + shortNameMode + ", registries=" + registries + ", aliases=" + aliases
+                    + ", unqualifiedRegistries=" + unqualifiedRegistries + "]";
+        }
+    }
 
     /**
      * Get the list of unqualified registries.
@@ -510,11 +807,13 @@ public class RegistriesConf {
                 .filter(mirror -> {
                     PullFromMirror effective =
                             registryDigestOnly ? PullFromMirror.DIGEST_ONLY : mirror.effectivePullFromMirror();
-                    return switch (effective) {
-                        case DIGEST_ONLY -> refHasDigest;
-                        case TAG_ONLY -> refHasTag;
-                        case ALL -> true;
-                    };
+                    if (effective == PullFromMirror.DIGEST_ONLY) {
+                        return refHasDigest;
+                    } else if (effective == PullFromMirror.TAG_ONLY) {
+                        return refHasTag;
+                    } else {
+                        return true;
+                    }
                 })
                 .collect(Collectors.toUnmodifiableList());
     }

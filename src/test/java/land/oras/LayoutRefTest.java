@@ -44,7 +44,7 @@ class LayoutRefTest {
     @Test
     void shouldParseLayoutWithAllParts() {
         String ociLayout = tempDir.resolve("foo").toString();
-        LayoutRef layoutRef = LayoutRef.parse("%s:v1".formatted(ociLayout));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:v1", ociLayout));
         assertEquals("v1", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
         assertEquals(ociLayout, layoutRef.getRepository());
@@ -55,7 +55,7 @@ class LayoutRefTest {
     void shouldParseLayoutWithDigest() {
         String ociLayout = tempDir.resolve("foo").toString();
         LayoutRef layoutRef = LayoutRef.parse(
-                "%s@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".formatted(ociLayout));
+                String.format("%s@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", ociLayout));
         assertEquals("sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", layoutRef.getTag());
         assertEquals(ociLayout, layoutRef.getFolder().toString());
         assertEquals(ociLayout, layoutRef.getRepository());

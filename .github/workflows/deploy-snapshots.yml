@@ -30,7 +30,7 @@ jobs:
         with:
           checkout-enabled: false
           java-distribution: 'temurin'
-          java-version: 17
+          java-version: 11
           maven-version: ${{ steps.maven-version.outputs.version }}
           cache-enabled: true
           settings-servers: |

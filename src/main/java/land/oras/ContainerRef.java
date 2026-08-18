@@ -133,7 +133,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
     public String getFullRepository(@Nullable Registry registry) {
         String namespace = getNamespace(registry);
         if (namespace != null) {
-            return "%s/%s".formatted(namespace, repository);
+            return String.format("%s/%s", namespace, repository);
         }
         return repository;
     }
@@ -235,8 +235,8 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (digest == null) {
             throw new OrasException("Digest is required to compute the referrers fallback tag");
         }
-        String fallbackTag = "%s-%s"
-                .formatted(SupportedAlgorithm.fromDigest(digest).getPrefix(), SupportedAlgorithm.getDigest(digest));
+        String fallbackTag = String.format(
+                "%s-%s", SupportedAlgorithm.fromDigest(digest).getPrefix(), SupportedAlgorithm.getDigest(digest));
         return new ContainerRef(registry, unqualified, namespace, repository, fallbackTag, null);
     }
 
@@ -258,9 +258,9 @@ public final class ContainerRef extends Ref<ContainerRef> {
     private String getApiPrefix(@Nullable Registry target) {
         String namespace = getNamespace(target);
         if (namespace != null) {
-            return "%s/v2/%s/%s".formatted(getApiRegistry(target), namespace, repository);
+            return String.format("%s/v2/%s/%s", getApiRegistry(target), namespace, repository);
         }
-        return "%s/v2/%s".formatted(getApiRegistry(target), repository);
+        return String.format("%s/v2/%s", getApiRegistry(target), repository);
     }
 
     /**
@@ -269,7 +269,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The tag URL
      */
     public String getRepositoriesPath(@Nullable Registry target) {
-        return "%s/v2/_catalog".formatted(getApiRegistry(target));
+        return String.format("%s/v2/_catalog", getApiRegistry(target));
     }
 
     /**
@@ -286,7 +286,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The tag URL
      */
     public String getTagsPath(@Nullable Registry target) {
-        return "%s/tags/list".formatted(getApiPrefix(target));
+        return String.format("%s/tags/list", getApiPrefix(target));
     }
 
     /**
@@ -350,11 +350,11 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/uploads/?mount=%s&from=%s"
-                .formatted(
-                        getApiPrefix(registry),
-                        digest,
-                        URLEncoder.encode(sourceRef.getFullRepository(registry), StandardCharsets.UTF_8));
+        return String.format(
+                "%s/blobs/uploads/?mount=%s&from=%s",
+                getApiPrefix(registry),
+                digest,
+                URLEncoder.encode(sourceRef.getFullRepository(registry), StandardCharsets.UTF_8));
     }
 
     /**
@@ -365,13 +365,11 @@ public final class ContainerRef extends Ref<ContainerRef> {
      */
     public String getReferrersPath(@Nullable Registry registry, @Nullable ArtifactType artifactType) {
         if (artifactType == null) {
-            return "%s/referrers/%s".formatted(getApiPrefix(registry), digest);
+            return String.format("%s/referrers/%s", getApiPrefix(registry), digest);
         }
-        return "%s/referrers/%s?artifactType=%s"
-                .formatted(
-                        getApiPrefix(registry),
-                        digest,
-                        URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
+        return String.format(
+                "%s/referrers/%s?artifactType=%s",
+                getApiPrefix(registry), digest, URLEncoder.encode(artifactType.toString(), StandardCharsets.UTF_8));
     }
 
     /**
@@ -410,7 +408,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The manifests URL
      */
     public String getManifestsPath(@Nullable Registry registry) {
-        return "%s/manifests/%s".formatted(getApiPrefix(registry), digest == null ? tag : digest);
+        return String.format("%s/manifests/%s", getApiPrefix(registry), digest == null ? tag : digest);
     }
 
     /**
@@ -430,7 +428,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/uploads/?digest=%s".formatted(getApiPrefix(registry), digest);
+        return String.format("%s/blobs/uploads/?digest=%s", getApiPrefix(registry), digest);
     }
 
     /**
@@ -439,7 +437,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
      * @return The blobs upload URL
      */
     public String getBlobsUploadPath(Registry registry) {
-        return "%s/blobs/uploads/".formatted(getApiPrefix(registry));
+        return String.format("%s/blobs/uploads/", getApiPrefix(registry));
     }
 
     /**
@@ -451,7 +449,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         if (digest == null) {
             throw new OrasException("You are required to include a digest");
         }
-        return "%s/blobs/%s".formatted(getApiPrefix(registry), digest);
+        return String.format("%s/blobs/%s", getApiPrefix(registry), digest);
     }
 
     /**
@@ -607,7 +605,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
         // Check registry configuration (blocked registries)
         if (isBlocked(registry)) {
             throw new OrasException(
-                    "Access to container reference %s is blocked by registry configuration".formatted(this));
+                    String.format("Access to container reference %s is blocked by registry configuration", this));
         }
         return this;
     }
@@ -637,7 +635,7 @@ public final class ContainerRef extends Ref<ContainerRef> {
             String key = registry.getRegistriesConf().getAliasKey(this);
             if (registry.getRegistry() == null && registry.getRegistriesConf().hasAlias(key)) {
                 String newLocation = registry.getRegistriesConf().getAliases().get(key);
-                String newRefString = "%s:%s".formatted(newLocation, tag);
+                String newRefString = String.format("%s:%s", newLocation, tag);
                 LOG.debug("Using {} as an alias to {}", key, newRefString);
                 return ContainerRef.parse(newRefString);
             }
@@ -678,9 +676,9 @@ public final class ContainerRef extends Ref<ContainerRef> {
             }
             LOG.debug("Container {} does not exist in unqualified search registry {}", this, searchRegistry);
         }
-        throw new OrasException(
-                "Container reference %s is unqualified and cannot be found in any of the unqualified search registries: %s"
-                        .formatted(this, registry.getRegistriesConf().getUnqualifiedRegistries()));
+        throw new OrasException(String.format(
+                "Container reference %s is unqualified and cannot be found in any of the unqualified search registries: %s",
+                this, registry.getRegistriesConf().getUnqualifiedRegistries()));
     }
 
     @Override
@@ -705,14 +703,14 @@ public final class ContainerRef extends Ref<ContainerRef> {
 
         if (isUnqualified()) {
             if (namespace != null && !namespace.isEmpty()) {
-                return "%s/%s%s".formatted(namespace, repository, ref);
+                return String.format("%s/%s%s", namespace, repository, ref);
             }
-            return "%s%s".formatted(repository, ref);
+            return String.format("%s%s", repository, ref);
         }
 
         if (namespace != null && !namespace.isEmpty()) {
-            return "%s/%s/%s%s".formatted(registry, namespace, repository, ref);
+            return String.format("%s/%s/%s%s", registry, namespace, repository, ref);
         }
-        return "%s/%s%s".formatted(registry, repository, ref);
+        return String.format("%s/%s%s", registry, repository, ref);
     }
 }

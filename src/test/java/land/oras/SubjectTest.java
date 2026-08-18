@@ -70,12 +70,10 @@ class SubjectTest {
      */
     private String sampleSubject() {
         // language=JSON
-        return """
-            {
-              "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-              "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-              "size": 32654
-            }
-             """;
+        return "{\n"
+                + "  \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                + "  \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                + "  \"size\": 32654\n"
+                + "}\n";
     }
 }

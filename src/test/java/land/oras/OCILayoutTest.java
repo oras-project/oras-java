@@ -65,7 +65,7 @@ class OCILayoutTest {
     @Test
     void shouldPushEmptyManifest() {
         Path path = layoutPath.resolve("shouldPushManifest");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Manifest manifest = Manifest.empty().withConfig(Config.empty());
         manifest = ociLayout.pushManifest(layoutRef, manifest);
@@ -110,7 +110,7 @@ class OCILayoutTest {
     @Test
     void shouldPushIndex() {
         Path path = layoutPath.resolve("shouldPushIndex");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
         index = ociLayout.pushIndex(layoutRef, index);
@@ -148,7 +148,7 @@ class OCILayoutTest {
 
         // A signed alpine OCI layout
         String imageDigest = "sha256:9e56ed4cb843f61658fcdb17d4205a87d5e217515f23831314b2173a776174d6";
-        LayoutRef layoutRef = LayoutRef.parse("src/test/resources/oci/alpine-signed@%s".formatted(imageDigest));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("src/test/resources/oci/alpine-signed@%s", imageDigest));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
 
@@ -158,7 +158,7 @@ class OCILayoutTest {
                 .withInsecure(true)
                 .build();
         ContainerRef targetRef =
-                ContainerRef.parse("%s/library/alpine-signed:latest".formatted(registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/alpine-signed:latest", registry.getRegistry()));
         CopyUtils.copy(ociLayout, layoutRef, pushRegistry, targetRef, CopyUtils.CopyOptions.deep());
 
         // Trust policy: accept only images carrying a valid Sigstore signature made by this key.
@@ -168,17 +168,16 @@ class OCILayoutTest {
         // language=json
         Files.writeString(
                 policyPath,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "%s/library/alpine-signed": [{"type": "sigstoreSigned", "keyPath": "%s"}]
-                    }
-                  }
-                }
-                """
-                        .formatted(registry.getRegistry(), publicKeyPath.toAbsolutePath()));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"%s/library/alpine-signed\": [{\"type\": \"sigstoreSigned\", \"keyPath\": \"%s\"}]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        registry.getRegistry(), publicKeyPath.toAbsolutePath()));
         ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
 
         // Pull the manifest with the policy: the attached signature is fetched and verified.
@@ -235,7 +234,7 @@ class OCILayoutTest {
     @Test
     void shouldPushConfig() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfig");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Config config = Config.empty();
         ociLayout.pushConfig(layoutRef.withDigest(config.getDigest()), config);
@@ -253,7 +252,7 @@ class OCILayoutTest {
     @Test
     void shouldPushConfigWithReference() throws IOException {
         Path path = layoutPath.resolve("shouldPushConfigWithReference");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Path configFile = blobDir.resolve("config.txt");
         Files.writeString(configFile, "hello");
@@ -275,7 +274,7 @@ class OCILayoutTest {
     @Test
     void shouldRejectTamperedBlobOnRead() throws IOException {
         Path path = layoutPath.resolve("tamperedBlob");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
 
         // Push a known blob into the layout
@@ -308,7 +307,7 @@ class OCILayoutTest {
     @Test
     void shouldReadUntamperedBlobAfterIntegrityCheck() throws IOException {
         Path path = layoutPath.resolve("untamperedBlob");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
 
         Path blobFile = blobDir.resolve("intact.txt");
@@ -333,7 +332,7 @@ class OCILayoutTest {
         Path artifactPath = blobDir.resolve("artifact.txt");
         Files.writeString(artifactPath, "artifact-content");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
         Annotations annotations = Annotations.ofManifest(Map.of(Const.ANNOTATION_CREATED, Const.currentTimestamp()));
@@ -400,7 +399,7 @@ class OCILayoutTest {
     @Test
     void shouldPushIndexWithTag() {
         Path path = layoutPath.resolve("shouldPushIndexWithTag");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Index index = Index.fromManifests(List.of(Manifest.empty().getDescriptor()));
         index = ociLayout.pushIndex(layoutRef.withTag("latest"), index);
@@ -423,7 +422,7 @@ class OCILayoutTest {
     void shouldPushManifestFromFile() {
 
         Path path = layoutPath.resolve("shouldPushManifetFromFile");
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
 
         Manifest manifest = Manifest.fromPath(
@@ -461,7 +460,7 @@ class OCILayoutTest {
     @Test
     void shouldPushEmptyManifestWithRef() {
         Path path = layoutPath.resolve("shouldPushManifest");
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(path.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", path.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(path).build();
         Manifest manifest = Manifest.empty().withConfig(Config.empty());
         manifest = ociLayout.pushManifest(layoutRef, manifest);
@@ -531,7 +530,7 @@ class OCILayoutTest {
         Path path = layoutPath.resolve("failToCreateLayoutIfFileExists");
         Files.createFile(path);
         assertThrows(OrasException.class, () -> {
-            LayoutRef layoutRef = LayoutRef.parse("%s".formatted(path.toString()));
+            LayoutRef layoutRef = LayoutRef.parse(String.format("%s", path.toString()));
             OCILayout.Builder.builder().defaults(layoutRef.getFolder()).build();
         });
     }
@@ -543,7 +542,7 @@ class OCILayoutTest {
         Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWithoutTag.txt");
         Files.writeString(artifactPath, "hi");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
@@ -640,7 +639,7 @@ class OCILayoutTest {
         Path artifactPath = blobDir.resolve("shouldPushToOciLayoutWithTag.txt");
         Files.writeString(artifactPath, "hi");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
@@ -916,7 +915,7 @@ class OCILayoutTest {
     void cannotPushWithInvalidDigest() {
         Path invalidBlobPushDir = layoutPath.resolve("cannotPushWithInvalidDigest");
 
-        LayoutRef wrongDigest1 = LayoutRef.parse("%s@sha234:1234".formatted(invalidBlobPushDir.toString()));
+        LayoutRef wrongDigest1 = LayoutRef.parse(String.format("%s@sha234:1234", invalidBlobPushDir.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(invalidBlobPushDir).build();
 
@@ -925,7 +924,7 @@ class OCILayoutTest {
             ociLayout.pushBlob(wrongDigest1, "hi".getBytes(StandardCharsets.UTF_8));
         });
 
-        LayoutRef wrongDigest2 = LayoutRef.parse("%s@sha256:1234".formatted(invalidBlobPushDir.toString()));
+        LayoutRef wrongDigest2 = LayoutRef.parse(String.format("%s@sha256:1234", invalidBlobPushDir.toString()));
 
         // Push more blobs
         assertThrows(OrasException.class, () -> {
@@ -945,7 +944,7 @@ class OCILayoutTest {
         LayoutRef layoutRef = LayoutRef.of(ociLayout);
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-oci-layout", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-oci-layout.txt");
         Path file2 = blobDir.resolve("artifact-recursive-oci-attached.txt");
         Files.writeString(file1, "artifact-oci-layout");
@@ -985,10 +984,10 @@ class OCILayoutTest {
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyIndexWithPlatformFilterFromRegistryIntoOciLayout");
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/platform-filter-source".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/platform-filter-source", this.registry.getRegistry()));
 
         // Push two manifests with different content, one per platform
         Path fileAmd64 = blobDir.resolve("platform-filter-amd64.txt");
@@ -1062,7 +1061,7 @@ class OCILayoutTest {
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutRecursive");
-        LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        LayoutRef targetRef = LayoutRef.parse(String.format("%s", ociLayoutPath.toString()));
         OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
@@ -1092,7 +1091,7 @@ class OCILayoutTest {
 
         // Target
         Path ociLayoutPath = layoutPath.resolve("testShouldCopyFromOciLayoutIntoOciLayoutNonRecursive");
-        LayoutRef targetRef = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        LayoutRef targetRef = LayoutRef.parse(String.format("%s", ociLayoutPath.toString()));
         OCILayout target = OCILayout.builder().defaults(targetRef.getFolder()).build();
 
         // Copy to oci layout
@@ -1122,10 +1121,10 @@ class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", ociLayout.getPath()));
 
-        ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-recursive-oci-layout".formatted(this.registry.getRegistry()));
+        ContainerRef containerRef = ContainerRef.parse(
+                String.format("%s/library/artifact-recursive-oci-layout", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-recursive-oci-layout.txt");
         Path file2 = blobDir.resolve("artifact-recursive-oci-attached.txt");
         Path file3 = blobDir.resolve("artifact-recursive-oci-attached2.txt");
@@ -1173,10 +1172,10 @@ class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s:the-tag".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:the-tag", ociLayout.getPath()));
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/image-no-index".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/image-no-index", this.registry.getRegistry()));
 
         Layer layer1 = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
         Layer layer2 = registry.pushBlob(containerRef, "foobar".getBytes());
@@ -1251,10 +1250,10 @@ class OCILayoutTest {
 
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(layoutPathIndex).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayout.getPath()));
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-image-pull".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-image-pull", this.registry.getRegistry()));
 
         Layer layer1 = registry.pushBlob(containerRef, Layer.empty().getDataBytes());
         Layer layer2 = registry.pushBlob(containerRef, "foobar".getBytes());
@@ -1323,10 +1322,10 @@ class OCILayoutTest {
                 .build();
 
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(layoutPath).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", ociLayout.getPath()));
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-oci-layout".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-oci-layout", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-oci-layout.txt");
         Files.writeString(file1, "artifact-oci-layout");
 
@@ -1431,7 +1430,7 @@ class OCILayoutTest {
         Path artifactFile = blobDir.resolve("safe.txt");
         Files.writeString(artifactFile, "safe content");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
         ociLayout.pushArtifact(
@@ -1531,7 +1530,7 @@ class OCILayoutTest {
         Path artifactFile = blobDir.resolve("hello-tar.txt");
         Files.writeString(artifactFile, "hello from tar");
 
-        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        LayoutRef ref = LayoutRef.parse(String.format("%s:latest", tarFile.toString()));
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
 
         // Act: push
@@ -1543,7 +1542,7 @@ class OCILayoutTest {
 
         // Re-open the layout from the same tar (simulate a second process)
         OCILayout reopened = OCILayout.Builder.builder().defaults(tarFile).build();
-        LayoutRef reopenedRef = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        LayoutRef reopenedRef = LayoutRef.parse(String.format("%s:latest", tarFile.toString()));
 
         // Pull the artifact
         Path pullDir = extractDir.resolve("tar-pull-out");
@@ -1561,7 +1560,7 @@ class OCILayoutTest {
         // Open the pre-built artifact.tar fixture
         Path tarFile = Path.of("src/test/resources/oci/artifact.tar");
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
-        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        LayoutRef ref = LayoutRef.parse(String.format("%s:latest", tarFile.toString()));
 
         Tags tags = ociLayout.getTags(ref);
         assertEquals(1, tags.tags().size());
@@ -1573,7 +1572,7 @@ class OCILayoutTest {
         // Open the pre-built subject.tar fixture (has one referrer)
         Path tarFile = Path.of("src/test/resources/oci/subject.tar");
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
-        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        LayoutRef ref = LayoutRef.parse(String.format("%s:latest", tarFile.toString()));
 
         Referrers referrers = ociLayout.getReferrers(ref, null);
         assertEquals(1, referrers.getManifests().size());
@@ -1587,7 +1586,7 @@ class OCILayoutTest {
         // Open the pre-built artifact.tar fixture
         Path tarFile = Path.of("src/test/resources/oci/artifact.tar");
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
-        LayoutRef ref = LayoutRef.parse("%s:latest".formatted(tarFile.toString()));
+        LayoutRef ref = LayoutRef.parse(String.format("%s:latest", tarFile.toString()));
 
         Path pullDir = extractDir.resolve("tar-fixture-pull");
         Files.createDirectories(pullDir);
@@ -1601,12 +1600,12 @@ class OCILayoutTest {
     void shouldReopenExistingTarAndPushAdditionalManifest() throws IOException {
         // First session: create a tar-backed layout and push one manifest
         Path tarFile = layoutPath.resolve("reopen-test.tar");
-        LayoutRef ref1 = LayoutRef.parse("%s:v1".formatted(tarFile.toString()));
+        LayoutRef ref1 = LayoutRef.parse(String.format("%s:v1", tarFile.toString()));
         OCILayout session1 = OCILayout.Builder.builder().defaults(tarFile).build();
         session1.pushManifest(ref1, Manifest.empty().withConfig(Config.empty()));
 
         // Second session: reopen the same tar and push another manifest
-        LayoutRef ref2 = LayoutRef.parse("%s:v2".formatted(tarFile.toString()));
+        LayoutRef ref2 = LayoutRef.parse(String.format("%s:v2", tarFile.toString()));
         OCILayout session2 = OCILayout.Builder.builder().defaults(tarFile).build();
         Manifest m2 = Manifest.empty().withConfig(Config.empty()).withAnnotations(Map.of("version", "2"));
         session2.pushManifest(ref2, m2);
@@ -1642,7 +1641,7 @@ class OCILayoutTest {
         LayoutRef layoutRef = LayoutRef.of(ociLayout);
 
         ContainerRef containerRef =
-                ContainerRef.parse("%s/library/artifact-oci-layout-tar".formatted(this.registry.getRegistry()));
+                ContainerRef.parse(String.format("%s/library/artifact-oci-layout-tar", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-oci-layout-tar.txt");
         Files.writeString(file1, "artifact-oci-layout-tar");
 
@@ -1676,10 +1675,10 @@ class OCILayoutTest {
 
         Path tarFile = layoutPath.resolve("copy-deep.tar");
         OCILayout ociLayout = OCILayout.Builder.builder().defaults(tarFile).build();
-        LayoutRef layoutRef = LayoutRef.parse("%s".formatted(ociLayout.getPath()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s", ociLayout.getPath()));
 
         ContainerRef containerRef = ContainerRef.parse(
-                "%s/library/artifact-recursive-oci-layout-tar".formatted(this.registry.getRegistry()));
+                String.format("%s/library/artifact-recursive-oci-layout-tar", this.registry.getRegistry()));
         Path file1 = blobDir.resolve("artifact-recursive-oci-layout-tar.txt");
         Path file2 = blobDir.resolve("artifact-recursive-oci-attached-tar.txt");
         Path file3 = blobDir.resolve("artifact-recursive-oci-attached2-tar.txt");
@@ -1723,7 +1722,7 @@ class OCILayoutTest {
         Path artifactFile = blobDir.resolve("gc-no-orphan.txt");
         Files.writeString(artifactFile, "no-orphan");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
         ociLayout.pushArtifact(
@@ -1747,7 +1746,7 @@ class OCILayoutTest {
         Path orphanFile = blobDir.resolve("gc-orphan-extra.txt");
         Files.writeString(orphanFile, "orphaned-blob-content");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
         ociLayout.pushArtifact(
@@ -1782,7 +1781,7 @@ class OCILayoutTest {
         Path artifactFile = blobDir.resolve("gc-multi-orphan.txt");
         Files.writeString(artifactFile, "referenced-multi");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
         ociLayout.pushArtifact(
@@ -1826,8 +1825,8 @@ class OCILayoutTest {
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
-        LayoutRef ref1 = LayoutRef.parse("%s:v1".formatted(ociLayoutPath.toString()));
-        LayoutRef ref2 = LayoutRef.parse("%s:v2".formatted(ociLayoutPath.toString()));
+        LayoutRef ref1 = LayoutRef.parse(String.format("%s:v1", ociLayoutPath.toString()));
+        LayoutRef ref2 = LayoutRef.parse(String.format("%s:v2", ociLayoutPath.toString()));
 
         ociLayout.pushArtifact(ref1, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file1));
         ociLayout.pushArtifact(ref2, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file2));
@@ -1849,7 +1848,7 @@ class OCILayoutTest {
         Files.writeString(mainFile, "main-artifact");
         Files.writeString(attachFile, "attached-artifact");
 
-        LayoutRef layoutRef = LayoutRef.parse("%s:latest".formatted(ociLayoutPath.toString()));
+        LayoutRef layoutRef = LayoutRef.parse(String.format("%s:latest", ociLayoutPath.toString()));
         OCILayout ociLayout =
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
@@ -1901,8 +1900,8 @@ class OCILayoutTest {
                 OCILayout.Builder.builder().defaults(ociLayoutPath).build();
 
         // Push two independent manifests (without a top-level tag so they get digest-only entries)
-        LayoutRef ref1 = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
-        LayoutRef ref2 = LayoutRef.parse("%s".formatted(ociLayoutPath.toString()));
+        LayoutRef ref1 = LayoutRef.parse(String.format("%s", ociLayoutPath.toString()));
+        LayoutRef ref2 = LayoutRef.parse(String.format("%s", ociLayoutPath.toString()));
         Manifest manifest1 = ociLayout.pushArtifact(
                 ref1, ArtifactType.from("foo/bar"), Annotations.empty(), LocalPath.of(file1, "text/plain"));
         Manifest manifest2 = ociLayout.pushArtifact(
@@ -1912,7 +1911,7 @@ class OCILayoutTest {
         assertNotNull(manifest1.getDescriptor(), "Manifest 1 descriptor should not be null");
         assertNotNull(manifest2.getDescriptor(), "Manifest 2 descriptor should not be null");
         Index nestedIndex = Index.fromManifests(List.of(manifest1.getDescriptor(), manifest2.getDescriptor()));
-        LayoutRef indexRef = LayoutRef.parse("%s:multi".formatted(ociLayoutPath.toString()));
+        LayoutRef indexRef = LayoutRef.parse(String.format("%s:multi", ociLayoutPath.toString()));
         Index pushedIndex = ociLayout.pushIndex(indexRef, nestedIndex);
 
         // Collect the digests that must survive GC

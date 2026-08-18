@@ -85,27 +85,21 @@ class GitHubContainerRegistryITCase {
         Path publicKeyPath = Path.of("src/test/resources/keys/sigstore/alpine-signed.pub");
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "ghcr.io"
-            insecure = false
-            """;
+        String config = "[[registry]]\n" + "location = \"ghcr.io\"\n" + "insecure = false\n";
 
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "ghcr.io/jonesbusy/alpine-signed": [{"type": "sigstoreSigned", "keyPath": "%s"}]
-                    }
-                  }
-                }
-                """
-                        .formatted(publicKeyPath.toAbsolutePath().toString()));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"ghcr.io/jonesbusy/alpine-signed\": [{\"type\": \"sigstoreSigned\", \"keyPath\": \"%s\"}]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        publicKeyPath.toAbsolutePath().toString()));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
         TestUtils.createRegistriesConfFile(homeDir, config);
         TestUtils.withHome(homeDir, () -> {
@@ -120,11 +114,7 @@ class GitHubContainerRegistryITCase {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldPullIndexWithAlias(@TempDir Path homeDir) throws Exception {
         // language=toml
-        String config =
-                """
-                [aliases]
-                "oras"="ghcr.io/oras-project/oras"
-                """;
+        String config = "[aliases]\n" + "\"oras\"=\"ghcr.io/oras-project/oras\"\n";
 
         // Setup
         TestUtils.createRegistriesConfFile(homeDir, config);
@@ -182,7 +172,7 @@ class GitHubContainerRegistryITCase {
 
         ContainerRef containerSource = ContainerRef.parse("ghcr.io/oras-project/oras:main");
         ContainerRef containerTarget =
-                ContainerRef.parse("%s/docker/library/oras:main".formatted(unsecureRegistry.getRegistry()));
+                ContainerRef.parse(String.format("%s/docker/library/oras:main", unsecureRegistry.getRegistry()));
 
         CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());
         assertTrue(targetRegistry.exists(containerTarget));

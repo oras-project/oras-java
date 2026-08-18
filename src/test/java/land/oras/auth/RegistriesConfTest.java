@@ -41,13 +41,10 @@ class RegistriesConfTest {
     private static Path homeDir;
 
     // language=toml
-    public static final String HOME_REGISTRIES_CONF =
-            """
-            unqualified-search-registries = ["docker.io"]
-
-            [aliases]
-            "alpine"="docker.io/library/alpine"
-            """;
+    public static final String HOME_REGISTRIES_CONF = "unqualified-search-registries = [\"docker.io\"]\n"
+            + "\n"
+            + "[aliases]\n"
+            + "\"alpine\"=\"docker.io/library/alpine\"\n";
 
     @BeforeAll
     static void init() {
@@ -81,12 +78,7 @@ class RegistriesConfTest {
         TestUtils.createRegistriesConfFile(dropInHomeDir, "unqualified-search-registries = [\"docker.io\"]");
         // language=toml
         TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "10-extra.conf",
-                """
-                [aliases]
-                "myapp"="registry.example.com/myapp"
-                """);
+                dropInHomeDir, "10-extra.conf", "[aliases]\n" + "\"myapp\"=\"registry.example.com/myapp\"\n");
 
         TestUtils.withHome(dropInHomeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();
@@ -103,20 +95,10 @@ class RegistriesConfTest {
         TestUtils.createRegistriesConfFile(dropInHomeDir, "");
         // language=toml
         TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "01-first.conf",
-                """
-                [aliases]
-                "foo"="registry.first.com/foo"
-                """);
+                dropInHomeDir, "01-first.conf", "[aliases]\n" + "\"foo\"=\"registry.first.com/foo\"\n");
         // language=toml
         TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "02-second.conf",
-                """
-                [aliases]
-                "foo"="registry.second.com/foo"
-                """);
+                dropInHomeDir, "02-second.conf", "[aliases]\n" + "\"foo\"=\"registry.second.com/foo\"\n");
 
         TestUtils.withHome(dropInHomeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();

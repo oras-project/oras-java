@@ -35,7 +35,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import land.oras.auth.AuthProvider;
 import land.oras.auth.AuthStoreAuthenticationProvider;
 import land.oras.auth.BearerTokenProvider;
@@ -175,10 +175,11 @@ public final class Registry extends OCI<ContainerRef> {
 
     @Override
     public boolean canMount(OCI<?> other, ContainerRef sourceRef, ContainerRef targetRef) {
-        if (!(other instanceof Registry otherRegistry)) {
+        if (!(other instanceof Registry)) {
             LOG.debug("Other OCI is not a registry, cannot mount");
             return false;
         }
+        Registry otherRegistry = (Registry) other;
         // Not the same registry
         String effectiveSourceRegistry = sourceRef.getEffectiveRegistry(this);
         String effectiveTargetRegistry = targetRef.getEffectiveRegistry(otherRegistry);
@@ -218,7 +219,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).mountBlob(sourceRef, ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsMountPath(this, sourceRef)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsMountPath(this, sourceRef)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 new byte[0],
@@ -407,7 +408,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (executorService == null) {
             executorService = Executors.newFixedThreadPool(maxConcurrentDownloads, r -> {
                 Thread t = new Thread(r);
-                t.setName("layer-transfer-worker-%d".formatted(t.getId()));
+                t.setName(String.format("layer-transfer-worker-%d", t.getId()));
                 return t;
             });
         }
@@ -530,7 +531,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).getTags(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getTagsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -547,9 +548,9 @@ public final class Registry extends OCI<ContainerRef> {
         Integer n = page.n();
         for (int pageNum = 1; last != null; pageNum++) {
             if (tagListMaxPages > 0 && pageNum >= tagListMaxPages) {
-                throw new OrasException(
-                        "Tag listing exceeded %d pages: possible self-referential Link header from a rogue registry"
-                                .formatted(tagListMaxPages));
+                throw new OrasException(String.format(
+                        "Tag listing exceeded %d pages: possible self-referential Link header from a rogue registry",
+                        tagListMaxPages));
             }
 
             Tags nextPage = getTags(ref, n == null ? Integer.MAX_VALUE : n, last);
@@ -568,7 +569,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).getTags(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getTagsPath(this, n, last)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getTagsPath(this, n, last)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -593,7 +594,7 @@ public final class Registry extends OCI<ContainerRef> {
             return asSecure().getRepositories();
         }
         ContainerRef ref = ContainerRef.parse("default").forRegistry(this);
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getRepositoriesPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getRepositoriesPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_JSON_MEDIA_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -613,7 +614,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).getReferrers(ref, artifactType);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getReferrersPath(this, artifactType)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -630,11 +631,12 @@ public final class Registry extends OCI<ContainerRef> {
         List<ManifestDescriptor> allManifests = new ArrayList<>(page.getManifests());
         for (int pageNum = 1; last != null; pageNum++) {
             if (referrerListMaxPages > 0 && pageNum >= referrerListMaxPages) {
-                throw new OrasException(
-                        "Referrer listing exceeded %d pages: possible self-referential Link header from a rogue registry"
-                                .formatted(referrerListMaxPages));
+                throw new OrasException(String.format(
+                        "Referrer listing exceeded %d pages: possible self-referential Link header from a rogue registry",
+                        referrerListMaxPages));
             }
-            URI nextUri = URI.create("%s://%s".formatted(getScheme(), ref.getReferrersPath(this, artifactType, last)));
+            URI nextUri =
+                    URI.create(String.format("%s://%s", getScheme(), ref.getReferrersPath(this, artifactType, last)));
             HttpClient.ResponseWrapper<String> nextResponse = client.get(
                     nextUri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(ref), authProvider);
             logResponse(nextResponse);
@@ -655,7 +657,7 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private Referrers getReferrersFallback(ContainerRef ref, @Nullable ArtifactType artifactType) {
         ContainerRef fallbackRef = ref.withReferrersFallbackTag();
-        URI uri = URI.create("%s://%s".formatted(getScheme(), fallbackRef.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), fallbackRef.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.get(
                 uri, Map.of(Const.ACCEPT_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE), Scopes.of(fallbackRef), authProvider);
         logResponse(response);
@@ -672,7 +674,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (artifactType != null) {
             manifests = manifests.stream()
                     .filter(manifest -> artifactType.getMediaType().equals(manifest.getArtifactType()))
-                    .toList();
+                    .collect(Collectors.toList());
         }
         return Referrers.from(manifests);
     }
@@ -691,7 +693,7 @@ public final class Registry extends OCI<ContainerRef> {
             asSecure().deleteManifest(containerRef);
             return;
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(ref), authProvider);
         logResponse(response);
         handleError(response);
@@ -717,7 +719,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).pushManifest(ref, manifest);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getManifestsPath(this)));
         byte[] manifestData = manifest.getJson() != null
                 ? manifest.getJson().getBytes()
                 : manifest.toJson().getBytes();
@@ -761,7 +763,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).pushIndex(ref, index);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getManifestsPath(this)));
         byte[] indexData = JsonUtils.toJson(index).getBytes();
         LOG.debug("Index data to push: {}", new String(indexData, StandardCharsets.UTF_8));
         HttpClient.ResponseWrapper<String> response = client.put(
@@ -789,7 +791,7 @@ public final class Registry extends OCI<ContainerRef> {
             asSecure().deleteBlob(containerRef);
             return;
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.delete(uri, Map.of(), Scopes.of(ref), authProvider);
         logResponse(response);
         handleError(response);
@@ -900,7 +902,7 @@ public final class Registry extends OCI<ContainerRef> {
             return Layer.fromFile(blob, ref.getAlgorithm()).withAnnotations(annotations);
         }
         URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
+                String.format("%s://%s", getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
         HttpClient.ResponseWrapper<String> response = client.upload(
                 "POST",
                 uri,
@@ -920,8 +922,8 @@ public final class Registry extends OCI<ContainerRef> {
             String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
-                location =
-                        "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
+                location = String.format(
+                        "%s://%s/%s", getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
             LOG.debug("Location header: {}", location);
 
@@ -937,7 +939,7 @@ public final class Registry extends OCI<ContainerRef> {
             if (response.statusCode() == 201) {
                 LOG.debug("Successful push: {}", response.response());
             } else {
-                throw new OrasException("Failed to push layer: %s".formatted(response.response()));
+                throw new OrasException(String.format("Failed to push layer: %s", response.response()));
             }
         }
 
@@ -963,7 +965,7 @@ public final class Registry extends OCI<ContainerRef> {
             return Layer.fromDigest(digest, size).withAnnotations(annotations);
         }
         // Empty post without digest
-        URI uri = URI.create("%s://%s".formatted(getScheme(), containerRef.getBlobsUploadPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), containerRef.getBlobsUploadPath(this)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 new byte[0],
@@ -972,12 +974,13 @@ public final class Registry extends OCI<ContainerRef> {
                 authProvider);
         logResponse(response);
         if (response.statusCode() != 202) {
-            throw new OrasException("Failed to initiate blob upload: %s".formatted(response.response()));
+            throw new OrasException(String.format("Failed to initiate blob upload: %s", response.response()));
         }
         String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
         // Ensure location is absolute URI
         if (!location.startsWith("http") && !location.startsWith("https")) {
-            location = "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
+            location =
+                    String.format("%s://%s/%s", getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
         }
         LOG.debug("Location header: {}", location);
 
@@ -994,7 +997,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (response.statusCode() == 201) {
             LOG.debug("Successful push: {}", response.response());
         } else {
-            throw new OrasException("Failed to push layer: %s".formatted(response.response()));
+            throw new OrasException(String.format("Failed to push layer: %s", response.response()));
         }
         handleError(response);
         return Layer.fromDigest(digest, size).withAnnotations(annotations);
@@ -1018,7 +1021,7 @@ public final class Registry extends OCI<ContainerRef> {
             return Layer.fromData(ref, data);
         }
         URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
+                String.format("%s://%s", getScheme(), ref.withDigest(digest).getBlobsUploadDigestPath(this)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 data,
@@ -1037,8 +1040,8 @@ public final class Registry extends OCI<ContainerRef> {
             String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
             // Ensure location is absolute URI
             if (!location.startsWith("http") && !location.startsWith("https")) {
-                location =
-                        "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
+                location = String.format(
+                        "%s://%s/%s", getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
             }
 
             URI uploadURI = createLocationWithDigest(location, digest);
@@ -1053,7 +1056,7 @@ public final class Registry extends OCI<ContainerRef> {
             if (response.statusCode() == 201) {
                 LOG.debug("Successful push: {}", response.response());
             } else {
-                throw new OrasException("Failed to push layer: %s".formatted(response.response()));
+                throw new OrasException(String.format("Failed to push layer: %s", response.response()));
             }
         }
 
@@ -1091,7 +1094,7 @@ public final class Registry extends OCI<ContainerRef> {
             long totalSize = Files.size(blob);
             location = uploadChunks(ref, is, totalSize, chunkSize, location);
         } catch (IOException e) {
-            throw new OrasException("Failed to read blob for chunked upload: %s".formatted(blob), e);
+            throw new OrasException(String.format("Failed to read blob for chunked upload: %s", blob), e);
         }
         finalizeChunkedUpload(ref, location, digest);
         return Layer.fromFile(blob, ref.getAlgorithm());
@@ -1133,7 +1136,7 @@ public final class Registry extends OCI<ContainerRef> {
     }
 
     private String initiateChunkedUpload(ContainerRef ref) {
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsUploadPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsUploadPath(this)));
         HttpClient.ResponseWrapper<String> response = client.post(
                 uri,
                 new byte[0],
@@ -1143,11 +1146,12 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(response);
         if (response.statusCode() != 202) {
             throw new OrasException(
-                    "Failed to initiate chunked blob upload: status %d".formatted(response.statusCode()));
+                    String.format("Failed to initiate chunked blob upload: status %d", response.statusCode()));
         }
         String location = response.headers().get(Const.LOCATION_HEADER.toLowerCase());
         if (!location.startsWith("http://") && !location.startsWith("https://")) {
-            location = "%s://%s/%s".formatted(getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
+            location =
+                    String.format("%s://%s/%s", getScheme(), ref.getApiRegistry(this), location.replaceFirst("^/", ""));
         }
         LOG.debug("Chunked upload session location: {}", location);
         return location;
@@ -1165,7 +1169,7 @@ public final class Registry extends OCI<ContainerRef> {
                     break;
                 }
                 long rangeEnd = offset + read - 1;
-                String contentRange = "%d-%d".formatted(offset, rangeEnd);
+                String contentRange = String.format("%d-%d", offset, rangeEnd);
                 final byte[] chunk = java.util.Arrays.copyOf(buffer, read);
                 URI patchUri = URI.create(location);
                 HttpClient.ResponseWrapper<String> patchResponse = client.patch(
@@ -1181,15 +1185,17 @@ public final class Registry extends OCI<ContainerRef> {
                         authProvider);
                 logResponse(patchResponse);
                 if (patchResponse.statusCode() != 202) {
-                    throw new OrasException("Chunked upload PATCH failed for range %s: status %d"
-                            .formatted(contentRange, patchResponse.statusCode()));
+                    throw new OrasException(String.format(
+                            "Chunked upload PATCH failed for range %s: status %d",
+                            contentRange, patchResponse.statusCode()));
                 }
                 // The registry MAY return a new location after each PATCH
                 String newLocation = patchResponse.headers().get(Const.LOCATION_HEADER.toLowerCase());
                 if (newLocation != null && !newLocation.isBlank()) {
                     if (!newLocation.startsWith("http://") && !newLocation.startsWith("https://")) {
-                        newLocation = "%s://%s/%s"
-                                .formatted(getScheme(), ref.getApiRegistry(this), newLocation.replaceFirst("^/", ""));
+                        newLocation = String.format(
+                                "%s://%s/%s",
+                                getScheme(), ref.getApiRegistry(this), newLocation.replaceFirst("^/", ""));
                     }
                     location = newLocation;
                     LOG.debug("Chunked upload location updated: {}", location);
@@ -1214,7 +1220,7 @@ public final class Registry extends OCI<ContainerRef> {
         logResponse(putResponse);
         if (putResponse.statusCode() != 201) {
             throw new OrasException(
-                    "Failed to finalize chunked blob upload: status %d".formatted(putResponse.statusCode()));
+                    String.format("Failed to finalize chunked blob upload: status %d", putResponse.statusCode()));
         }
         LOG.debug("Chunked upload finalized successfully for digest: {}", digest);
     }
@@ -1237,7 +1243,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).headBlob(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<String> response = client.head(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
@@ -1283,7 +1289,7 @@ public final class Registry extends OCI<ContainerRef> {
             asSecure().fetchBlobDirect(containerRef, path);
             return;
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<Path> response = client.download(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
@@ -1308,7 +1314,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).fetchBlobDirect(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getBlobsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getBlobsPath(this)));
         HttpClient.ResponseWrapper<InputStream> response = client.download(
                 uri,
                 Map.of(Const.ACCEPT_HEADER, Const.APPLICATION_OCTET_STREAM_HEADER_VALUE),
@@ -1360,9 +1366,9 @@ public final class Registry extends OCI<ContainerRef> {
                     "Expected manifest but got index. Probably a multi-platform image instead of artifact");
         }
         if (contentType.equals(Const.LEGACY_MANIFEST_MEDIA_TYPE)) {
-            throw new OrasException(
-                    "Schema version 1 with manifest media type '%s' is not supported. Please use schema version 2 or higher"
-                            .formatted(contentType));
+            throw new OrasException(String.format(
+                    "Schema version 1 with manifest media type '%s' is not supported. Please use schema version 2 or higher",
+                    contentType));
         }
         String json = descriptor.getJson();
         String digest = descriptor.getDigest();
@@ -1388,7 +1394,7 @@ public final class Registry extends OCI<ContainerRef> {
         Descriptor descriptor = getDescriptor(containerRef);
         String contentType = descriptor.getMediaType();
         if (!isIndexMediaType(contentType)) {
-            throw new OrasException("Expected index but got %s".formatted(contentType));
+            throw new OrasException(String.format("Expected index but got %s", contentType));
         }
         String json = descriptor.getJson();
         String digest = descriptor.getDigest();
@@ -1449,7 +1455,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).exists(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -1485,11 +1491,57 @@ public final class Registry extends OCI<ContainerRef> {
 
     /**
      * A mirror registry paired with the container reference rewritten to point at it.
-     * @param registry The registry pointed at the mirror's location
-     * @param ref The container reference rewritten for the mirror
      */
     @OrasModel
-    private record MirrorCandidate(Registry registry, ContainerRef ref) {}
+    private static final class MirrorCandidate {
+
+        private final Registry registry;
+        private final ContainerRef ref;
+
+        /**
+         * Create a new MirrorCandidate.
+         * @param registry The registry pointed at the mirror's location
+         * @param ref The container reference rewritten for the mirror
+         */
+        MirrorCandidate(Registry registry, ContainerRef ref) {
+            this.registry = registry;
+            this.ref = ref;
+        }
+
+        /**
+         * Get the registry pointed at the mirror's location.
+         * @return The registry
+         */
+        Registry registry() {
+            return registry;
+        }
+
+        /**
+         * Get the container reference rewritten for the mirror.
+         * @return The container reference
+         */
+        ContainerRef ref() {
+            return ref;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof MirrorCandidate)) return false;
+            MirrorCandidate that = (MirrorCandidate) o;
+            return Objects.equals(registry, that.registry) && Objects.equals(ref, that.ref);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(registry, ref);
+        }
+
+        @Override
+        public String toString() {
+            return "MirrorCandidate[registry=" + registry + ", ref=" + ref + "]";
+        }
+    }
 
     /**
      * Resolve the mirrors applicable to the given container reference, in configured order.
@@ -1557,7 +1609,7 @@ public final class Registry extends OCI<ContainerRef> {
         if (!ref.isInsecure(this) && this.isInsecure()) {
             return copyForNewTransport(ref.getRegistry(), false).getManifestResponseDirect(ref);
         }
-        URI uri = URI.create("%s://%s".formatted(getScheme(), ref.getManifestsPath(this)));
+        URI uri = URI.create(String.format("%s://%s", getScheme(), ref.getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -1627,7 +1679,7 @@ public final class Registry extends OCI<ContainerRef> {
             throw new OrasException("Received null digest");
         }
         if (!expected.equals(current)) {
-            throw new OrasException("Digest mismatch: %s != %s".formatted(expected, current));
+            throw new OrasException(String.format("Digest mismatch: %s != %s", expected, current));
         }
     }
 
@@ -1733,7 +1785,7 @@ public final class Registry extends OCI<ContainerRef> {
                     LOG.trace("Actual digest: {}", actualDigest);
                     if (!expectedDigest.equals(actualDigest)) {
                         throw new OrasException(
-                                "Digest mismatch: expected %s but got %s".formatted(expectedDigest, actualDigest));
+                                String.format("Digest mismatch: expected %s but got %s", expectedDigest, actualDigest));
                     }
                 }
 
@@ -1744,9 +1796,9 @@ public final class Registry extends OCI<ContainerRef> {
                 Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE))
                         .normalize();
                 if (!targetPath.startsWith(path.normalize())) {
-                    throw new OrasException(
-                            "Refusing to pull layer: path is not withing folder in title annotation '%s'"
-                                    .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+                    throw new OrasException(String.format(
+                            "Refusing to pull layer: path is not withing folder in title annotation '%s'",
+                            layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
                 }
                 if (Files.exists(targetPath) && !overwrite) {
                     LOG.info("File already exists: {}", targetPath);
@@ -1772,12 +1824,12 @@ public final class Registry extends OCI<ContainerRef> {
 
             // sometimes CI can add a query to this, so making sure we're using the right query param symbol
             if (uploadURI.getQuery() == null) {
-                uploadURI = new URI(uploadURI + "?digest=%s".formatted(digest));
+                uploadURI = new URI(uploadURI + String.format("?digest=%s", digest));
             } else {
-                uploadURI = new URI(uploadURI + "&digest=%s".formatted(digest));
+                uploadURI = new URI(uploadURI + String.format("&digest=%s", digest));
             }
         } catch (URISyntaxException e) {
-            throw new OrasException("Failed parse location header: %s".formatted(location));
+            throw new OrasException(String.format("Failed parse location header: %s", location));
         }
 
         return uploadURI;
@@ -1797,7 +1849,7 @@ public final class Registry extends OCI<ContainerRef> {
             return copyForNewTransport(ref.getRegistry(), false).getResolvedHeaders(ref);
         }
         URI uri = URI.create(
-                "%s://%s".formatted(getScheme(), ref.forRegistry(this).getManifestsPath(this)));
+                String.format("%s://%s", getScheme(), ref.forRegistry(this).getManifestsPath(this)));
         HttpClient.ResponseWrapper<String> response =
                 client.head(uri, Map.of(Const.ACCEPT_HEADER, Const.MANIFEST_ACCEPT_TYPE), Scopes.of(ref), authProvider);
         logResponse(response);
@@ -1848,10 +1900,56 @@ public final class Registry extends OCI<ContainerRef> {
 
     /**
      * Holds a resolved registry to avoid resolution on every request (specially like blob)
-     * @param registry The registry URL
-     * @param headers The headers to use for the registry
      */
-    private record ResolvedRegistry(String registry, Map<String, String> headers) {}
+    private static final class ResolvedRegistry {
+
+        private final String registry;
+        private final Map<String, String> headers;
+
+        /**
+         * Create a new ResolvedRegistry.
+         * @param registry The registry URL
+         * @param headers The headers to use for the registry
+         */
+        ResolvedRegistry(String registry, Map<String, String> headers) {
+            this.registry = registry;
+            this.headers = headers;
+        }
+
+        /**
+         * Get the registry URL.
+         * @return The registry URL
+         */
+        String registry() {
+            return registry;
+        }
+
+        /**
+         * Get the headers to use for the registry.
+         * @return The headers
+         */
+        Map<String, String> headers() {
+            return headers;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ResolvedRegistry)) return false;
+            ResolvedRegistry that = (ResolvedRegistry) o;
+            return Objects.equals(registry, that.registry) && Objects.equals(headers, that.headers);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(registry, headers);
+        }
+
+        @Override
+        public String toString() {
+            return "ResolvedRegistry[registry=" + registry + ", headers=" + headers + "]";
+        }
+    }
 
     /**
      * Builder for the registry
@@ -2222,15 +2320,24 @@ public final class Registry extends OCI<ContainerRef> {
             }
             verified = true;
             Map<String, String> actualByPrefix = new HashMap<>();
-            digestsByPrefix.forEach((prefix, digest) ->
-                    actualByPrefix.put(prefix, prefix + ":" + HexFormat.of().formatHex(digest.digest())));
+            digestsByPrefix.forEach(
+                    (prefix, digest) -> actualByPrefix.put(prefix, prefix + ":" + toHexString(digest.digest())));
             for (String expected : expectedDigests) {
                 String prefix = SupportedAlgorithm.fromDigest(expected).getPrefix();
                 String actual = actualByPrefix.get(prefix);
                 if (!expected.equals(actual)) {
-                    throw new OrasException("Digest mismatch: %s != %s".formatted(expected, actual));
+                    throw new OrasException(String.format("Digest mismatch: %s != %s", expected, actual));
                 }
             }
         }
+    }
+
+    private static String toHexString(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+            sb.append(Character.forDigit(b & 0xF, 16));
+        }
+        return sb.toString();
     }
 }

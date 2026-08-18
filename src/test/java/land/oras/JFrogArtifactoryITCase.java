@@ -74,7 +74,7 @@ class JFrogArtifactoryITCase {
 
         ContainerRef containerSource = ContainerRef.parse("releases-docker.jfrog.io/jfrog/jfrog-cli-v2-jf");
         ContainerRef containerTarget =
-                ContainerRef.parse("%s/jfrog/jfrog-cli-v2-jf".formatted(unsecureRegistry.getRegistry()));
+                ContainerRef.parse(String.format("%s/jfrog/jfrog-cli-v2-jf", unsecureRegistry.getRegistry()));
 
         CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, true);
         assertTrue(targetRegistry.exists(containerTarget));

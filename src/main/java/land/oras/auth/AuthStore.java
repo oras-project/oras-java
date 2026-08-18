@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -66,9 +67,9 @@ public class AuthStore {
      */
     static String credentialHelperBinaryName(@Nullable String suffix) {
         if (suffix == null || !VALID_HELPER_SUFFIX.matcher(suffix).matches()) {
-            throw new OrasException(
-                    "Invalid credential helper name '%s': only letters, digits, '_' and '-' are allowed (no path separators or '..')"
-                            .formatted(suffix));
+            throw new OrasException(String.format(
+                    "Invalid credential helper name '%s': only letters, digits, '_' and '-' are allowed (no path separators or '..')",
+                    suffix));
         }
         return "docker-credential-" + suffix;
     }
@@ -162,15 +163,58 @@ public class AuthStore {
 
     /**
      * Nested ConfigFile class to represent the configuration file.
-     * @param auths The auths map.
-     * @param credHelpers The credential helpers map.
-     * @param credsStore The credentials store.
      */
     @OrasModel
-    record ConfigFile(
-            Map<String, Map<String, String>> auths,
-            @Nullable Map<String, String> credHelpers,
-            @Nullable String credsStore) {
+    static final class ConfigFile {
+
+        private final Map<String, Map<String, String>> auths;
+        private final @Nullable Map<String, String> credHelpers;
+        private final @Nullable String credsStore;
+
+        /**
+         * Constructs a new {@code ConfigFile} object.
+         * @param auths The auths map.
+         * @param credHelpers The credential helpers map.
+         * @param credsStore The credentials store.
+         */
+        @JsonCreator
+        ConfigFile(
+                @JsonProperty("auths") Map<String, Map<String, String>> auths,
+                @JsonProperty("credHelpers") @Nullable Map<String, String> credHelpers,
+                @JsonProperty("credsStore") @Nullable String credsStore) {
+            this.auths = auths;
+            this.credHelpers = credHelpers;
+            this.credsStore = credsStore;
+        }
+
+        /**
+         * Returns the auths map.
+         * @return The auths map.
+         */
+        @JsonProperty("auths")
+        Map<String, Map<String, String>> auths() {
+            return auths;
+        }
+
+        /**
+         * Returns the credential helpers map.
+         * @return The credential helpers map.
+         */
+        @JsonProperty("credHelpers")
+        @Nullable
+        Map<String, String> credHelpers() {
+            return credHelpers;
+        }
+
+        /**
+         * Returns the credentials store.
+         * @return The credentials store.
+         */
+        @JsonProperty("credsStore")
+        @Nullable
+        String credsStore() {
+            return credsStore;
+        }
 
         /**
          * Constructs a new {@code ConfigFile} object with the specified auths.
@@ -188,6 +232,26 @@ public class AuthStore {
                                                     (credential.username + ":" + credential.password).getBytes()))),
                     Map.of(),
                     null);
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ConfigFile)) return false;
+            ConfigFile that = (ConfigFile) o;
+            return Objects.equals(auths, that.auths)
+                    && Objects.equals(credHelpers, that.credHelpers)
+                    && Objects.equals(credsStore, that.credsStore);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(auths, credHelpers, credsStore);
+        }
+
+        @Override
+        public String toString() {
+            return "ConfigFile[auths=" + auths + ", credHelpers=" + credHelpers + ", credsStore=" + credsStore + "]";
         }
     }
 
@@ -334,8 +398,9 @@ public class AuthStore {
                 if (exit != 0) {
                     String stderr = new String(proc.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
                     String stdout = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                    String message = "Credential helper '%s' exited with code %d and error: '%s' and stdout '%s'."
-                            .formatted(binary, exit, stderr.trim(), stdout.trim());
+                    String message = String.format(
+                            "Credential helper '%s' exited with code %d and error: '%s' and stdout '%s'.",
+                            binary, exit, stderr.trim(), stdout.trim());
                     LOG.warn(message);
                     throw new OrasException(message);
                 }
@@ -355,11 +420,13 @@ public class AuthStore {
 
     /**
      * Nested Credential class to represent username and password pairs.
-     * @param username The username for the credential.
-     * @param password The password for the credential.
      */
     @OrasModel
-    public record Credential(String username, String password) {
+    public static final class Credential {
+
+        private final String username;
+        private final String password;
+
         /**
          * Constructs a new {@code Credential} object with the specified username and password.
          *
@@ -370,25 +437,122 @@ public class AuthStore {
             this.username = Objects.requireNonNull(username, "Username cannot be null");
             this.password = Objects.requireNonNull(password, "Password cannot be null");
         }
+
+        /**
+         * Returns the username.
+         * @return The username.
+         */
+        public String username() {
+            return username;
+        }
+
+        /**
+         * Returns the password.
+         * @return The password.
+         */
+        public String password() {
+            return password;
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Credential)) return false;
+            Credential that = (Credential) o;
+            return Objects.equals(username, that.username) && Objects.equals(password, that.password);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(username, password);
+        }
+
+        @Override
+        public String toString() {
+            return "Credential[username=" + username + ", password=" + password + "]";
+        }
     }
 
     /**
-     * Credential helper response
-     * @param serverUrl The server URL
-     * @param username The username
-     * @param secret The secret (password or token)
+     * Credential helper response.
      */
     @OrasModel
-    public record CredentialHelperResponse(
-            @JsonProperty("ServerURL") String serverUrl,
-            @JsonProperty("Username") String username,
-            @JsonProperty("Secret") String secret) {
+    public static final class CredentialHelperResponse {
+
+        private final String serverUrl;
+        private final String username;
+        private final String secret;
+
+        /**
+         * Constructs a new {@code CredentialHelperResponse}.
+         * @param serverUrl The server URL.
+         * @param username The username.
+         * @param secret The secret (password or token).
+         */
+        @JsonCreator
+        public CredentialHelperResponse(
+                @JsonProperty("ServerURL") String serverUrl,
+                @JsonProperty("Username") String username,
+                @JsonProperty("Secret") String secret) {
+            this.serverUrl = serverUrl;
+            this.username = username;
+            this.secret = secret;
+        }
+
+        /**
+         * Returns the server URL.
+         * @return The server URL.
+         */
+        @JsonProperty("ServerURL")
+        public String serverUrl() {
+            return serverUrl;
+        }
+
+        /**
+         * Returns the username.
+         * @return The username.
+         */
+        @JsonProperty("Username")
+        public String username() {
+            return username;
+        }
+
+        /**
+         * Returns the secret.
+         * @return The secret (password or token).
+         */
+        @JsonProperty("Secret")
+        public String secret() {
+            return secret;
+        }
+
         /**
          * Convert to Credential
          * @return Credential
          */
         public Credential asCredential() {
             return new Credential(username, secret);
+        }
+
+        @Override
+        public boolean equals(@Nullable Object o) {
+            if (this == o) return true;
+            if (!(o instanceof CredentialHelperResponse)) return false;
+            CredentialHelperResponse that = (CredentialHelperResponse) o;
+            return Objects.equals(serverUrl, that.serverUrl)
+                    && Objects.equals(username, that.username)
+                    && Objects.equals(secret, that.secret);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(serverUrl, username, secret);
+        }
+
+        @Override
+        public String toString() {
+            return "CredentialHelperResponse[serverUrl=" + serverUrl + ", username=" + username + ", secret=" + secret
+                    + "]";
         }
     }
 }

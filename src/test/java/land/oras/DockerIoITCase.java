@@ -116,7 +116,7 @@ class DockerIoITCase {
 
         ContainerRef containerSource = ContainerRef.parse("docker.io/library/alpine:latest");
         ContainerRef containerTarget =
-                ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
+                ContainerRef.parse(String.format("%s/docker/library/alpine:latest", unsecureRegistry.getRegistry()));
 
         CopyUtils.copy(sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());
         assertTrue(targetRegistry.exists(containerTarget));
@@ -149,11 +149,7 @@ class DockerIoITCase {
     void shouldCopyTagToInternalRegistryViaAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
-            [aliases]
-            "dockerhub-alpine" = "docker.io/library/alpine"
-            """;
+        String config = "[aliases]\n" + "\"dockerhub-alpine\" = \"docker.io/library/alpine\"\n";
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -167,8 +163,8 @@ class DockerIoITCase {
                     .build();
 
             ContainerRef containerSource = ContainerRef.parse("dockerhub-alpine");
-            ContainerRef containerTarget =
-                    ContainerRef.parse("%s/docker/library/alpine:latest".formatted(unsecureRegistry.getRegistry()));
+            ContainerRef containerTarget = ContainerRef.parse(
+                    String.format("%s/docker/library/alpine:latest", unsecureRegistry.getRegistry()));
 
             CopyUtils.copy(
                     sourceRegistry, containerSource, targetRegistry, containerTarget, CopyUtils.CopyOptions.deep());

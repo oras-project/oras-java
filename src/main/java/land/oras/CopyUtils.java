@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -224,9 +225,9 @@ public final class CopyUtils {
 
         if (depth > MAX_COPY_DEPTH) {
             LOG.error("Depth exceeded for copy of {}", sourceRef.getRepository());
-            throw new OrasException(
-                    "Maximum copy recursion depth (%d) exceeded; the source may serve an unbounded index or referrer graph"
-                            .formatted(MAX_COPY_DEPTH));
+            throw new OrasException(String.format(
+                    "Maximum copy recursion depth (%d) exceeded; the source may serve an unbounded index or referrer graph",
+                    MAX_COPY_DEPTH));
         }
 
         boolean includeReferrers = options.includeReferrers();
@@ -310,7 +311,7 @@ public final class CopyUtils {
                 List<ManifestDescriptor> filtered = index.getManifests().stream()
                         .filter(d ->
                                 options.platformFilter().stream().anyMatch(p -> Platform.matches(d.getPlatform(), p)))
-                        .toList();
+                        .collect(Collectors.toList());
                 if (filtered.isEmpty()) {
                     throw new OrasException(
                             "No manifests found in index matching platform filter: " + options.platformFilter());
@@ -373,7 +374,7 @@ public final class CopyUtils {
             LOG.debug("Copied index {} with tag {}", pushedIndex, targetTag);
 
         } else {
-            throw new OrasException("Unsupported content type: %s".formatted(contentType));
+            throw new OrasException(String.format("Unsupported content type: %s", contentType));
         }
     }
 

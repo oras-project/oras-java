@@ -20,13 +20,54 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import java.util.Objects;
 import org.jspecify.annotations.NullMarked;
 
 /**
  * The repositories response object
- * @param repositories The repositories
  */
 @NullMarked
 @OrasModel
-public record Repositories(List<String> repositories) {}
+public final class Repositories {
+
+    private final List<String> repositories;
+
+    /**
+     * Create a new repositories instance
+     * @param repositories The repositories
+     */
+    @JsonCreator
+    public Repositories(@JsonProperty("repositories") List<String> repositories) {
+        this.repositories = repositories;
+    }
+
+    /**
+     * Get the repositories
+     * @return The repositories
+     */
+    @JsonProperty("repositories")
+    public List<String> repositories() {
+        return repositories;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Repositories)) return false;
+        Repositories that = (Repositories) o;
+        return Objects.equals(repositories, that.repositories);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(repositories);
+    }
+
+    @Override
+    public String toString() {
+        return "Repositories[repositories=" + repositories + "]";
+    }
+}

@@ -58,7 +58,7 @@ public class ArtifactType {
         }
         // Must match https://datatracker.ietf.org/doc/html/rfc6838
         if (!artifactType.matches("^[a-zA-Z0-9!#$%&'*+.^_`{|}~-]+/[a-zA-Z0-9!#$%&'*+.^_`{|}~-]+$")) {
-            throw new OrasException("Invalid artifact type: %s".formatted(artifactType));
+            throw new OrasException(String.format("Invalid artifact type: %s", artifactType));
         }
         return new ArtifactType(artifactType);
     }

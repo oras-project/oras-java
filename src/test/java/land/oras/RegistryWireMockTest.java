@@ -104,15 +104,16 @@ class RegistryWireMockTest {
                 .withHeader("Authorization", equalTo("Bearer invalid-token"))
                 .willReturn(WireMock.unauthorized()));
 
-        registry.getTags(ContainerRef.parse("%s/library/artifact-text"
-                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))));
+        registry.getTags(ContainerRef.parse(String.format(
+                "%s/library/artifact-text", wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))));
 
         // Ensure it fail with invalid token
         final Registry newRegistry = registry.withAuthToken("invalid-token");
         OrasException e = assertThrows(
                 OrasException.class,
-                () -> newRegistry.getTags(ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))));
+                () -> newRegistry.getTags(ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))));
         assertEquals(401, e.getStatusCode());
     }
 
@@ -132,8 +133,8 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/some-artifact:latest".formatted(wmRuntimeInfo.getHttpPort()));
+        ContainerRef containerRef = ContainerRef.parse(
+                String.format("localhost:%d/library/some-artifact:latest", wmRuntimeInfo.getHttpPort()));
         OrasException exception = assertThrows(OrasException.class, () -> registry.getManifest(containerRef));
         assertEquals(403, exception.getStatusCode());
     }
@@ -145,12 +146,13 @@ class RegistryWireMockTest {
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
-                .willReturn(WireMock.temporaryRedirect("http://localhost:%d/v2/library/artifact-text/blobs/sha256:other"
-                        .formatted(wmRuntimeInfo.getHttpPort()))));
+        wireMock.register(WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/artifact-text/blobs/%s", digest)))
+                .willReturn(WireMock.temporaryRedirect(String.format(
+                        "http://localhost:%d/v2/library/artifact-text/blobs/sha256:other",
+                        wmRuntimeInfo.getHttpPort()))));
 
         // Return blob on new location
-        wireMock.register(head(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/%s".formatted(digest)))
+        wireMock.register(head(WireMock.urlEqualTo(String.format("/v2/library/artifact-text/blobs/%s", digest)))
                 .willReturn(WireMock.ok()));
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/artifact-text/blobs/sha256:other"))
                 .willReturn(
@@ -163,7 +165,7 @@ class RegistryWireMockTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/artifact-text".formatted(wmRuntimeInfo.getHttpPort()));
+                ContainerRef.parse(String.format("localhost:%d/library/artifact-text", wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
@@ -187,8 +189,8 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse(
-                "%s/test@sha512:12345".formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")));
+        ContainerRef containerRef = ContainerRef.parse(String.format(
+                "%s/test@sha512:12345", wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")));
         assertFalse(registry.mountBlob(containerRef, containerRef), "Mount blob should return false");
     }
 
@@ -213,9 +215,9 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse(
-                "localhost:%d/library/artifact-redirect@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-                        .formatted(wmRuntimeInfo.getHttpPort()));
+        ContainerRef containerRef = ContainerRef.parse(String.format(
+                "localhost:%d/library/artifact-redirect@sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                wmRuntimeInfo.getHttpPort()));
         registry.pushBlob(containerRef, "hello".getBytes());
 
         // Via file
@@ -234,12 +236,13 @@ class RegistryWireMockTest {
         redirectTarget.start();
 
         try {
-            String redirectUrl = "http://localhost:%d/v2/other/blobs/sha256:other".formatted(redirectTarget.port());
+            String redirectUrl =
+                    String.format("http://localhost:%d/v2/other/blobs/sha256:other", redirectTarget.port());
 
             WireMock mainMock = wmRuntimeInfo.getWireMock();
 
             // Main mock responds with redirect to different domain
-            mainMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/artifact/blobs/%s".formatted(digest)))
+            mainMock.register(WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/artifact/blobs/%s", digest)))
                     .willReturn(WireMock.temporaryRedirect(redirectUrl)));
 
             // Secondary server returns blob, we inspect headers here
@@ -258,7 +261,7 @@ class RegistryWireMockTest {
                     .build();
 
             ContainerRef containerRef =
-                    ContainerRef.parse("localhost:%d/library/artifact".formatted(wmRuntimeInfo.getHttpPort()));
+                    ContainerRef.parse(String.format("localhost:%d/library/artifact", wmRuntimeInfo.getHttpPort()));
             byte[] blob = registry.getBlob(containerRef.withDigest(digest));
 
             assertEquals("blob-data", new String(blob));
@@ -282,26 +285,20 @@ class RegistryWireMockTest {
         // WireMock server. The parent registry is configured with static basic-auth credentials — those
         // credentials must NOT be forwarded to the mirror over plaintext HTTP.
         // language=toml
-        String config =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirrorHost);
+        String config = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirrorHost);
         TestUtils.createRegistriesConfFile(homeDir4, config);
 
         // language=json
         String manifestJson =
-                """
-                {"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "config":{"mediaType":"application/vnd.oci.empty.v1+json",\
-                "digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},\
-                "layers":[]}""";
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}";
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String manifestPath = "/v2/library/cred-mirror/manifests/v1";
@@ -345,8 +342,9 @@ class RegistryWireMockTest {
                 .build();
 
         // Test
-        List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))))
+        List<String> tags = registry.getTags(ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))))
                 .tags();
 
         // Assert
@@ -371,8 +369,9 @@ class RegistryWireMockTest {
 
         // Test
         List<String> tags = registry.getTags(
-                        ContainerRef.parse("%s/library/artifact-text"
-                                .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))),
+                        ContainerRef.parse(String.format(
+                                "%s/library/artifact-text",
+                                wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))),
                         1,
                         null)
                 .tags();
@@ -388,13 +387,7 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(registryAsString);
+        String config = String.format("[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", registryAsString);
         TestUtils.createRegistriesConfFile(homeDir1, config);
 
         // Return data from wiremock
@@ -407,7 +400,7 @@ class RegistryWireMockTest {
             Registry registry =
                     Registry.Builder.builder().withAuthProvider(authProvider).build();
             List<String> tags = registry.getTags(
-                            ContainerRef.parse("%s/library/artifact-text-with-confg".formatted(registryAsString)))
+                            ContainerRef.parse(String.format("%s/library/artifact-text-with-confg", registryAsString)))
                     .tags();
             assertEquals(2, tags.size());
             assertEquals("latest", tags.get(0));
@@ -415,7 +408,7 @@ class RegistryWireMockTest {
 
             // With limit
             tags = registry.getTags(
-                            ContainerRef.parse("%s/library/artifact-text-with-confg".formatted(registryAsString)),
+                            ContainerRef.parse(String.format("%s/library/artifact-text-with-confg", registryAsString)),
                             1,
                             null)
                     .tags();
@@ -457,13 +450,7 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            location = "%s"
-            insecure = true
-            """
-                        .formatted(registryAsString);
+        String config = String.format("[[registry]]\n" + "location = \"%s\"\n" + "insecure = true\n", registryAsString);
         TestUtils.createRegistriesConfFile(homeDir2, config);
 
         // Return data from wiremock
@@ -492,13 +479,7 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
-            [[registry]]
-            prefix = "%s"
-            insecure = true
-            """
-                        .formatted(registryAsString);
+        String config = String.format("[[registry]]\n" + "prefix = \"%s\"\n" + "insecure = true\n", registryAsString);
         TestUtils.createRegistriesConfFile(homeDir3, config);
 
         // Return data from wiremock
@@ -525,17 +506,15 @@ class RegistryWireMockTest {
     void shouldListTagsWithFileStoreAuth(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
 
         // Auth file for current registry
-        String authFile =
-                """
-                {
-                        "auths": {
-                                "localhost:%d": {
-                                        "auth": "bXl1c2VyOm15cGFzcw=="
-                                }
-                        }
-                }
-                """
-                        .formatted(wmRuntimeInfo.getHttpPort());
+        String authFile = String.format(
+                "{\n"
+                        + "        \"auths\": {\n"
+                        + "                \"localhost:%d\": {\n"
+                        + "                        \"auth\": \"bXl1c2VyOm15cGFzcw==\"\n"
+                        + "                }\n"
+                        + "        }\n"
+                        + "}\n",
+                wmRuntimeInfo.getHttpPort());
 
         Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
 
@@ -555,8 +534,9 @@ class RegistryWireMockTest {
                 .build();
 
         // Test
-        List<String> tags = registry.getTags(ContainerRef.parse("%s/library/artifact-text-store"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))))
+        List<String> tags = registry.getTags(ContainerRef.parse(String.format(
+                        "%s/library/artifact-text-store",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", ""))))
                 .tags();
 
         // Assert
@@ -579,12 +559,12 @@ class RegistryWireMockTest {
         Registry registry = Registry.Builder.builder().withInsecure(true).build();
 
         // Now we should have a reference to container
-        ContainerRef ref = ContainerRef.parse("%s/library/error-artifact".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/error-artifact", registryUrl));
 
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(500, exception.getStatusCode());
 
-        ContainerRef ref2 = ContainerRef.parse("%s/library/error-artifact@sha256:1234".formatted(registryUrl));
+        ContainerRef ref2 = ContainerRef.parse(String.format("%s/library/error-artifact@sha256:1234", registryUrl));
         OrasException exception2 = assertThrows(OrasException.class, () -> registry.fetchBlobDescriptor(ref2));
         assertEquals(500, exception2.getStatusCode());
     }
@@ -596,7 +576,7 @@ class RegistryWireMockTest {
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // Using here a unique container reference to avoid conflicts when running in parallel
-        ContainerRef ref = ContainerRef.parse("%s/library/timeout-artifact".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/timeout-artifact", registryUrl));
 
         // We Set up the stub for the timeout scenario
         wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/timeout-artifact/tags/list"))
@@ -635,7 +615,7 @@ class RegistryWireMockTest {
 
         Registry registry =
                 Registry.Builder.builder().withInsecure(true).withRetryDelay(0).build();
-        ContainerRef ref = ContainerRef.parse("%s/library/artifact-text".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/artifact-text", registryUrl));
 
         Path testFile = configDir.resolve("test-data.temp");
         Files.writeString(testFile, "Test Content");
@@ -679,13 +659,14 @@ class RegistryWireMockTest {
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/refresh-token/blobs/%s", digest)))
                 .inScenario("get token")
                 .willReturn(WireMock.forbidden()
                         .withHeader(
                                 Const.WWW_AUTHENTICATE_HEADER,
-                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/refresh-token:pull\""
-                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+                                String.format(
+                                        "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/refresh-token:pull\"",
+                                        wmRuntimeInfo.getHttpPort()))));
 
         // Return token
         wireMock.register(WireMock.any(
@@ -696,7 +677,7 @@ class RegistryWireMockTest {
                         new HttpClient.TokenResponse("fake-token", "access-token", null, 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/refresh-token/blobs/%s".formatted(digest)))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/refresh-token/blobs/%s", digest)))
                 .inScenario("get token")
                 .whenScenarioStateIs("get")
                 .willReturn(
@@ -709,7 +690,7 @@ class RegistryWireMockTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/refresh-token".formatted(wmRuntimeInfo.getHttpPort()));
+                ContainerRef.parse(String.format("localhost:%d/library/refresh-token", wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
 
@@ -722,7 +703,7 @@ class RegistryWireMockTest {
                                 Const.METRIC_TAG_SERVICE,
                                 "localhost",
                                 Const.METRIC_TAG_REALM,
-                                "http://localhost:%d/token".formatted(wmRuntimeInfo.getHttpPort()))
+                                String.format("http://localhost:%d/token", wmRuntimeInfo.getHttpPort()))
                         .count(),
                 "Token refresh counter should be 1 after one token refresh");
         assertEquals(
@@ -790,7 +771,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/rate-limited", registryUrl));
 
         // Verify that a 429 status code is thrown as an OrasException
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
@@ -805,19 +786,20 @@ class RegistryWireMockTest {
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
 
         // Setup WireMock to redirect to a new location
-        String redirectUrl = "http://%s/v2/library/redirect-blob/blobs/redirected/%s".formatted(registryUrl, digest);
-        wireMock.register(get(urlEqualTo("/v2/library/redirect-blob/blobs/%s".formatted(digest)))
+        String redirectUrl =
+                String.format("http://%s/v2/library/redirect-blob/blobs/redirected/%s", registryUrl, digest);
+        wireMock.register(get(urlEqualTo(String.format("/v2/library/redirect-blob/blobs/%s", digest)))
                 .willReturn(aResponse().withStatus(307).withHeader("Location", redirectUrl)));
 
         // Setup WireMock to serve blob at redirected location
-        wireMock.register(get(urlEqualTo("/v2/library/redirect-blob/blobs/redirected/%s".formatted(digest)))
+        wireMock.register(get(urlEqualTo(String.format("/v2/library/redirect-blob/blobs/redirected/%s", digest)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)
                         .withBody("blob-data")));
 
         // Setup HEAD request for validation
-        wireMock.register(head(urlEqualTo("/v2/library/redirect-blob/blobs/%s".formatted(digest)))
+        wireMock.register(head(urlEqualTo(String.format("/v2/library/redirect-blob/blobs/%s", digest)))
                 .willReturn(aResponse().withStatus(200)));
 
         Registry registry = Registry.Builder.builder()
@@ -825,7 +807,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse("%s/library/redirect-blob".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/redirect-blob", registryUrl));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
@@ -845,7 +827,7 @@ class RegistryWireMockTest {
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("%s/library/null-size".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/null-size", registryUrl));
 
         Descriptor descriptor = registry.getDescriptor(containerRef);
         assertNotNull(descriptor, "Descriptor should not be null");
@@ -870,7 +852,7 @@ class RegistryWireMockTest {
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("%s/library/header-size-size".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/header-size-size", registryUrl));
 
         Descriptor descriptor = registry.getDescriptor(containerRef);
         assertNotNull(descriptor, "Descriptor should not be null");
@@ -882,7 +864,7 @@ class RegistryWireMockTest {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
-        wireMock.register(any(urlEqualTo("/v2/library/validate-digest/blobs/%s".formatted(digest)))
+        wireMock.register(any(urlEqualTo(String.format("/v2/library/validate-digest/blobs/%s", digest)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody("blob-data")
@@ -893,7 +875,7 @@ class RegistryWireMockTest {
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/validate-digest", registryUrl));
         OrasException e = assertThrows(
                 OrasException.class,
                 () -> registry.getBlob(containerRef.withDigest(digest)),
@@ -906,7 +888,7 @@ class RegistryWireMockTest {
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
-        wireMock.register(any(urlEqualTo("/v2/library/validate-digest/blobs/%s".formatted(digest)))
+        wireMock.register(any(urlEqualTo(String.format("/v2/library/validate-digest/blobs/%s", digest)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody("blob-data")
@@ -917,7 +899,7 @@ class RegistryWireMockTest {
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/validate-digest", registryUrl));
         OrasException e = assertThrows(
                 OrasException.class,
                 () -> registry.getBlob(containerRef.withDigest(digest)),
@@ -939,7 +921,7 @@ class RegistryWireMockTest {
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef containerRef = ContainerRef.parse("%s/library/validate-digest".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/validate-digest", registryUrl));
         Descriptor descriptor = registry.probeDescriptor(containerRef);
         assertNotNull(descriptor, "Descriptor should not be null");
     }
@@ -952,19 +934,21 @@ class RegistryWireMockTest {
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // Redirect to a fake other storage
-        String redirectUrl = "http://%s/storage/%s".formatted(registryUrl, digest);
+        String redirectUrl = String.format("http://%s/storage/%s", registryUrl, digest);
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
 
         // First we need to authenticate
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-first-token/blobs/%s".formatted(digest)))
-                .inScenario("redirect after token")
-                .willSetStateTo("auth requested")
-                .willReturn(WireMock.unauthorized()
-                        .withHeader(
-                                Const.WWW_AUTHENTICATE_HEADER,
-                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/get-first-token:pull\""
-                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+        wireMock.register(
+                WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/get-first-token/blobs/%s", digest)))
+                        .inScenario("redirect after token")
+                        .willSetStateTo("auth requested")
+                        .willReturn(WireMock.unauthorized()
+                                .withHeader(
+                                        Const.WWW_AUTHENTICATE_HEADER,
+                                        String.format(
+                                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/get-first-token:pull\"",
+                                                wmRuntimeInfo.getHttpPort()))));
 
         // Token is returned
         wireMock.register(WireMock.any(
@@ -976,14 +960,15 @@ class RegistryWireMockTest {
                         new HttpClient.TokenResponse("fake-token", "access-token", null, 300, ZonedDateTime.now())))));
 
         // After getting token we get a redirect
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/get-first-token/blobs/%s".formatted(digest)))
-                .inScenario("redirect after token")
-                .whenScenarioStateIs("got token")
-                .willSetStateTo("redirect")
-                .willReturn(WireMock.temporaryRedirect(redirectUrl)));
+        wireMock.register(
+                WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/get-first-token/blobs/%s", digest)))
+                        .inScenario("redirect after token")
+                        .whenScenarioStateIs("got token")
+                        .willSetStateTo("redirect")
+                        .willReturn(WireMock.temporaryRedirect(redirectUrl)));
 
         // We finally get the blob
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/storage/%s".formatted(digest)))
+        wireMock.register(WireMock.any(WireMock.urlEqualTo(String.format("/storage/%s", digest)))
                 .inScenario("redirect after token")
                 .whenScenarioStateIs("redirect")
                 .willSetStateTo("done")
@@ -995,7 +980,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
         ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/get-first-token".formatted(wmRuntimeInfo.getHttpPort()));
+                ContainerRef.parse(String.format("localhost:%d/library/get-first-token", wmRuntimeInfo.getHttpPort()));
         byte[] blob = registry.getBlob(containerRef.withDigest(digest));
         assertEquals("blob-data", new String(blob));
     }
@@ -1019,7 +1004,8 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse("%s/library/concurrent-blob@%s".formatted(registryUrl, digest));
+        ContainerRef containerRef =
+                ContainerRef.parse(String.format("%s/library/concurrent-blob@%s", registryUrl, digest));
 
         // Create a temporary file for pushing
         Path testFile = configDir.resolve("concurrent-data.temp");
@@ -1056,7 +1042,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/network-loss".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/network-loss", registryUrl));
 
         // Verify that a network connectivity loss results in an OrasException
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
@@ -1070,9 +1056,9 @@ class RegistryWireMockTest {
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
 
         // Setup WireMock to return a corrupted blob response
-        wireMock.register(head(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
+        wireMock.register(head(urlEqualTo(String.format("/v2/library/corrupted-blob/blobs/%s", digest)))
                 .willReturn(aResponse().withStatus(200)));
-        wireMock.register(get(urlEqualTo("/v2/library/corrupted-blob/blobs/%s".formatted(digest)))
+        wireMock.register(get(urlEqualTo(String.format("/v2/library/corrupted-blob/blobs/%s", digest)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)
@@ -1083,7 +1069,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse("%s/library/corrupted-blob".formatted(registryUrl));
+        ContainerRef containerRef = ContainerRef.parse(String.format("%s/library/corrupted-blob", registryUrl));
 
         // Expect digest mismatch exception
         OrasException exception =
@@ -1099,24 +1085,27 @@ class RegistryWireMockTest {
 
         // Return data from wiremock
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(registryName, digest)))
-                .inScenario(registryName)
-                .willReturn(WireMock.unauthorized()
-                        .withHeader(
-                                Const.WWW_AUTHENTICATE_HEADER,
-                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/%s:pull\""
-                                        .formatted(wmRuntimeInfo.getHttpPort(), registryName))));
+        wireMock.register(
+                WireMock.any(WireMock.urlEqualTo(String.format("/v2/library/%s/blobs/%s", registryName, digest)))
+                        .inScenario(registryName)
+                        .willReturn(WireMock.unauthorized()
+                                .withHeader(
+                                        Const.WWW_AUTHENTICATE_HEADER,
+                                        String.format(
+                                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/%s:pull\"",
+                                                wmRuntimeInfo.getHttpPort(), registryName))));
 
         // Return token
         wireMock.register(WireMock.any(WireMock.urlEqualTo(
-                        "/token?scope=repository:library/%s:pull&service=localhost".formatted(registryName)))
+                        String.format("/token?scope=repository:library/%s:pull&service=localhost", registryName)))
                 .inScenario(registryName)
                 .willSetStateTo("get")
                 .willReturn(WireMock.okJson(JsonUtils.toJson(
                         new HttpClient.TokenResponse(token, accessToken, null, 300, ZonedDateTime.now())))));
 
         // On the second call we return ok
-        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(registryName, digest)))
+        wireMock.register(WireMock.any(
+                        WireMock.urlEqualTo(String.format("/v2/library/%s/blobs/%s", registryName, digest)))
                 .inScenario(registryName)
                 .whenScenarioStateIs("get")
                 .willReturn(
@@ -1129,7 +1118,7 @@ class RegistryWireMockTest {
                 .build();
 
         ContainerRef containerRef =
-                ContainerRef.parse("localhost:%d/library/%s".formatted(wmRuntimeInfo.getHttpPort(), registryName));
+                ContainerRef.parse(String.format("localhost:%d/library/%s", wmRuntimeInfo.getHttpPort(), registryName));
         return registry.getBlob(containerRef.withDigest(digest));
     }
 
@@ -1166,7 +1155,7 @@ class RegistryWireMockTest {
                         .withBody(manifestJson)));
 
         // Stub GET blob
-        wireMock.register(get(urlEqualTo("/v2/library/malicious-artifact/blobs/%s".formatted(blobDigest)))
+        wireMock.register(get(urlEqualTo(String.format("/v2/library/malicious-artifact/blobs/%s", blobDigest)))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody(blobContent)
@@ -1177,7 +1166,8 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef containerRef = ContainerRef.parse("%s/library/malicious-artifact:latest".formatted(registryUrl));
+        ContainerRef containerRef =
+                ContainerRef.parse(String.format("%s/library/malicious-artifact:latest", registryUrl));
 
         Path outputDir = configDir.resolve("pull-output");
         Files.createDirectories(outputDir);
@@ -1232,7 +1222,7 @@ class RegistryWireMockTest {
                 .withMaxRetries(2)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited-retry".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/rate-limited-retry", registryUrl));
         Tags tags = registry.getTags(ref);
         assertEquals(List.of("latest"), tags.tags());
 
@@ -1269,7 +1259,7 @@ class RegistryWireMockTest {
                 .withMaxRetries(3)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/rate-limited-backoff".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/rate-limited-backoff", registryUrl));
         Tags tags = registry.getTags(ref);
         assertEquals(List.of("v1"), tags.tags());
 
@@ -1299,7 +1289,7 @@ class RegistryWireMockTest {
                 .withMaxRetries(2)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/network-error-retry".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/network-error-retry", registryUrl));
         Tags tags = registry.getTags(ref);
         assertEquals(List.of("latest"), tags.tags());
 
@@ -1320,7 +1310,7 @@ class RegistryWireMockTest {
                 .withMaxRetries(3)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/not-found".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/not-found", registryUrl));
         OrasException exception = assertThrows(OrasException.class, () -> registry.getTags(ref));
         assertEquals(404, exception.getStatusCode());
 
@@ -1343,7 +1333,7 @@ class RegistryWireMockTest {
                 .withMaxRetries(3)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/always-fails".formatted(registryUrl));
+        ContainerRef ref = ContainerRef.parse(String.format("%s/library/always-fails", registryUrl));
         assertThrows(OrasException.class, () -> registry.getTags(ref));
 
         // 3 attempts total (initial + 2 retries)
@@ -1357,12 +1347,13 @@ class RegistryWireMockTest {
         String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
 
         // Registry returns 401 to trigger token refresh
-        wireMock.register(get(urlPathEqualTo("/v2/library/no-retry-token/blobs/%s".formatted(digest)))
+        wireMock.register(get(urlPathEqualTo(String.format("/v2/library/no-retry-token/blobs/%s", digest)))
                 .willReturn(forbidden()
                         .withHeader(
                                 Const.WWW_AUTHENTICATE_HEADER,
-                                "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/no-retry-token:pull\""
-                                        .formatted(wmRuntimeInfo.getHttpPort()))));
+                                String.format(
+                                        "Bearer realm=\"http://localhost:%d/token\",service=\"localhost\",scope=\"repository:library/no-retry-token:pull\"",
+                                        wmRuntimeInfo.getHttpPort()))));
 
         // Token endpoint always fails with 500
         wireMock.register(get(urlPathEqualTo("/token"))
@@ -1375,7 +1366,7 @@ class RegistryWireMockTest {
                 .build();
 
         ContainerRef ref =
-                ContainerRef.parse("localhost:%d/library/no-retry-token".formatted(wmRuntimeInfo.getHttpPort()));
+                ContainerRef.parse(String.format("localhost:%d/library/no-retry-token", wmRuntimeInfo.getHttpPort()));
         assertThrows(OrasException.class, () -> registry.getBlob(ref.withDigest(digest)));
 
         // Token endpoint must be called exactly once — no retry on token refresh
@@ -1406,7 +1397,7 @@ class RegistryWireMockTest {
         // Path overload
         Path blobFile = configDir.resolve("chunked-init-error.txt");
         Files.write(blobFile, content);
-        ContainerRef refPath = ContainerRef.parse("%s/library/chunked-init-error".formatted(registryUrl));
+        ContainerRef refPath = ContainerRef.parse(String.format("%s/library/chunked-init-error", registryUrl));
 
         OrasException exPath = assertThrows(OrasException.class, () -> registry.pushBlobChunked(refPath, blobFile, 4L));
         assertEquals(
@@ -1415,7 +1406,7 @@ class RegistryWireMockTest {
                 "Exception message should include the unexpected status code");
 
         // InputStream overload
-        ContainerRef refStream = ContainerRef.parse("%s/library/chunked-init-error".formatted(registryUrl))
+        ContainerRef refStream = ContainerRef.parse(String.format("%s/library/chunked-init-error", registryUrl))
                 .withDigest(digest);
 
         OrasException exStream = assertThrows(
@@ -1453,9 +1444,10 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef source = ContainerRef.parse("localhost:%d/%s:chain".formatted(wmRuntimeInfo.getHttpPort(), repo));
+        ContainerRef source =
+                ContainerRef.parse(String.format("localhost:%d/%s:chain", wmRuntimeInfo.getHttpPort(), repo));
         ContainerRef target = ContainerRef.parse(
-                "localhost:%d/library/deep-chain-target:copy".formatted(wmRuntimeInfo.getHttpPort()));
+                String.format("localhost:%d/library/deep-chain-target:copy", wmRuntimeInfo.getHttpPort()));
 
         OrasException e = assertThrows(
                 OrasException.class,
@@ -1476,27 +1468,22 @@ class RegistryWireMockTest {
 
         // Reference itself
         stubNestedSourceIndex(wireMock, srcRepo, "self", digestA, digestA);
-        wireMock.register(WireMock.head(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA)))
+        wireMock.register(WireMock.head(WireMock.urlEqualTo(String.format("/v2/%s/manifests/%s", srcRepo, digestA)))
                 .willReturn(WireMock.ok()
                         .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
 
         // Generic target: accept any manifest push and return an empty index on the follow-up read.
-        String emptyIndex =
-                """
-                {
-                  "schemaVersion": 2,
-                  "mediaType": "%s",
-                  "manifests": []
-                }"""
-                        .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE);
-        wireMock.register(WireMock.put(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+        String emptyIndex = String.format(
+                "{\n" + "  \"schemaVersion\": 2,\n" + "  \"mediaType\": \"%s\",\n" + "  \"manifests\": []\n" + "}",
+                Const.DEFAULT_INDEX_MEDIA_TYPE);
+        wireMock.register(WireMock.put(WireMock.urlMatching(String.format("/v2/%s/manifests/.*", dstRepo)))
                 .willReturn(WireMock.created().withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
-        wireMock.register(WireMock.head(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+        wireMock.register(WireMock.head(WireMock.urlMatching(String.format("/v2/%s/manifests/.*", dstRepo)))
                 .willReturn(WireMock.ok()
                         .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
-        wireMock.register(WireMock.get(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
+        wireMock.register(WireMock.get(WireMock.urlMatching(String.format("/v2/%s/manifests/.*", dstRepo)))
                 .willReturn(WireMock.ok()
                         .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)
@@ -1508,37 +1495,38 @@ class RegistryWireMockTest {
                 .build();
 
         ContainerRef source =
-                ContainerRef.parse("localhost:%d/%s:self".formatted(wmRuntimeInfo.getHttpPort(), srcRepo));
+                ContainerRef.parse(String.format("localhost:%d/%s:self", wmRuntimeInfo.getHttpPort(), srcRepo));
         ContainerRef target =
-                ContainerRef.parse("localhost:%d/%s:copy".formatted(wmRuntimeInfo.getHttpPort(), dstRepo));
+                ContainerRef.parse(String.format("localhost:%d/%s:copy", wmRuntimeInfo.getHttpPort(), dstRepo));
 
         // Terminates rather than looping / overflowing.
         CopyUtils.copy(registry, source, registry, target, CopyUtils.CopyOptions.deep());
 
         // The cycle guard returned before getIndex
         wireMock.verifyThat(
-                0, WireMock.getRequestedFor(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA))));
+                0,
+                WireMock.getRequestedFor(WireMock.urlEqualTo(String.format("/v2/%s/manifests/%s", srcRepo, digestA))));
         wireMock.verifyThat(
-                WireMock.headRequestedFor(WireMock.urlEqualTo("/v2/%s/manifests/%s".formatted(srcRepo, digestA))));
+                WireMock.headRequestedFor(WireMock.urlEqualTo(String.format("/v2/%s/manifests/%s", srcRepo, digestA))));
     }
 
     /**
      * Build the JSON of an index whose single entry is another index (the child).
      */
     private static String nestedIndexJson(String childDigest) {
-        return """
-                {
-                  "schemaVersion": 2,
-                  "mediaType": "%s",
-                  "manifests": [
-                    {
-                      "mediaType": "%s",
-                      "digest": "%s",
-                      "size": 100
-                    }
-                  ]
-                }"""
-                .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE, Const.DEFAULT_INDEX_MEDIA_TYPE, childDigest);
+        return String.format(
+                "{\n"
+                        + "  \"schemaVersion\": 2,\n"
+                        + "  \"mediaType\": \"%s\",\n"
+                        + "  \"manifests\": [\n"
+                        + "    {\n"
+                        + "      \"mediaType\": \"%s\",\n"
+                        + "      \"digest\": \"%s\",\n"
+                        + "      \"size\": 100\n"
+                        + "    }\n"
+                        + "  ]\n"
+                        + "}",
+                Const.DEFAULT_INDEX_MEDIA_TYPE, Const.DEFAULT_INDEX_MEDIA_TYPE, childDigest);
     }
 
     /**
@@ -1546,7 +1534,7 @@ class RegistryWireMockTest {
      */
     private static void stubNestedSourceIndex(
             WireMock wireMock, String repo, String ref, String selfDigest, String childDigest) {
-        String url = "/v2/%s/manifests/%s".formatted(repo, ref);
+        String url = String.format("/v2/%s/manifests/%s", repo, ref);
         wireMock.register(WireMock.head(WireMock.urlEqualTo(url))
                 .willReturn(WireMock.ok()
                         .withHeader(Const.CONTENT_TYPE_HEADER, Const.DEFAULT_INDEX_MEDIA_TYPE)
@@ -1565,16 +1553,18 @@ class RegistryWireMockTest {
         String selfConsistentHeader = SupportedAlgorithm.SHA256.digest(evil.getBytes(StandardCharsets.UTF_8));
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/evil-blob/blobs/%s".formatted(pinnedDigest)))
-                .willReturn(WireMock.ok()
-                        .withBody(evil)
-                        .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, selfConsistentHeader)));
+        wireMock.register(
+                WireMock.get(WireMock.urlEqualTo(String.format("/v2/library/evil-blob/blobs/%s", pinnedDigest)))
+                        .willReturn(WireMock.ok()
+                                .withBody(evil)
+                                .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, selfConsistentHeader)));
 
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef ref = ContainerRef.parse("localhost:%d/library/evil-blob".formatted(wmRuntimeInfo.getHttpPort()))
+        ContainerRef ref = ContainerRef.parse(
+                        String.format("localhost:%d/library/evil-blob", wmRuntimeInfo.getHttpPort()))
                 .withDigest(pinnedDigest);
 
         OrasException ex = assertThrows(OrasException.class, () -> registry.getBlob(ref));
@@ -1587,14 +1577,15 @@ class RegistryWireMockTest {
         String digest = SupportedAlgorithm.SHA256.digest(binary);
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/bin-blob/blobs/%s".formatted(digest)))
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(String.format("/v2/library/bin-blob/blobs/%s", digest)))
                 .willReturn(WireMock.ok().withBody(binary).withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digest)));
 
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef ref = ContainerRef.parse("localhost:%d/library/bin-blob".formatted(wmRuntimeInfo.getHttpPort()))
+        ContainerRef ref = ContainerRef.parse(
+                        String.format("localhost:%d/library/bin-blob", wmRuntimeInfo.getHttpPort()))
                 .withDigest(digest);
 
         assertArrayEquals(binary, registry.getBlob(ref));
@@ -1605,14 +1596,16 @@ class RegistryWireMockTest {
         String pinnedDigest = SupportedAlgorithm.SHA256.digest("good".getBytes(StandardCharsets.UTF_8));
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/evil-file/blobs/%s".formatted(pinnedDigest)))
-                .willReturn(WireMock.ok().withBody("tampered")));
+        wireMock.register(
+                WireMock.get(WireMock.urlEqualTo(String.format("/v2/library/evil-file/blobs/%s", pinnedDigest)))
+                        .willReturn(WireMock.ok().withBody("tampered")));
 
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef ref = ContainerRef.parse("localhost:%d/library/evil-file".formatted(wmRuntimeInfo.getHttpPort()))
+        ContainerRef ref = ContainerRef.parse(
+                        String.format("localhost:%d/library/evil-file", wmRuntimeInfo.getHttpPort()))
                 .withDigest(pinnedDigest);
         Path out = configDir.resolve("blob-out.bin");
 
@@ -1625,14 +1618,16 @@ class RegistryWireMockTest {
         String pinnedDigest = SupportedAlgorithm.SHA256.digest("good".getBytes(StandardCharsets.UTF_8));
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        wireMock.register(WireMock.get(WireMock.urlEqualTo("/v2/library/evil-stream/blobs/%s".formatted(pinnedDigest)))
-                .willReturn(WireMock.ok().withBody("tampered")));
+        wireMock.register(
+                WireMock.get(WireMock.urlEqualTo(String.format("/v2/library/evil-stream/blobs/%s", pinnedDigest)))
+                        .willReturn(WireMock.ok().withBody("tampered")));
 
         Registry registry = Registry.Builder.builder()
                 .withAuthProvider(authProvider)
                 .withInsecure(true)
                 .build();
-        ContainerRef ref = ContainerRef.parse("localhost:%d/library/evil-stream".formatted(wmRuntimeInfo.getHttpPort()))
+        ContainerRef ref = ContainerRef.parse(
+                        String.format("localhost:%d/library/evil-stream", wmRuntimeInfo.getHttpPort()))
                 .withDigest(pinnedDigest);
 
         // The digest is verified incrementally, so the mismatch surfaces when the stream is read to EOF.
@@ -1647,17 +1642,13 @@ class RegistryWireMockTest {
     @Test
     void shouldRejectManifestWhoseContentDoesNotMatchPinnedDigest(WireMockRuntimeInfo wmRuntimeInfo) {
         String realManifest =
-                """
-                {"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "config":{"mediaType":"application/vnd.oci.empty.v1+json",\
-                "digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},\
-                "layers":[]}""";
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"config\":{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2},\"layers\":[]}";
         String evilManifest = realManifest.replace("\"layers\":[]", "\"layers\":[],\"annotations\":{\"x\":\"y\"}");
         String pinnedDigest = SupportedAlgorithm.SHA256.digest(realManifest.getBytes(StandardCharsets.UTF_8));
         String selfConsistentHeader = SupportedAlgorithm.SHA256.digest(evilManifest.getBytes(StandardCharsets.UTF_8));
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
-        String manifestPath = "/v2/library/evil-manifest/manifests/%s".formatted(pinnedDigest);
+        String manifestPath = String.format("/v2/library/evil-manifest/manifests/%s", pinnedDigest);
         wireMock.register(WireMock.head(WireMock.urlEqualTo(manifestPath))
                 .willReturn(WireMock.aResponse()
                         .withStatus(200)
@@ -1675,7 +1666,7 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
         ContainerRef ref = ContainerRef.parse(
-                        "localhost:%d/library/evil-manifest".formatted(wmRuntimeInfo.getHttpPort()))
+                        String.format("localhost:%d/library/evil-manifest", wmRuntimeInfo.getHttpPort()))
                 .withDigest(pinnedDigest);
 
         OrasException ex = assertThrows(OrasException.class, () -> registry.getManifest(ref));
@@ -1709,8 +1700,9 @@ class RegistryWireMockTest {
 
         OrasException exception = assertThrows(
                 OrasException.class,
-                () -> registry.getTags(ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))));
+                () -> registry.getTags(ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))));
         assertTrue(
                 exception.getMessage().contains("Tag listing exceeded 2 pages"),
                 "Unexpected message: " + exception.getMessage());
@@ -1724,15 +1716,9 @@ class RegistryWireMockTest {
 
         // Minimal referrers index JSON with one manifest entry per page
         String page1 =
-                """
-                {"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
-                [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1}]}""";
+                "{\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":1}]}";
         String page2 =
-                """
-                {"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
-                [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":1}]}""";
+                "{\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"size\":1}]}";
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         wireMock.register(WireMock.get(WireMock.urlPathEqualTo(referrersPath))
@@ -1756,8 +1742,9 @@ class RegistryWireMockTest {
                 .withReferrerListMaxPages(2)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
+        ContainerRef ref = ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
                 .withDigest(digest);
 
         OrasException exception = assertThrows(OrasException.class, () -> registry.getReferrers(ref, null));
@@ -1775,11 +1762,7 @@ class RegistryWireMockTest {
                 + "sha256-44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
         String fallbackIndex =
-                """
-                {"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
-                [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,\
-                "artifactType":"application/vnd.example+json"}]}""";
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":1,\"artifactType\":\"application/vnd.example+json\"}]}";
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         // Registry does not implement the Referrers API (e.g. GHCR)
@@ -1796,8 +1779,9 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
+        ContainerRef ref = ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
                 .withDigest(digest);
 
         Referrers referrers = registry.getReferrers(ref, null);
@@ -1816,14 +1800,7 @@ class RegistryWireMockTest {
                 + "sha256-44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
         String fallbackIndex =
-                """
-                {"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
-                [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,\
-                "artifactType":"application/vnd.example+json"},\
-                {"mediaType":"application/vnd.oci.image.manifest.v1+json",\
-                "digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":1,\
-                "artifactType":"application/vnd.other+json"}]}""";
+                "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.oci.image.index.v1+json\",\"manifests\":[{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":1,\"artifactType\":\"application/vnd.example+json\"},{\"mediaType\":\"application/vnd.oci.image.manifest.v1+json\",\"digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"size\":1,\"artifactType\":\"application/vnd.other+json\"}]}";
 
         WireMock wireMock = wmRuntimeInfo.getWireMock();
         wireMock.register(WireMock.get(WireMock.urlPathEqualTo(referrersPath)).willReturn(WireMock.notFound()));
@@ -1838,8 +1815,9 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
+        ContainerRef ref = ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
                 .withDigest(digest);
 
         Referrers referrers = registry.getReferrers(ref, ArtifactType.from("application/vnd.example+json"));
@@ -1866,8 +1844,9 @@ class RegistryWireMockTest {
                 .withInsecure(true)
                 .build();
 
-        ContainerRef ref = ContainerRef.parse("%s/library/artifact-text"
-                        .formatted(wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
+        ContainerRef ref = ContainerRef.parse(String.format(
+                        "%s/library/artifact-text",
+                        wmRuntimeInfo.getHttpBaseUrl().replace("http://", "")))
                 .withDigest(digest);
 
         Referrers referrers = registry.getReferrers(ref, null);

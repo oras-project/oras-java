@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import land.oras.exception.OrasException;
 import land.oras.utils.ArchiveUtils;
 import land.oras.utils.Const;
@@ -51,7 +53,12 @@ import org.slf4j.LoggerFactory;
  * Commons methods for OCI operations
  * @param <T> The reference type
  */
-public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OCILayout {
+@JsonAutoDetect(
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE,
+        setterVisibility = JsonAutoDetect.Visibility.NONE,
+        fieldVisibility = JsonAutoDetect.Visibility.NONE)
+public abstract class OCI<T extends Ref<@NonNull T>> {
 
     /**
      * The logger
@@ -342,7 +349,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
                     .map(p -> CompletableFuture.supplyAsync(
                             () -> pushLayer(ref, annotations, withDigest, p, options), getExecutorService()))
                     .map(CompletableFuture::join)
-                    .toList();
+                    .collect(Collectors.toList());
         } catch (CompletionException e) {
             throw new OrasException("Failed to push layers", e.getCause());
         }
@@ -650,7 +657,7 @@ public abstract sealed class OCI<T extends Ref<@NonNull T>> permits Registry, OC
 
                 // We store the filename, based on directory name if we don't auto unpack
                 if (!autoUnpack) {
-                    title = "%s.%s".formatted(title, compression.getFileExtension());
+                    title = String.format("%s.%s", title, compression.getFileExtension());
                 }
                 LOG.debug("Uploading directory as archive with title: {}", title);
 

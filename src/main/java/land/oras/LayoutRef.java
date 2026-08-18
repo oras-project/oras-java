@@ -198,9 +198,9 @@ public final class LayoutRef extends Ref<LayoutRef> {
     public String toString() {
         if (tag != null) {
             if (isValidDigest()) {
-                return "%s@%s".formatted(getFolder().toString(), tag);
+                return String.format("%s@%s", getFolder().toString(), tag);
             }
-            return "%s:%s".formatted(getFolder().toString(), tag);
+            return String.format("%s:%s", getFolder().toString(), tag);
         } else {
             return getFolder().toString();
         }

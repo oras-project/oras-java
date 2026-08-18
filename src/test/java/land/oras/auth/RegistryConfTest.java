@@ -222,20 +222,17 @@ class RegistryConfTest {
     @Test
     void shouldParseMirrorsFromToml() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "mirror1.example.com"
-                insecure = true
-
-                [[registry.mirror]]
-                location = "mirror2.example.com"
-                insecure = false
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror1.example.com\"\n"
+                + "insecure = true\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror2.example.com\"\n"
+                + "insecure = false\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
 
@@ -362,27 +359,24 @@ class RegistryConfTest {
     @Test
     void shouldParsePullFromMirrorFromToml() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "mirror-digest.example.com"
-                pull-from-mirror = "digest-only"
-
-                [[registry.mirror]]
-                location = "mirror-tag.example.com"
-                pull-from-mirror = "tag-only"
-
-                [[registry.mirror]]
-                location = "mirror-all.example.com"
-                pull-from-mirror = "all"
-
-                [[registry.mirror]]
-                location = "mirror-default.example.com"
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-digest.example.com\"\n"
+                + "pull-from-mirror = \"digest-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-tag.example.com\"\n"
+                + "pull-from-mirror = \"tag-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-all.example.com\"\n"
+                + "pull-from-mirror = \"all\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-default.example.com\"\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
         ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");
@@ -398,23 +392,20 @@ class RegistryConfTest {
     @Test
     void shouldFilterMirrorsByPullFromMirrorForTagRef() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "mirror-digest.example.com"
-                pull-from-mirror = "digest-only"
-
-                [[registry.mirror]]
-                location = "mirror-tag.example.com"
-                pull-from-mirror = "tag-only"
-
-                [[registry.mirror]]
-                location = "mirror-all.example.com"
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-digest.example.com\"\n"
+                + "pull-from-mirror = \"digest-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-tag.example.com\"\n"
+                + "pull-from-mirror = \"tag-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-all.example.com\"\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
 
@@ -430,23 +421,20 @@ class RegistryConfTest {
     @Test
     void shouldFilterMirrorsByPullFromMirrorForDigestRef() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "mirror-digest.example.com"
-                pull-from-mirror = "digest-only"
-
-                [[registry.mirror]]
-                location = "mirror-tag.example.com"
-                pull-from-mirror = "tag-only"
-
-                [[registry.mirror]]
-                location = "mirror-all.example.com"
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-digest.example.com\"\n"
+                + "pull-from-mirror = \"digest-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-tag.example.com\"\n"
+                + "pull-from-mirror = \"tag-only\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-all.example.com\"\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
 
@@ -463,20 +451,17 @@ class RegistryConfTest {
     @Test
     void shouldApplyMirrorByDigestOnly() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-                mirror-by-digest-only = true
-
-                [[registry.mirror]]
-                location = "mirror-a.example.com"
-
-                [[registry.mirror]]
-                location = "mirror-b.example.com"
-                pull-from-mirror = "tag-only"
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "mirror-by-digest-only = true\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-a.example.com\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-b.example.com\"\n"
+                + "pull-from-mirror = \"tag-only\"\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
 
@@ -496,18 +481,15 @@ class RegistryConfTest {
     @Test
     void shouldReturnAllMirrorsWhenNoFilterConfigured() {
         // language=toml
-        String toml =
-                """
-                [[registry]]
-                prefix = "docker.io"
-                location = "docker.io"
-
-                [[registry.mirror]]
-                location = "mirror-a.example.com"
-
-                [[registry.mirror]]
-                location = "mirror-b.example.com"
-                """;
+        String toml = "[[registry]]\n"
+                + "prefix = \"docker.io\"\n"
+                + "location = \"docker.io\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-a.example.com\"\n"
+                + "\n"
+                + "[[registry.mirror]]\n"
+                + "location = \"mirror-b.example.com\"\n";
 
         RegistriesConf conf = RegistriesConf.newConf(List.of(writeTempToml(toml)));
         ContainerRef ref = ContainerRef.parse("docker.io/library/alpine:latest");

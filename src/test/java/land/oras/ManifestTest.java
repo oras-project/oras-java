@@ -139,20 +139,18 @@ class ManifestTest {
     }
 
     private String emptyManifest() {
-        return """
-            {
-              "schemaVersion": 2,
-              "mediaType": "application/vnd.oci.image.manifest.v1+json",
-              "config": {
-                "mediaType": "application/vnd.oci.empty.v1+json",
-                "digest": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-                "size": 2,
-                "data": "e30="
-              },
-              "layers": [],
-              "annotations": {}
-            }
-             """;
+        return "{\n"
+                + "  \"schemaVersion\": 2,\n"
+                + "  \"mediaType\": \"application/vnd.oci.image.manifest.v1+json\",\n"
+                + "  \"config\": {\n"
+                + "    \"mediaType\": \"application/vnd.oci.empty.v1+json\",\n"
+                + "    \"digest\": \"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\n"
+                + "    \"size\": 2,\n"
+                + "    \"data\": \"e30=\"\n"
+                + "  },\n"
+                + "  \"layers\": [],\n"
+                + "  \"annotations\": {}\n"
+                + "}\n";
     }
 
     /**
@@ -161,28 +159,26 @@ class ManifestTest {
      */
     private String sampleManifest() {
         // language=JSON
-        return """
-                {
-                  "schemaVersion": 2,
-                  "mediaType": "application/vnd.oci.image.manifest.v1+json",
-                  "config": {
-                    "mediaType": "application/vnd.oci.image.config.v1+json",
-                    "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                    "size": 7023
-                  },
-                  "layers": [
-                    {
-                      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-                      "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                      "size": 32654
-                    },
-                    {
-                      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-                      "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                      "size": 1048576
-                    }
-                  ]
-                }
-             """;
+        return "   {\n"
+                + "     \"schemaVersion\": 2,\n"
+                + "     \"mediaType\": \"application/vnd.oci.image.manifest.v1+json\",\n"
+                + "     \"config\": {\n"
+                + "       \"mediaType\": \"application/vnd.oci.image.config.v1+json\",\n"
+                + "       \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                + "       \"size\": 7023\n"
+                + "     },\n"
+                + "     \"layers\": [\n"
+                + "       {\n"
+                + "         \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                + "         \"digest\": \"sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890\",\n"
+                + "         \"size\": 32654\n"
+                + "       },\n"
+                + "       {\n"
+                + "         \"mediaType\": \"application/vnd.oci.image.layer.v1.tar+gzip\",\n"
+                + "         \"digest\": \"sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\",\n"
+                + "         \"size\": 1048576\n"
+                + "       }\n"
+                + "     ]\n"
+                + "   }\n";
     }
 }

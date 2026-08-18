@@ -168,8 +168,9 @@ public enum SupportedAlgorithm {
                 // Check the size
                 String value = digest.substring(algorithm.getPrefix().length() + 1);
                 if (value.length() != algorithm.getSize() * 2) {
-                    throw new OrasException("Invalid digest %s, expected size is %d, but got %d"
-                            .formatted(digest, algorithm.getSize(), value.length()));
+                    throw new OrasException(String.format(
+                            "Invalid digest %s, expected size is %d, but got %d",
+                            digest, algorithm.getSize(), value.length()));
                 }
                 return true;
             }

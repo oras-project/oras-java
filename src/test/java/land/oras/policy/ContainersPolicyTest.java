@@ -164,9 +164,7 @@ class ContainersPolicyTest {
     @Test
     void loadsUserPolicyFromHome(@TempDir Path homeDir) throws Exception {
         // language=json
-        String policyJson = """
-                {"default": [{"type": "insecureAcceptAnything"}]}
-                """;
+        String policyJson = "{\"default\": [{\"type\": \"insecureAcceptAnything\"}]}\n";
         writePolicyFile(homeDir, policyJson);
 
         TestUtils.withHome(homeDir, () -> {
@@ -278,10 +276,9 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {"default": [{"type": "sigstoreSigned", "keyData": "%s"}]}
-                """
-                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+                String.format(
+                        "{\"default\": [{\"type\": \"sigstoreSigned\", \"keyData\": \"%s\"}]}\n",
+                        SigstoreTestSupport.keyData(kp.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         assertDoesNotThrow(() -> policy.verify(context(
@@ -360,22 +357,20 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "registry.example.com/app": [{
-                        "type": "sigstoreSigned",
-                        "keyPaths": ["%s", "%s"]
-                      }]
-                    }
-                  }
-                }
-                """
-                        .formatted(
-                                keyFile1.toString().replace("\\", "\\\\"),
-                                keyFile2.toString().replace("\\", "\\\\")));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"registry.example.com/app\": [{\n"
+                                + "        \"type\": \"sigstoreSigned\",\n"
+                                + "        \"keyPaths\": [\"%s\", \"%s\"]\n"
+                                + "      }]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        keyFile1.toString().replace("\\", "\\\\"),
+                        keyFile2.toString().replace("\\", "\\\\")));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Accepted when signed by kp1
@@ -409,22 +404,19 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "registry.example.com/app": [{
-                        "type": "sigstoreSigned",
-                        "keyDatas": ["%s", "%s"]
-                      }]
-                    }
-                  }
-                }
-                """
-                        .formatted(
-                                SigstoreTestSupport.keyData(kp1.getPublic()),
-                                SigstoreTestSupport.keyData(kp2.getPublic())));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"registry.example.com/app\": [{\n"
+                                + "        \"type\": \"sigstoreSigned\",\n"
+                                + "        \"keyDatas\": [\"%s\", \"%s\"]\n"
+                                + "      }]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        SigstoreTestSupport.keyData(kp1.getPublic()), SigstoreTestSupport.keyData(kp2.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Accepted when signed by kp1
@@ -455,19 +447,17 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "registry.example.com/app": [{
-                        "type": "sigstoreSigned",
-                        "keyPaths": ["/etc/pki/a.pub", "/etc/pki/b.pub"]
-                      }]
-                    }
-                  }
-                }
-                """);
+                "{\n"
+                        + "  \"default\": [{\"type\": \"reject\"}],\n"
+                        + "  \"transports\": {\n"
+                        + "    \"docker\": {\n"
+                        + "      \"registry.example.com/app\": [{\n"
+                        + "        \"type\": \"sigstoreSigned\",\n"
+                        + "        \"keyPaths\": [\"/etc/pki/a.pub\", \"/etc/pki/b.pub\"]\n"
+                        + "      }]\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
         List<PolicyRequirement> reqs = policy.resolveRequirements(Transport.DOCKER, "registry.example.com/app");
         assertEquals(1, reqs.size());
@@ -485,18 +475,16 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "registry.example.com/signed": [
-                        {"type": "signedBy", "keyType": "GPGKeys", "keyPath": "/etc/pki/containers/my-key.gpg"}
-                      ]
-                    }
-                  }
-                }
-                """);
+                "{\n"
+                        + "  \"default\": [{\"type\": \"reject\"}],\n"
+                        + "  \"transports\": {\n"
+                        + "    \"docker\": {\n"
+                        + "      \"registry.example.com/signed\": [\n"
+                        + "        {\"type\": \"signedBy\", \"keyType\": \"GPGKeys\", \"keyPath\": \"/etc/pki/containers/my-key.gpg\"}\n"
+                        + "      ]\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n");
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
         assertThrows(
                 OrasException.class,
@@ -510,19 +498,18 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "registry.example.com/open": [{"type": "insecureAcceptAnything"}],
-                      "registry.example.com/blocked": [{"type": "reject"}],
-                      "registry.example.com/secure": [{"type": "sigstoreSigned", "keyData": "%s"}]
-                    }
-                  }
-                }
-                """
-                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"registry.example.com/open\": [{\"type\": \"insecureAcceptAnything\"}],\n"
+                                + "      \"registry.example.com/blocked\": [{\"type\": \"reject\"}],\n"
+                                + "      \"registry.example.com/secure\": [{\"type\": \"sigstoreSigned\", \"keyData\": \"%s\"}]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        SigstoreTestSupport.keyData(kp.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Open scope: accepted without signatures.
@@ -565,17 +552,16 @@ class ContainersPolicyTest {
         // language=json
         Files.writeString(
                 path,
-                """
-                {
-                  "default": [{"type": "reject"}],
-                  "transports": {
-                    "docker": {
-                      "%s": [{"type": "sigstoreSigned", "%s": "%s"}]
-                    }
-                  }
-                }
-                """
-                        .formatted(scopeKey, keyField, keyValue));
+                String.format(
+                        "{\n"
+                                + "  \"default\": [{\"type\": \"reject\"}],\n"
+                                + "  \"transports\": {\n"
+                                + "    \"docker\": {\n"
+                                + "      \"%s\": [{\"type\": \"sigstoreSigned\", \"%s\": \"%s\"}]\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}\n",
+                        scopeKey, keyField, keyValue));
         return ContainersPolicy.newPolicy(path);
     }
 

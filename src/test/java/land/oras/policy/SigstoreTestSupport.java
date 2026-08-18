@@ -68,12 +68,7 @@ final class SigstoreTestSupport {
     static String publicKeyPem(PublicKey key) {
         String b64 =
                 Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8)).encodeToString(key.getEncoded());
-        return """
-                -----BEGIN PUBLIC KEY-----
-                %s
-                -----END PUBLIC KEY-----
-                """
-                .formatted(b64);
+        return String.format("-----BEGIN PUBLIC KEY-----\n" + "%s\n" + "-----END PUBLIC KEY-----\n", b64);
     }
 
     /**
@@ -116,32 +111,31 @@ final class SigstoreTestSupport {
 
     private static String inTotoPayload(String imageHex) {
         // language=json
-        return """
-                {
-                  "_type": "https://in-toto.io/Statement/v1",
-                  "subject": [{"digest": {"sha256": "%s"}, "annotations": {}}],
-                  "predicateType": "https://sigstore.dev/cosign/sign/v1",
-                  "predicate": {}
-                }"""
-                .formatted(imageHex);
+        return String.format(
+                "{\n"
+                        + "  \"_type\": \"https://in-toto.io/Statement/v1\",\n"
+                        + "  \"subject\": [{\"digest\": {\"sha256\": \"%s\"}, \"annotations\": {}}],\n"
+                        + "  \"predicateType\": \"https://sigstore.dev/cosign/sign/v1\",\n"
+                        + "  \"predicate\": {}\n"
+                        + "}",
+                imageHex);
     }
 
     private static String bundleJson(byte[] payload, byte[] signature) {
         Base64.Encoder b64 = Base64.getEncoder();
         // language=json
-        return """
-                {
-                  "mediaType": "%s",
-                  "dsseEnvelope": {
-                    "payload": "%s",
-                    "payloadType": "%s",
-                    "signatures": [{"sig": "%s"}]
-                  }
-                }"""
-                .formatted(
-                        Const.SIGSTORE_BUNDLE_MEDIA_TYPE,
-                        b64.encodeToString(payload),
-                        Const.IN_TOTO_PAYLOAD_TYPE,
-                        b64.encodeToString(signature));
+        return String.format(
+                "{\n"
+                        + "  \"mediaType\": \"%s\",\n"
+                        + "  \"dsseEnvelope\": {\n"
+                        + "    \"payload\": \"%s\",\n"
+                        + "    \"payloadType\": \"%s\",\n"
+                        + "    \"signatures\": [{\"sig\": \"%s\"}]\n"
+                        + "  }\n"
+                        + "}",
+                Const.SIGSTORE_BUNDLE_MEDIA_TYPE,
+                b64.encodeToString(payload),
+                Const.IN_TOTO_PAYLOAD_TYPE,
+                b64.encodeToString(signature));
     }
 }

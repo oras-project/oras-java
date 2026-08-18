@@ -35,7 +35,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        java: [17, 21, 25]
+        java: [11, 17, 21, 25]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,7 +61,7 @@ jobs:
         run: mvn --batch-mode --update-snapshots verify
 
       - name: Upload coverage reports to Codecov
-        if: matrix.java == '17'
+        if: matrix.java == '11'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           report_type: coverage
@@ -69,7 +69,7 @@ jobs:
           verbose: true
 
       - name: Upload test reports to Codecov
-        if: matrix.java == '17'
+        if: matrix.java == '11'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           report_type: test_results
@@ -92,7 +92,7 @@ jobs:
         with:
           checkout-enabled: false
           java-distribution: 'temurin'
-          java-version: 17
+          java-version: 11
           maven-version: ${{ steps.maven-version.outputs.version }}
           cache-enabled: true
 

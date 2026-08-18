@@ -26,7 +26,7 @@ import org.jspecify.annotations.NonNull;
 /**
  * A provider for username and password authentication
  */
-public abstract sealed class AbstractUsernamePasswordProvider implements AuthProvider permits UsernamePasswordProvider {
+public abstract class AbstractUsernamePasswordProvider implements AuthProvider {
 
     /**
      * The username

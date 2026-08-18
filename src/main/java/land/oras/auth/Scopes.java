@@ -23,6 +23,7 @@ package land.oras.auth;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import land.oras.ContainerRef;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -147,7 +148,7 @@ public final class Scopes {
                 containerRef,
                 service,
                 identity,
-                newScopes.stream().sorted().distinct().toList());
+                newScopes.stream().sorted().distinct().collect(Collectors.toList()));
     }
 
     /**
@@ -159,7 +160,7 @@ public final class Scopes {
                 .filter(s -> !s.startsWith("repository:") && !s.startsWith("registry:"))
                 .sorted()
                 .distinct()
-                .toList();
+                .collect(Collectors.toList());
         return new Scopes(containerRef, service, identity, globalScopes);
     }
 
@@ -172,7 +173,7 @@ public final class Scopes {
                 .filter(s -> s.startsWith("repository:") || s.startsWith("registry:"))
                 .sorted()
                 .distinct()
-                .toList();
+                .collect(Collectors.toList());
         return new Scopes(containerRef, service, identity, nonGlobalScopes);
     }
 

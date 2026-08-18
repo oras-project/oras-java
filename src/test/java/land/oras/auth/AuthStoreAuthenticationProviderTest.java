@@ -55,7 +55,7 @@ class AuthStoreAuthenticationProviderTest {
         AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
-        String authHeader = authProvider.getAuthHeader(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine")));
+        String authHeader = authProvider.getAuthHeader(ContainerRef.parse(String.format("%s/%s", REGISTRY, "alpine")));
         String expectedAuthString = "testUser:testPassword";
         String expectedEncodedAuth =
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
@@ -73,7 +73,7 @@ class AuthStoreAuthenticationProviderTest {
         AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         // Verify that the getAuthHeader method returns the expected Basic Auth header
-        String authHeader = authProvider.getAuthHeader(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine")));
+        String authHeader = authProvider.getAuthHeader(ContainerRef.parse(String.format("%s/%s", REGISTRY, "alpine")));
         String expectedAuthString = "testUser:testPassword";
         String expectedEncodedAuth =
                 "Basic " + Base64.getEncoder().encodeToString(expectedAuthString.getBytes(StandardCharsets.UTF_8));
@@ -88,8 +88,8 @@ class AuthStoreAuthenticationProviderTest {
 
     @Test
     void identityShouldFollowTheResolvedCredentialPerRegistry() {
-        ContainerRef alpine = ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine"));
-        ContainerRef busybox = ContainerRef.parse("%s/%s".formatted(REGISTRY, "busybox"));
+        ContainerRef alpine = ContainerRef.parse(String.format("%s/%s", REGISTRY, "alpine"));
+        ContainerRef busybox = ContainerRef.parse(String.format("%s/%s", REGISTRY, "busybox"));
 
         doReturn(new Credential("alice", "alice-pass")).when(mockAuthStore).get(alpine);
         doReturn(new Credential("bob", "bob-pass")).when(mockAuthStore).get(busybox);
@@ -107,6 +107,7 @@ class AuthStoreAuthenticationProviderTest {
         AuthStoreAuthenticationProvider authProvider = new AuthStoreAuthenticationProvider(mockAuthStore);
 
         assertEquals(
-                "BASIC:anonymous", authProvider.getIdentity(ContainerRef.parse("%s/%s".formatted(REGISTRY, "alpine"))));
+                "BASIC:anonymous",
+                authProvider.getIdentity(ContainerRef.parse(String.format("%s/%s", REGISTRY, "alpine"))));
     }
 }

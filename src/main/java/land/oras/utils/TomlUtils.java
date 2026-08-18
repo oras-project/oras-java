@@ -20,19 +20,18 @@
 
 package land.oras.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.toml.TomlMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import land.oras.exception.OrasException;
 import org.jspecify.annotations.NullMarked;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.dataformat.toml.TomlMapper;
 
 /**
  * Utility class for TOML operations.
- * Use Jackson 3 internally for TOML operations
+ * Use Jackson internally for TOML operations
  */
 @NullMarked
 public final class TomlUtils {
@@ -61,7 +60,7 @@ public final class TomlUtils {
     public static String toToml(Object object) {
         try {
             return tomlMapper.writeValueAsString(object);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to convert object to TOML string", e);
         }
     }
@@ -76,7 +75,7 @@ public final class TomlUtils {
     public static <T> T fromToml(String toml, Class<T> clazz) {
         try {
             return tomlMapper.readValue(toml, clazz);
-        } catch (JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to parse TOML string", e);
         }
     }
@@ -92,7 +91,7 @@ public final class TomlUtils {
     public static <T> T fromToml(Path path, Class<T> clazz) {
         try {
             return tomlMapper.readValue(Files.readString(path, StandardCharsets.UTF_8), clazz);
-        } catch (IOException | JacksonException e) {
+        } catch (IOException e) {
             throw new OrasException("Unable to read TOML from file", e);
         }
     }

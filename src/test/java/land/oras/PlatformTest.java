@@ -112,26 +112,14 @@ class PlatformTest {
     @Test
     void shouldReadFromJson() {
         // language=json
-        String json =
-                """
-            {
-              "architecture": "amd64",
-              "os": "linux"
-            }
-            """;
+        String json = "{\n" + "  \"architecture\": \"amd64\",\n" + "  \"os\": \"linux\"\n" + "}\n";
         Platform platform = JsonUtils.fromJson(json, Platform.class);
         assertEquals("amd64", platform.architecture());
         assertEquals("linux", platform.os());
         assertNull(platform.variant());
         assertEquals(Platform.linuxAmd64(), platform);
 
-        json =
-                """
-            {
-              "architecture": "unknown",
-              "os": "unknown"
-            }
-            """;
+        json = "{\n" + "  \"architecture\": \"unknown\",\n" + "  \"os\": \"unknown\"\n" + "}\n";
         platform = JsonUtils.fromJson(json, Platform.class);
         assertEquals(Platform.unknown(), platform);
     }
@@ -139,17 +127,14 @@ class PlatformTest {
     @Test
     void shouldReadFromJsonWithOptionalValues() {
         // language=json
-        String json =
-                """
-            {
-              "architecture": "amd64",
-              "variant": "v8",
-              "os.features": ["linux-gnu"],
-              "os.version": "1.0",
-              "features": ["sse4", "avx2"],
-              "os": "linux"
-            }
-            """;
+        String json = "{\n"
+                + "  \"architecture\": \"amd64\",\n"
+                + "  \"variant\": \"v8\",\n"
+                + "  \"os.features\": [\"linux-gnu\"],\n"
+                + "  \"os.version\": \"1.0\",\n"
+                + "  \"features\": [\"sse4\", \"avx2\"],\n"
+                + "  \"os\": \"linux\"\n"
+                + "}\n";
         Platform platform = JsonUtils.fromJson(json, Platform.class);
         assertEquals("amd64", platform.architecture());
         assertEquals("linux", platform.os());
@@ -164,13 +149,7 @@ class PlatformTest {
                         .withVariant("v8"),
                 platform);
 
-        json =
-                """
-            {
-              "architecture": "unknown",
-              "os": "unknown"
-            }
-            """;
+        json = "{\n" + "  \"architecture\": \"unknown\",\n" + "  \"os\": \"unknown\"\n" + "}\n";
         platform = JsonUtils.fromJson(json, Platform.class);
         assertEquals(Platform.unknown(), platform);
     }

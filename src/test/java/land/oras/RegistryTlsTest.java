@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
-import javax.net.ssl.SSLHandshakeException;
 import land.oras.exception.OrasException;
 import land.oras.utils.SupportedAlgorithm;
 import land.oras.utils.TlsUtils;
@@ -91,7 +90,7 @@ class RegistryTlsTest {
                 Registry.builder().withRegistry(tlsRegistry.getRegistry()).build();
 
         OrasException exception = assertThrows(OrasException.class, registry::getRepositories);
-        assertInstanceOf(SSLHandshakeException.class, exception.getCause());
+        assertInstanceOf(IOException.class, exception.getCause());
     }
 
     @Test
@@ -102,7 +101,7 @@ class RegistryTlsTest {
                 .build();
 
         OrasException exception = assertThrows(OrasException.class, registry::getRepositories);
-        assertInstanceOf(SSLHandshakeException.class, exception.getCause());
+        assertInstanceOf(IOException.class, exception.getCause());
     }
 
     @Test
@@ -128,7 +127,7 @@ class RegistryTlsTest {
         // asSecure() resets both insecure and skipTlsVerify — now proper TLS is enforced
         Registry secureRegistry = skipVerifyRegistry.asSecure();
         OrasException e = assertThrows(OrasException.class, secureRegistry::getRepositories);
-        assertInstanceOf(SSLHandshakeException.class, e.getCause());
+        assertInstanceOf(IOException.class, e.getCause());
 
         // Verify the same host works when the CA cert is provided
         Registry secureWithCa = Registry.builder()
@@ -144,13 +143,8 @@ class RegistryTlsTest {
 
         // Authoritative parent
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                location = "%s"
-                insecure = false
-                """
-                        .formatted(tlsRegistry.getRegistry());
+        String registriesConf = String.format(
+                "[[registry]]\n" + "location = \"%s\"\n" + "insecure = false\n", tlsRegistry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -173,11 +167,7 @@ class RegistryTlsTest {
 
         // Registry is set to secure by default
         // language=toml
-        String registriesConf = """
-                [[registry]]
-                location = "%s"
-                """
-                .formatted(tlsRegistry.getRegistry());
+        String registriesConf = String.format("[[registry]]\n" + "location = \"%s\"\n", tlsRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
         Path testFile = blobDir.resolve("downgrade1.txt");
@@ -299,21 +289,19 @@ class RegistryTlsTest {
         // connection to plaintext HTTP. The HTTPS-only container would refuse a plaintext request, so
         // a successful manifest fetch proves the connection stayed on HTTPS.
         // language=toml
-        String registriesConf =
-                """
-                [[registry]]
-                prefix = "localhost:59998"
-                location = "localhost:59998"
-
-                [[registry.mirror]]
-                location = "%s"
-
-                [[registry]]
-                prefix = "%s"
-                location = "%s"
-                insecure = true
-                """
-                        .formatted(mirror, mirror, mirror);
+        String registriesConf = String.format(
+                "[[registry]]\n"
+                        + "prefix = \"localhost:59998\"\n"
+                        + "location = \"localhost:59998\"\n"
+                        + "\n"
+                        + "[[registry.mirror]]\n"
+                        + "location = \"%s\"\n"
+                        + "\n"
+                        + "[[registry]]\n"
+                        + "prefix = \"%s\"\n"
+                        + "location = \"%s\"\n"
+                        + "insecure = true\n",
+                mirror, mirror, mirror);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 

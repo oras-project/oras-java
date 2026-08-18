@@ -56,17 +56,17 @@
     <!-- Version -->
     <slf4j.version>2.0.18</slf4j.version>
     <jspecify.version>1.0.1</jspecify.version>
-    <jackson.version>3.2.1</jackson.version>
+    <jackson.version>2.18.3</jackson.version>
     <apache.common-compress.version>1.28.0</apache.common-compress.version>
     <zstd-jni.version>1.5.7-13</zstd-jni.version>
     <bcprov-jdk18on.version>1.85</bcprov-jdk18on.version>
-    <caffeine.version>3.2.4</caffeine.version>
-    <micrometer.version>1.17.0</micrometer.version>
+    <caffeine.version>3.1.8</caffeine.version>
+    <micrometer.version>1.13.12</micrometer.version>
 
     <!-- Test dependencies version -->
     <logback.version>1.6.2</logback.version>
-    <junit.version>6.1.3</junit.version>
-    <testcontainer.version>2.0.5</testcontainer.version>
+    <junit.version>5.11.4</junit.version>
+    <testcontainer.version>1.21.4</testcontainer.version>
     <wiremock.version>3.13.2</wiremock.version>
     <mockito.version>5.23.0</mockito.version>
     <system.stubs.version>2.1.8</system.stubs.version>
@@ -95,15 +95,22 @@
     <spdx-maven-plugin.version>1.0.4</spdx-maven-plugin.version>
     <maven-license-plugin.version>2.7.1</maven-license-plugin.version>
 
-    <!-- Target Java 17 -->
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
-    <maven.compiler.release>17</maven.compiler.release>
+    <!-- Target Java 11 -->
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.release>11</maven.compiler.release>
 
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${jackson.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>io.micrometer</groupId>
         <artifactId>micrometer-bom</artifactId>
@@ -115,13 +122,6 @@
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
         <version>${junit.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>tools.jackson</groupId>
-        <artifactId>jackson-bom</artifactId>
-        <version>${jackson.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -187,12 +187,12 @@
       </dependency>
       <dependency>
         <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers</artifactId>
+        <artifactId>junit-jupiter</artifactId>
         <version>${testcontainer.version}</version>
       </dependency>
       <dependency>
         <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers-junit-jupiter</artifactId>
+        <artifactId>testcontainers</artifactId>
         <version>${testcontainer.version}</version>
       </dependency>
       <dependency>
@@ -210,6 +210,26 @@
 
   <!-- Dependencies -->
   <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-toml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+    </dependency>
     <dependency>
       <groupId>com.github.ben-manes.caffeine</groupId>
       <artifactId>caffeine</artifactId>
@@ -237,22 +257,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>tools.jackson.core</groupId>
-      <artifactId>jackson-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>tools.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>tools.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-toml</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>tools.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
     </dependency>
 
     <!-- Test dependencies -->
@@ -303,12 +307,12 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers</artifactId>
+      <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers-junit-jupiter</artifactId>
+      <artifactId>testcontainers</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

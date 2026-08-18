@@ -37,7 +37,7 @@ import org.jspecify.annotations.Nullable;
 @OrasModel
 @JsonPropertyOrder({Const.JSON_PROPERTY_MEDIA_TYPE, Const.JSON_PROPERTY_DIGEST, Const.JSON_PROPERTY_SIZE})
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public sealed class Descriptor permits Config, Manifest, Layer, Index {
+public class Descriptor {
 
     /**
      * The media type of the layer

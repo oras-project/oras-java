@@ -20,16 +20,84 @@
 
 package land.oras.exception;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Objects;
 import land.oras.OrasModel;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
  * An error object for OCI API
- * @param code The error code
- * @param message The error message
- * @param details The error details
  */
 @NullMarked
 @OrasModel
-public record Error(String code, String message, @Nullable String details) {}
+public final class Error {
+
+    private final String code;
+    private final String message;
+    private final @Nullable String details;
+
+    /**
+     * Create a new error instance
+     * @param code The error code
+     * @param message The error message
+     * @param details The error details
+     */
+    @JsonCreator
+    public Error(
+            @JsonProperty("code") String code,
+            @JsonProperty("message") String message,
+            @JsonProperty("details") @Nullable String details) {
+        this.code = code;
+        this.message = message;
+        this.details = details;
+    }
+
+    /**
+     * Get the error code
+     * @return The error code
+     */
+    @JsonProperty("code")
+    public String code() {
+        return code;
+    }
+
+    /**
+     * Get the error message
+     * @return The error message
+     */
+    @JsonProperty("message")
+    public String message() {
+        return message;
+    }
+
+    /**
+     * Get the error details
+     * @return The error details
+     */
+    @JsonProperty("details")
+    public @Nullable String details() {
+        return details;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Error)) return false;
+        Error that = (Error) o;
+        return Objects.equals(code, that.code)
+                && Objects.equals(message, that.message)
+                && Objects.equals(details, that.details);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(code, message, details);
+    }
+
+    @Override
+    public String toString() {
+        return "Error[code=" + code + ", message=" + message + ", details=" + details + "]";
+    }
+}

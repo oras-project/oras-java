@@ -100,18 +100,16 @@ class AnnotationsTest {
     }
 
     private String sampleAnnotations() {
-        return """
-                {
-                    "$config": {
-                      "hello": "world"
-                    },
-                    "$manifest": {
-                      "foo": "bar"
-                    },
-                    "cake.txt": {
-                      "fun": "more cream"
-                    }
-                  }
-              """;
+        return "  {\n"
+                + "      \"$config\": {\n"
+                + "        \"hello\": \"world\"\n"
+                + "      },\n"
+                + "      \"$manifest\": {\n"
+                + "        \"foo\": \"bar\"\n"
+                + "      },\n"
+                + "      \"cake.txt\": {\n"
+                + "        \"fun\": \"more cream\"\n"
+                + "      }\n"
+                + "    }\n";
     }
 }

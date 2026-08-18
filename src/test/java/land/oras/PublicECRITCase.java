@@ -41,9 +41,7 @@ class PublicECRITCase {
     void shouldDetermineEffectiveRegistryWithUnqualifiedSettings() throws Exception {
 
         // language=toml
-        String config = """
-                unqualified-search-registries = ["public.ecr.aws"]
-                """;
+        String config = "unqualified-search-registries = [\"public.ecr.aws\"]\n";
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -60,12 +58,9 @@ class PublicECRITCase {
     void shouldRewriteDockerIOToPublicECR() throws Exception {
 
         // language=toml
-        String config =
-                """
-                [[registry]]
-                prefix = "docker.io/library"
-                location = "public.ecr.aws/docker/library"
-                """;
+        String config = "[[registry]]\n"
+                + "prefix = \"docker.io/library\"\n"
+                + "location = \"public.ecr.aws/docker/library\"\n";
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 

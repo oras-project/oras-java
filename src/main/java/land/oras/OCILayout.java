@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import land.oras.OCI.PullOptions;
 import land.oras.OCI.PushOptions;
 import land.oras.exception.OrasException;
@@ -103,7 +104,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                 .resolve(algorithm.getPrefix())
                 .resolve(SupportedAlgorithm.getDigest(digest));
         if (!Files.exists(sourceBlobPath)) {
-            throw new OrasException("Source blob not found at: %s".formatted(sourceBlobPath));
+            throw new OrasException(String.format("Source blob not found at: %s", sourceBlobPath));
         }
         try {
             Files.copy(sourceBlobPath, targetBlobPath);
@@ -187,8 +188,9 @@ public final class OCILayout extends OCI<LayoutRef> {
             Path targetPath = path.resolve(layer.getAnnotations().get(Const.ANNOTATION_TITLE))
                     .normalize();
             if (!targetPath.startsWith(path.normalize())) {
-                throw new OrasException("Refusing to pull layer: title annotation is not withing folder '%s'"
-                        .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
+                throw new OrasException(String.format(
+                        "Refusing to pull layer: title annotation is not withing folder '%s'",
+                        layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
             }
             if (options.isOverwrite()) {
                 Files.copy(blobPath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -291,7 +293,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         ManifestDescriptor descriptor = findManifestDescriptor(ref);
         Path manifestPath = getBlobPath(descriptor);
         if (!Files.exists(manifestPath)) {
-            throw new OrasException("Blob not found: %s".formatted(manifestPath));
+            throw new OrasException(String.format("Blob not found: %s", manifestPath));
         }
 
         return Manifest.fromPath(manifestPath).withDescriptor(descriptor);
@@ -336,16 +338,17 @@ public final class OCILayout extends OCI<LayoutRef> {
         Path fileName = blobPath.getFileName();
         Path parent = blobPath.getParent();
         if (fileName == null || parent == null || parent.getFileName() == null) {
-            throw new OrasException("Cannot resolve expected digest for blob path: %s".formatted(blobPath));
+            throw new OrasException(String.format("Cannot resolve expected digest for blob path: %s", blobPath));
         }
-        String expectedDigest = "%s:%s".formatted(parent.getFileName(), fileName);
+        String expectedDigest = String.format("%s:%s", parent.getFileName(), fileName);
         if (!SupportedAlgorithm.isSupported(expectedDigest)) {
-            throw new OrasException("Blob is not stored at a content-addressed path: %s".formatted(blobPath));
+            throw new OrasException(String.format("Blob is not stored at a content-addressed path: %s", blobPath));
         }
         String actualDigest = SupportedAlgorithm.fromDigest(expectedDigest).digest(blobPath);
         if (!expectedDigest.equals(actualDigest)) {
-            throw new OrasException("Blob integrity check failed for %s: expected %s but on-disk content hashes to %s"
-                    .formatted(blobPath, expectedDigest, actualDigest));
+            throw new OrasException(String.format(
+                    "Blob integrity check failed for %s: expected %s but on-disk content hashes to %s",
+                    blobPath, expectedDigest, actualDigest));
         }
     }
 
@@ -369,7 +372,7 @@ public final class OCILayout extends OCI<LayoutRef> {
             throw new OrasException("Missing ref");
         }
         if (!SupportedAlgorithm.isSupported(ref.getTag())) {
-            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+            throw new OrasException(String.format("Unsupported digest: %s", ref.getTag()));
         }
         String digest = ref.getTag();
         ensureAlgorithmPath(digest);
@@ -399,7 +402,7 @@ public final class OCILayout extends OCI<LayoutRef> {
         }
         boolean isDigest = SupportedAlgorithm.isSupported(digest);
         if (!isDigest) {
-            throw new OrasException("Unsupported digest: %s".formatted(digest));
+            throw new OrasException(String.format("Unsupported digest: %s", digest));
         }
         ensureAlgorithmPath(digest);
         try {
@@ -427,11 +430,11 @@ public final class OCILayout extends OCI<LayoutRef> {
                 throw new OrasException("Missing ref");
             }
             if (!SupportedAlgorithm.isSupported(ref.getTag())) {
-                throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+                throw new OrasException(String.format("Unsupported digest: %s", ref.getTag()));
             }
             String digest = ref.getAlgorithm().digest(data);
             if (!ref.getTag().equals(digest)) {
-                throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), digest));
+                throw new OrasException(String.format("Digest mismatch: %s != %s", ref.getTag(), digest));
             }
             ensureAlgorithmPath(digest);
             Path blobPath = getBlobAlgorithmPath(digest).resolve(SupportedAlgorithm.getDigest(digest));
@@ -456,7 +459,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                 .filter(m -> m.getAnnotations() != null && m.getAnnotations().containsKey(Const.ANNOTATION_REF))
                 .map(m -> m.getAnnotations().get(Const.ANNOTATION_REF))
                 .sorted()
-                .toList();
+                .collect(Collectors.toList());
         return new Tags(name, tags);
     }
 
@@ -469,10 +472,10 @@ public final class OCILayout extends OCI<LayoutRef> {
         if (last != null) {
             int lastIndex = tags.indexOf(last);
             if (lastIndex == -1) {
-                throw new OrasException("Last tag not found: %s".formatted(last));
+                throw new OrasException(String.format("Last tag not found: %s", last));
             }
         }
-        return new Tags(name, tags.stream().skip(startIndex).limit(n).toList());
+        return new Tags(name, tags.stream().skip(startIndex).limit(n).collect(Collectors.toList()));
     }
 
     @Override
@@ -732,7 +735,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                                 && tag.equals(m.getAnnotations().get(Const.ANNOTATION_REF))
                         || tag.equals(m.getDigest())))
                 .findFirst()
-                .orElseThrow(() -> new OrasException("Tag or digest not found: %s".formatted(tag)));
+                .orElseThrow(() -> new OrasException(String.format("Tag or digest not found: %s", tag)));
     }
 
     private Path getBlobPath(ManifestDescriptor manifestDescriptor) {
@@ -823,12 +826,12 @@ public final class OCILayout extends OCI<LayoutRef> {
             throw new OrasException("Missing ref");
         }
         if (!SupportedAlgorithm.isSupported(ref.getTag())) {
-            throw new OrasException("Unsupported digest: %s".formatted(ref.getTag()));
+            throw new OrasException(String.format("Unsupported digest: %s", ref.getTag()));
         }
         SupportedAlgorithm algorithm = SupportedAlgorithm.fromDigest(ref.getTag());
         String pathDigest = algorithm.digest(path);
         if (!ref.getTag().equals(pathDigest)) {
-            throw new OrasException("Digest mismatch: %s != %s".formatted(ref.getTag(), pathDigest));
+            throw new OrasException(String.format("Digest mismatch: %s != %s", ref.getTag(), pathDigest));
         }
     }
 
