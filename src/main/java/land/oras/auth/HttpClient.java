@@ -297,11 +297,13 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
     private ResponseWrapper<String> getForTokenRefresh(
             URI uri, Map<String, String> headers, Scopes scopes, AuthProvider authProvider) {
+        // No retry or cached token
         return executeRequest(
                 "GET",
                 uri,
@@ -312,6 +314,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                false,
                 false);
     }
 
@@ -336,6 +339,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -359,6 +363,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -385,6 +390,7 @@ public final class HttpClient {
                     HttpRequest.BodyPublishers.ofFile(file),
                     scopes,
                     authProvider,
+                    true,
                     true);
         } catch (FileNotFoundException e) {
             throw new OrasException("Unable to upload file. File not found.", e);
@@ -418,6 +424,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), size),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -441,6 +448,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -464,6 +472,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.noBody(),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -488,6 +497,7 @@ public final class HttpClient {
                 body.length == 0 ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -512,6 +522,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -542,6 +553,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(stream), chunkSize),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -566,6 +578,7 @@ public final class HttpClient {
                 HttpRequest.BodyPublishers.ofByteArray(body),
                 scopes,
                 authProvider,
+                true,
                 true);
     }
 
@@ -631,6 +644,13 @@ public final class HttpClient {
                                         ? "<redacted" // Replace value with ****
                                         : entry.getValue())));
 
+        if (responseWrapper.response().isBlank()) {
+            throw new OrasException(
+                    responseWrapper.statusCode(),
+                    "Token endpoint returned no JSON body (status=%d, realm=%s, service=%s)"
+                            .formatted(responseWrapper.statusCode(), realm, service));
+        }
+
         // Put in the cache
         TokenResponse token = JsonUtils.fromJson(responseWrapper.response(), TokenResponse.class)
                 .forService(service);
@@ -670,6 +690,7 @@ public final class HttpClient {
      * @param scopes The scopes
      * @param authProvider The authentication provider
      * @param retryEnabled Whether transient failures should be retried
+     * @param allowCachedToken Whether a bearer cached for this scope may be attached
      * @return The response
      */
     private <T> ResponseWrapper<T> executeRequest(
@@ -682,7 +703,8 @@ public final class HttpClient {
             HttpRequest.BodyPublisher bodyPublisher,
             Scopes scopes,
             AuthProvider authProvider,
-            boolean retryEnabled) {
+            boolean retryEnabled,
+            boolean allowCachedToken) {
 
         // Scopes are invariant across retries — compute once.
         ContainerRef containerRef = scopes.getContainerRef();
@@ -706,7 +728,9 @@ public final class HttpClient {
                 HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).method(method, bodyPublisher);
 
                 // Check token cache — may be populated by a prior attempt's 401 handling.
-                TokenResponse cachedToken = TokenCache.get(newScopes);
+                // Disabled for token-refresh requests (allowCachedToken=false): the token endpoint
+                // must always see the configured AuthProvider credentials, never a resource-server bearer.
+                TokenResponse cachedToken = allowCachedToken ? TokenCache.get(newScopes) : null;
                 if (cachedToken == null) {
                     LOG.trace("No token found in cache for scopes: {}", newScopes);
                 } else {
@@ -751,7 +775,8 @@ public final class HttpClient {
                             bodyPublisher,
                             newScopes,
                             authProvider,
-                            retryEnabled);
+                            retryEnabled,
+                            allowCachedToken);
                 }
 
                 // Retry on 429 / 5xx before delegating 401/403 to redoRequest.

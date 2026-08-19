@@ -22,6 +22,7 @@ package land.oras;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -732,6 +733,102 @@ class RegistryWireMockTest {
                         .sum());
         TestUtils.dumpMetrics(meterRegistry);
         TestUtils.dumpMetrics(Metrics.globalRegistry);
+    }
+
+    @Test
+    void shouldNotLeakCachedPushTokenToTokenEndpointOnPutRefresh(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Regression test for https://github.com/oras-project/oras-java/issues/846
+        // Ensure we don't send a cached token during token refresh
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
+        String repo = "token-leak";
+        byte[] data = "token-leak-payload".getBytes(StandardCharsets.UTF_8);
+        String tokenPath = "/token?scope=repository:library/%s:pull,push&service=localhost".formatted(repo);
+        String wwwAuthenticate =
+                "Bearer realm=\"http://%s/token\",service=\"localhost\",scope=\"repository:library/%s:pull,push\""
+                        .formatted(registryUrl, repo);
+
+        // Blob does not exist yet
+        wireMock.register(WireMock.head(WireMock.urlPathMatching("/v2/library/%s/blobs/.*".formatted(repo)))
+                .willReturn(WireMock.status(404)));
+
+        // POST upload init: the API endpoint only accepts the issued bearer, never Basic
+        wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/%s/blobs/uploads/.*".formatted(repo)))
+                .atPriority(1)
+                .withHeader(Const.AUTHORIZATION_HEADER, WireMock.equalTo("Bearer post-token"))
+                .willReturn(WireMock.aResponse().withStatus(202).withHeader(Const.LOCATION_HEADER, "/upload")));
+        wireMock.register(WireMock.post(WireMock.urlPathMatching("/v2/library/%s/blobs/uploads/.*".formatted(repo)))
+                .atPriority(2)
+                .willReturn(WireMock.unauthorized().withHeader(Const.WWW_AUTHENTICATE_HEADER, wwwAuthenticate)));
+
+        // PUT completing the upload: same deal - only the correctly-scoped bearer is accepted
+        wireMock.register(WireMock.put(WireMock.urlPathMatching("/upload.*"))
+                .atPriority(1)
+                .withHeader(Const.AUTHORIZATION_HEADER, WireMock.equalTo("Bearer post-token"))
+                .willReturn(WireMock.created()));
+        wireMock.register(WireMock.put(WireMock.urlPathMatching("/upload.*"))
+                .atPriority(2)
+                .willReturn(WireMock.unauthorized().withHeader(Const.WWW_AUTHENTICATE_HEADER, wwwAuthenticate)));
+
+        // Token endpoint: issues a token for the Basic credential, but returns 200 with an empty bodyqmvn
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(tokenPath))
+                .withHeader(Const.AUTHORIZATION_HEADER, WireMock.containing("Basic"))
+                .willReturn(WireMock.okJson(JsonUtils.toJson(
+                        new HttpClient.TokenResponse("post-token", null, "localhost", 300, ZonedDateTime.now())))));
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(tokenPath))
+                .withHeader(Const.AUTHORIZATION_HEADER, WireMock.containing("Bearer"))
+                .willReturn(WireMock.ok()));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef = ContainerRef.parse("%s/library/%s".formatted(registryUrl, repo));
+
+        assertDoesNotThrow(
+                () -> registry.pushBlob(containerRef, data),
+                "Completing the upload must use the configured credentials, not a cached bearer, "
+                        + "when refreshing the token (see issue #846)");
+
+        // The token endpoint must never be presented the cached registry bearer as its own credential
+        wireMock.verifyThat(
+                0,
+                WireMock.getRequestedFor(WireMock.urlEqualTo(tokenPath))
+                        .withHeader(Const.AUTHORIZATION_HEADER, WireMock.containing("Bearer")));
+    }
+
+    @Test
+    void shouldFailWithClearErrorWhenTokenEndpointReturnsBlankBody(WireMockRuntimeInfo wmRuntimeInfo) {
+        // A token endpoint that returns a blank body
+        WireMock wireMock = wmRuntimeInfo.getWireMock();
+        String repo = "blank-token-body";
+        String digest = SupportedAlgorithm.SHA256.digest("blob-data".getBytes());
+        String realm = "http://localhost:%d/token".formatted(wmRuntimeInfo.getHttpPort());
+
+        wireMock.register(WireMock.any(WireMock.urlEqualTo("/v2/library/%s/blobs/%s".formatted(repo, digest)))
+                .willReturn(WireMock.unauthorized()
+                        .withHeader(
+                                Const.WWW_AUTHENTICATE_HEADER,
+                                "Bearer realm=\"%s\",service=\"localhost\",scope=\"repository:library/%s:pull\""
+                                        .formatted(realm, repo))));
+
+        wireMock.register(WireMock.get(WireMock.urlEqualTo(
+                        "/token?scope=repository:library/%s:pull&service=localhost".formatted(repo)))
+                .willReturn(WireMock.aResponse().withStatus(200).withBody(" ")));
+
+        Registry registry = Registry.Builder.builder()
+                .withAuthProvider(authProvider)
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("localhost:%d/library/%s".formatted(wmRuntimeInfo.getHttpPort(), repo));
+
+        OrasException thrown =
+                assertThrows(OrasException.class, () -> registry.getBlob(containerRef.withDigest(digest)));
+        assertTrue(thrown.getMessage().contains("Token endpoint returned no JSON body"));
+        assertTrue(thrown.getMessage().contains("status=200"));
+        assertTrue(thrown.getMessage().contains(realm));
+        assertTrue(thrown.getMessage().contains("service=localhost"));
     }
 
     @Test
