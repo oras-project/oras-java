@@ -872,6 +872,13 @@ public final class OCILayout extends OCI<LayoutRef> {
         private final OCILayout layout = new OCILayout();
 
         /**
+         * Whether the backing tar file already existed when {@link #defaults(Path)} was called.
+         * When {@code true}, {@link #build()} must not repack it: the layout is only being
+         * opened for reading and re-packing would needlessly rewrite the tar file
+         */
+        private boolean tarAlreadyExisted;
+
+        /**
          * Hidden constructor
          */
         private Builder() {
@@ -885,7 +892,7 @@ public final class OCILayout extends OCI<LayoutRef> {
          * temporary directory is used as the working {@code path} for all operations.
          * After every mutating operation the working directory is re-packed into the original
          * tar file.  If the tar file does not yet exist a fresh, empty layout is created in
-         * the temporary directory and packed once on the first mutation.</p>
+         * the temporary directory and packed once during {@link #build()}.</p>
          * @param path The path (directory or {@code .tar} file)
          * @return The builder
          */
@@ -894,8 +901,8 @@ public final class OCILayout extends OCI<LayoutRef> {
             if (name.endsWith(".tar")) {
                 // Tar-backed layout: work in a temp directory
                 Path workDir = ArchiveUtils.createTempDir();
-                if (Files.exists(path)) {
-                    // Extract existing tar into the temp working directory
+                tarAlreadyExisted = Files.exists(path);
+                if (tarAlreadyExisted) {
                     ArchiveUtils.untar(path, workDir);
                 }
                 layout.setPath(workDir);
@@ -927,7 +934,10 @@ public final class OCILayout extends OCI<LayoutRef> {
                 }
             }
             layout.ensureMinimalLayout();
-            layout.packToTar();
+            // Only pack for new layout
+            if (!tarAlreadyExisted) {
+                layout.packToTar();
+            }
             return layout;
         }
     }
