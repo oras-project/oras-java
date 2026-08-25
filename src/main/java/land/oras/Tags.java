@@ -35,7 +35,11 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 @OrasModel
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record Tags(String name, List<String> tags, @Nullable String last, @Nullable Integer n) {
+public record Tags(
+        String name,
+        List<String> tags,
+        @Nullable String last,
+        @Nullable Integer n) {
 
     /**
      * Constructor without last

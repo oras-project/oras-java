@@ -40,8 +40,7 @@ class ContainerRefTest {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldReadRegistriesConfig(@TempDir Path homeDir) throws Exception {
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "public.ecr.aws"
             blocked = true
@@ -82,8 +81,7 @@ class ContainerRefTest {
     void shouldDetermineFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [aliases]
             "my-library/my-namespace"="localhost:5000/test"
             "my-library"="localhost:5000/test2"
@@ -105,8 +103,7 @@ class ContainerRefTest {
     void shouldRewriteAllSubdomainToLocalProxy(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
                 [[registry]]
                 prefix = "*.example.com"
                 location = "localhost:5000/example-com"

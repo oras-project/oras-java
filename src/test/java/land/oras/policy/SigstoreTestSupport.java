@@ -72,8 +72,7 @@ final class SigstoreTestSupport {
                 -----BEGIN PUBLIC KEY-----
                 %s
                 -----END PUBLIC KEY-----
-                """
-                .formatted(b64);
+                """.formatted(b64);
     }
 
     /**
@@ -122,8 +121,7 @@ final class SigstoreTestSupport {
                   "subject": [{"digest": {"sha256": "%s"}, "annotations": {}}],
                   "predicateType": "https://sigstore.dev/cosign/sign/v1",
                   "predicate": {}
-                }"""
-                .formatted(imageHex);
+                }""".formatted(imageHex);
     }
 
     private static String bundleJson(byte[] payload, byte[] signature) {
@@ -137,8 +135,7 @@ final class SigstoreTestSupport {
                     "payloadType": "%s",
                     "signatures": [{"sig": "%s"}]
                   }
-                }"""
-                .formatted(
+                }""".formatted(
                         Const.SIGSTORE_BUNDLE_MEDIA_TYPE,
                         b64.encodeToString(payload),
                         Const.IN_TOTO_PAYLOAD_TYPE,

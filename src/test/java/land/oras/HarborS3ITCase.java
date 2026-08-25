@@ -178,8 +178,7 @@ class HarborS3ITCase {
     void shouldPushJenkinsScriptArtifact() {
 
         // language=groovy
-        String jenkinsfile =
-                """
+        String jenkinsfile = """
                     node {
                         stage('Build') {
                             echo 'Building...'

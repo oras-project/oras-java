@@ -20,14 +20,22 @@
 
 package land.oras.auth;
 
+// spotless:off
+// Until https://github.com/diffplug/spotless/issues/3033
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
-import java.net.*;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpURLConnection;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
@@ -66,6 +74,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+// spotless:on
 
 /**
  * HTTP client for ORAS
@@ -87,12 +96,15 @@ public final class HttpClient {
     /**
      * The HTTP client builder
      */
+    // spotless:off
+    // Until https://github.com/diffplug/spotless/issues/3033
     private final java.net.http.HttpClient.Builder builder;
 
     /**
      * The HTTP client
      */
     private java.net.http.HttpClient client;
+    // spotless:on
 
     /**
      * Skip TLS verification
@@ -834,7 +846,7 @@ public final class HttpClient {
     }
 
     private static boolean isRetryableException(Exception e) {
-        return e instanceof HttpTimeoutException || e instanceof java.io.IOException;
+        return e instanceof HttpTimeoutException || e instanceof IOException;
     }
 
     private long computeRetryDelay(@Nullable HttpResponse<?> response, int attempt) {
@@ -989,7 +1001,10 @@ public final class HttpClient {
      * @param service The service (not on response but on HTTP headers)
      */
     public record ResponseWrapper<T>(
-            T response, int statusCode, Map<String, String> headers, @Nullable String service) {}
+            T response,
+            int statusCode,
+            Map<String, String> headers,
+            @Nullable String service) {}
 
     /**
      * Insecure trust manager when skipping TLS verification

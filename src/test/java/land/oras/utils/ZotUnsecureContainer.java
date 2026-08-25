@@ -33,8 +33,7 @@ public class ZotUnsecureContainer extends ZotBaseContainer<ZotUnsecureContainer>
         setWaitStrategy(Wait.forHttp("/v2/_catalog").forPort(ZOT_PORT).forStatusCode(200));
 
         // language=JSON
-        String configJson =
-                """
+        String configJson = """
                 {
                   "storage": { "rootDirectory": "/var/lib/registry" },
                   "http": {
@@ -45,8 +44,7 @@ public class ZotUnsecureContainer extends ZotBaseContainer<ZotUnsecureContainer>
                     "search": { "enable": true }
                   }
                 }
-                """
-                        .formatted(ZOT_PORT);
+                """.formatted(ZOT_PORT);
         writeConfig(configJson);
     }
 }

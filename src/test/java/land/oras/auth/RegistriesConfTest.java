@@ -41,8 +41,7 @@ class RegistriesConfTest {
     private static Path homeDir;
 
     // language=toml
-    public static final String HOME_REGISTRIES_CONF =
-            """
+    public static final String HOME_REGISTRIES_CONF = """
             unqualified-search-registries = ["docker.io"]
 
             [aliases]
@@ -80,10 +79,7 @@ class RegistriesConfTest {
         // language=toml
         TestUtils.createRegistriesConfFile(dropInHomeDir, "unqualified-search-registries = [\"docker.io\"]");
         // language=toml
-        TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "10-extra.conf",
-                """
+        TestUtils.createDropInConfFile(dropInHomeDir, "10-extra.conf", """
                 [aliases]
                 "myapp"="registry.example.com/myapp"
                 """);
@@ -102,18 +98,12 @@ class RegistriesConfTest {
     void shouldLoadDropInConfFilesInAlphaNumericalOrder(@TempDir Path dropInHomeDir) throws Exception {
         TestUtils.createRegistriesConfFile(dropInHomeDir, "");
         // language=toml
-        TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "01-first.conf",
-                """
+        TestUtils.createDropInConfFile(dropInHomeDir, "01-first.conf", """
                 [aliases]
                 "foo"="registry.first.com/foo"
                 """);
         // language=toml
-        TestUtils.createDropInConfFile(
-                dropInHomeDir,
-                "02-second.conf",
-                """
+        TestUtils.createDropInConfFile(dropInHomeDir, "02-second.conf", """
                 [aliases]
                 "foo"="registry.second.com/foo"
                 """);

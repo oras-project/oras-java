@@ -53,8 +53,7 @@ class YamlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseYaml() {
-        String yamlMap =
-                """
+        String yamlMap = """
                 ---
                 key1: "value1"
                 key2: "value2"
@@ -69,8 +68,7 @@ class YamlUtilsTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldParseYamlFile() throws IOException {
-        String yamlMap =
-                """
+        String yamlMap = """
                 ---
                 key1: "value1"
                 key2: "value2"

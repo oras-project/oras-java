@@ -70,8 +70,7 @@ class RegistryMirrorTest {
         //   mirror 1: localhost:59999 (down, connection refused)
         //   mirror 2: the running mirrorUp container
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -83,8 +82,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -107,8 +105,7 @@ class RegistryMirrorTest {
         setupRegistry.pushArtifact(mirrorArtifact, LocalPath.of(testFile));
 
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -120,8 +117,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -147,8 +143,7 @@ class RegistryMirrorTest {
 
         // Mirror location includes a path prefix → covers mirrorLocation.contains("/") branch.
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -156,8 +151,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s/prefix"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -182,8 +176,7 @@ class RegistryMirrorTest {
         Layer layer = setupRegistry.pushBlob(mirrorRef, blobContent);
 
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -195,8 +188,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -241,8 +233,7 @@ class RegistryMirrorTest {
 
         // Configure docker.io with a mirror — unqualified refs resolve to docker.io by default
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 short-name-mode = "disabled"
 
                 unqualified-search-registries = ["docker.io"]
@@ -254,8 +245,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -286,8 +276,7 @@ class RegistryMirrorTest {
         // is actually configured as the search registry below. The mirror here is unreachable: resolution
         // must catch that failure and fall back to probing the search registry directly.
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 short-name-mode = "disabled"
 
                 unqualified-search-registries = ["%s"]
@@ -298,8 +287,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "localhost:59999"
                 insecure = true
-                """
-                        .formatted(searchRegistry);
+                """.formatted(searchRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -323,8 +311,7 @@ class RegistryMirrorTest {
         String searchRegistry = mirrorUp.getRegistry();
 
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 short-name-mode = "disabled"
 
                 unqualified-search-registries = ["%s"]
@@ -335,8 +322,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "localhost:59999"
                 insecure = true
-                """
-                        .formatted(searchRegistry);
+                """.formatted(searchRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -365,8 +351,7 @@ class RegistryMirrorTest {
 
         // Mirror configured as digest-only — a tag-based pull must NOT use it
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -375,8 +360,7 @@ class RegistryMirrorTest {
                 location = "%s"
                 insecure = true
                 pull-from-mirror = "digest-only"
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -385,7 +369,7 @@ class RegistryMirrorTest {
             // Pull by tag: digest-only mirror is skipped; fallback to "original" (also down) → must fail
             ContainerRef ref = ContainerRef.parse("localhost:59998/test/digest-only-mirror:v1");
             assertThrows(
-                    land.oras.exception.OrasException.class,
+                    OrasException.class,
                     () -> registry.getManifest(ref),
                     "digest-only mirror must be skipped for a tag-based pull");
         });
@@ -407,8 +391,7 @@ class RegistryMirrorTest {
         String digest = pushed.getDescriptor().getDigest();
 
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -417,8 +400,7 @@ class RegistryMirrorTest {
                 location = "%s"
                 insecure = true
                 pull-from-mirror = "digest-only"
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -447,8 +429,7 @@ class RegistryMirrorTest {
         String digest = pushed.getDescriptor().getDigest();
 
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -457,8 +438,7 @@ class RegistryMirrorTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorRegistry);
+                """.formatted(mirrorRegistry);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -468,7 +448,7 @@ class RegistryMirrorTest {
             // Tag pull, mirror-by-digest-only skips all mirrors. Fail with original down
             ContainerRef tagRef = ContainerRef.parse("localhost:59998/test/mbd-mirror:v1");
             assertThrows(
-                    land.oras.exception.OrasException.class,
+                    OrasException.class,
                     () -> registry.getManifest(tagRef),
                     "mirror-by-digest-only must skip mirrors for tag-based pulls");
 

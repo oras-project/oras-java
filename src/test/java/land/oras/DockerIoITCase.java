@@ -149,8 +149,7 @@ class DockerIoITCase {
     void shouldCopyTagToInternalRegistryViaAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [aliases]
             "dockerhub-alpine" = "docker.io/library/alpine"
             """;
