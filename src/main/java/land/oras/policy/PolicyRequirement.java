@@ -114,7 +114,7 @@ public abstract sealed class PolicyRequirement
 
         @Override
         boolean verify(PolicyContext context) {
-            LOG.warn(
+            LOG.info(
                     "Policy requirement '{}' for transport {} and scope {} (no signature verification)",
                     getType(),
                     context.getTransport(),
