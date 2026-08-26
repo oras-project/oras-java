@@ -66,8 +66,7 @@ public class ZotTlsContainer extends ZotBaseContainer<ZotTlsContainer> {
             copyFileToContainer(serverKeyPath, "/etc/zot/server-key.pem");
 
             // language=JSON
-            String configJson =
-                    """
+            String configJson = """
                     {
                       "storage": { "rootDirectory": "/var/lib/registry" },
                       "http": {
@@ -82,8 +81,7 @@ public class ZotTlsContainer extends ZotBaseContainer<ZotTlsContainer> {
                         "search": { "enable": true }
                       }
                     }
-                    """
-                            .formatted(ZOT_PORT);
+                    """.formatted(ZOT_PORT);
             writeConfig(configJson);
 
         } catch (Exception e) {

@@ -22,6 +22,7 @@ package land.oras;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -1176,7 +1177,7 @@ public final class Registry extends OCI<ContainerRef> {
                                 Const.APPLICATION_OCTET_STREAM_HEADER_VALUE,
                                 Const.CONTENT_RANGE_HEADER,
                                 contentRange),
-                        () -> new java.io.ByteArrayInputStream(chunk),
+                        () -> new ByteArrayInputStream(chunk),
                         Scopes.of(ref),
                         authProvider);
                 logResponse(patchResponse);

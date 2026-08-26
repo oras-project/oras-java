@@ -142,13 +142,13 @@ class SigstoreVerifierTest {
         // keyPaths list
         PolicyRequirement.SigstoreSigned fromPaths = new PolicyRequirement.SigstoreSigned(
                 null, null, List.of(keyFile1.toString(), keyFile2.toString()), null);
-        List<java.security.PublicKey> loadedFromPaths = SigstoreVerifier.loadKeys(fromPaths);
+        List<PublicKey> loadedFromPaths = SigstoreVerifier.loadKeys(fromPaths);
         assertEquals(2, loadedFromPaths.size());
 
         // keyDatas list
         PolicyRequirement.SigstoreSigned fromDatas =
                 new PolicyRequirement.SigstoreSigned(null, null, null, List.of(keyData1, keyData2));
-        List<java.security.PublicKey> loadedFromDatas = SigstoreVerifier.loadKeys(fromDatas);
+        List<PublicKey> loadedFromDatas = SigstoreVerifier.loadKeys(fromDatas);
         assertEquals(2, loadedFromDatas.size());
     }
 
@@ -180,9 +180,7 @@ class SigstoreVerifierTest {
 
         Path policyPath = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                policyPath,
-                """
+        Files.writeString(policyPath, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -193,8 +191,7 @@ class SigstoreVerifierTest {
                     }
                   }
                 }
-                """
-                        .formatted(keyFile.toString().replace("\\", "\\\\")));
+                """.formatted(keyFile.toString().replace("\\", "\\\\")));
 
         ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
 
@@ -224,9 +221,7 @@ class SigstoreVerifierTest {
 
         Path policyPath = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                policyPath,
-                """
+        Files.writeString(policyPath, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -277,8 +272,7 @@ class SigstoreVerifierTest {
                   "subject": [{"digest": {"sha256": "%s"}, "annotations": {}}],
                   "predicateType": "https://sigstore.dev/cosign/sign/v1",
                   "predicate": {}
-                }"""
-                .formatted(imageHex);
+                }""".formatted(imageHex);
     }
 
     private static String bundleJson(byte[] payload, byte[] signature) {
@@ -292,8 +286,7 @@ class SigstoreVerifierTest {
                     "payloadType": "%s",
                     "signatures": [{"sig": "%s"}]
                   }
-                }"""
-                .formatted(
+                }""".formatted(
                         Const.SIGSTORE_BUNDLE_MEDIA_TYPE,
                         b64.encodeToString(payload),
                         Const.IN_TOTO_PAYLOAD_TYPE,
@@ -307,7 +300,6 @@ class SigstoreVerifierTest {
                 -----BEGIN PUBLIC KEY-----
                 %s
                 -----END PUBLIC KEY-----
-                """
-                .formatted(b64);
+                """.formatted(b64);
     }
 }

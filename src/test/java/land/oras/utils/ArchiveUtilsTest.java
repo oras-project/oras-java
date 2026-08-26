@@ -30,6 +30,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
@@ -410,8 +412,8 @@ class ArchiveUtilsTest {
         byte[] secondContent = "second-overwritten".getBytes();
 
         Path zip1 = tmp.resolve("first.zip");
-        try (java.util.zip.ZipOutputStream zout = new java.util.zip.ZipOutputStream(Files.newOutputStream(zip1))) {
-            zout.putNextEntry(new java.util.zip.ZipEntry("file.txt"));
+        try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(zip1))) {
+            zout.putNextEntry(new ZipEntry("file.txt"));
             zout.write(firstContent);
             zout.closeEntry();
         }
@@ -419,8 +421,8 @@ class ArchiveUtilsTest {
         assertEquals("first", Files.readString(target.resolve("file.txt")));
 
         Path zip2 = tmp.resolve("second.zip");
-        try (java.util.zip.ZipOutputStream zout = new java.util.zip.ZipOutputStream(Files.newOutputStream(zip2))) {
-            zout.putNextEntry(new java.util.zip.ZipEntry("file.txt"));
+        try (ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(zip2))) {
+            zout.putNextEntry(new ZipEntry("file.txt"));
             zout.write(secondContent);
             zout.closeEntry();
         }

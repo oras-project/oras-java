@@ -74,7 +74,6 @@
     <awaitability.version>4.3.0</awaitability.version>
 
     <!-- Plugin version -->
-    <palantir.java.format.version>2.74.0</palantir.java.format.version>
     <build.helper-maven-plugin.version>3.6.1</build.helper-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
     <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
@@ -601,15 +600,14 @@
           <version>${spotless-maven-plugin.version}</version>
           <configuration>
             <java>
+              <toggleOffOn />
               <endWithNewline />
+              <shortenFullyQualifiedTypes />
               <importOrder />
               <indent>
                 <spaces>true</spaces>
               </indent>
-              <palantirJavaFormat>
-                <!-- Until http://github.com/diffplug/spotless/issues/2468 -->
-                <version>${palantir.java.format.version}</version>
-              </palantirJavaFormat>
+              <palantirJavaFormat />
               <removeUnusedImports />
               <trimTrailingWhitespace />
             </java>

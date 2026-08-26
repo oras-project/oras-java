@@ -276,12 +276,9 @@ class ContainersPolicyTest {
         KeyPair kp = SigstoreTestSupport.generateKeyPair();
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {"default": [{"type": "sigstoreSigned", "keyData": "%s"}]}
-                """
-                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+                """.formatted(SigstoreTestSupport.keyData(kp.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         assertDoesNotThrow(() -> policy.verify(context(
@@ -358,9 +355,7 @@ class ContainersPolicyTest {
 
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -372,10 +367,8 @@ class ContainersPolicyTest {
                     }
                   }
                 }
-                """
-                        .formatted(
-                                keyFile1.toString().replace("\\", "\\\\"),
-                                keyFile2.toString().replace("\\", "\\\\")));
+                """.formatted(
+                keyFile1.toString().replace("\\", "\\\\"), keyFile2.toString().replace("\\", "\\\\")));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Accepted when signed by kp1
@@ -407,9 +400,7 @@ class ContainersPolicyTest {
 
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -421,10 +412,8 @@ class ContainersPolicyTest {
                     }
                   }
                 }
-                """
-                        .formatted(
-                                SigstoreTestSupport.keyData(kp1.getPublic()),
-                                SigstoreTestSupport.keyData(kp2.getPublic())));
+                """.formatted(
+                        SigstoreTestSupport.keyData(kp1.getPublic()), SigstoreTestSupport.keyData(kp2.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Accepted when signed by kp1
@@ -453,9 +442,7 @@ class ContainersPolicyTest {
     void sigstoreSignedKeyPathsDeserializesCorrectly(@TempDir Path dir) throws IOException {
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -483,9 +470,7 @@ class ContainersPolicyTest {
     void signedByGpgIsDeniedBecauseNotImplemented(@TempDir Path dir) throws IOException {
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -508,9 +493,7 @@ class ContainersPolicyTest {
         KeyPair kp = SigstoreTestSupport.generateKeyPair();
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -521,8 +504,7 @@ class ContainersPolicyTest {
                     }
                   }
                 }
-                """
-                        .formatted(SigstoreTestSupport.keyData(kp.getPublic())));
+                """.formatted(SigstoreTestSupport.keyData(kp.getPublic())));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
 
         // Open scope: accepted without signatures.
@@ -563,9 +545,7 @@ class ContainersPolicyTest {
             throws IOException {
         Path path = dir.resolve("policy.json");
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -574,8 +554,7 @@ class ContainersPolicyTest {
                     }
                   }
                 }
-                """
-                        .formatted(scopeKey, keyField, keyValue));
+                """.formatted(scopeKey, keyField, keyValue));
         return ContainersPolicy.newPolicy(path);
     }
 

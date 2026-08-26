@@ -112,8 +112,7 @@ class PlatformTest {
     @Test
     void shouldReadFromJson() {
         // language=json
-        String json =
-                """
+        String json = """
             {
               "architecture": "amd64",
               "os": "linux"
@@ -125,8 +124,7 @@ class PlatformTest {
         assertNull(platform.variant());
         assertEquals(Platform.linuxAmd64(), platform);
 
-        json =
-                """
+        json = """
             {
               "architecture": "unknown",
               "os": "unknown"
@@ -139,8 +137,7 @@ class PlatformTest {
     @Test
     void shouldReadFromJsonWithOptionalValues() {
         // language=json
-        String json =
-                """
+        String json = """
             {
               "architecture": "amd64",
               "variant": "v8",
@@ -164,8 +161,7 @@ class PlatformTest {
                         .withVariant("v8"),
                 platform);
 
-        json =
-                """
+        json = """
             {
               "architecture": "unknown",
               "os": "unknown"

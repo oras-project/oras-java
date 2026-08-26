@@ -30,6 +30,7 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -287,7 +288,7 @@ final class SigstoreVerifier {
      * @return a non-null (possibly empty) list of successfully loaded public keys.
      */
     static List<PublicKey> loadKeys(PolicyRequirement.SigstoreSigned requirement) {
-        java.util.List<PublicKey> keys = new java.util.ArrayList<>();
+        List<PublicKey> keys = new ArrayList<>();
 
         // Single-key fields
         PublicKey single = loadKey(requirement);
@@ -391,7 +392,8 @@ final class SigstoreVerifier {
      * @param subject The subject
      */
     @OrasModel
-    record InTotoStatement(@JsonProperty("subject") @Nullable List<Subject> subject) {}
+    record InTotoStatement(
+            @JsonProperty("subject") @Nullable List<Subject> subject) {}
 
     /**
      * An in-toto subject: a map of digest algorithm to hex value

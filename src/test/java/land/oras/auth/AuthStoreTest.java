@@ -58,8 +58,7 @@ class AuthStoreTest {
     private static final String PASSWORD = "password";
 
     // language=json
-    public static final String SAMPLE_DOCKER_CONFIG =
-            """
+    public static final String SAMPLE_DOCKER_CONFIG = """
     {
         "auths": {
             "registry.example.com": {
@@ -82,8 +81,7 @@ class AuthStoreTest {
     """;
 
     // language=json
-    public static final String SAMPLE_PODMAN_CONFIG =
-            """
+    public static final String SAMPLE_PODMAN_CONFIG = """
     {
         "auths": {
             "registry.other.com": {
@@ -293,8 +291,7 @@ class AuthStoreTest {
     }
 
     // language=json
-    public static final String SAMPLE_HIERARCHICAL_CONFIG =
-            """
+    public static final String SAMPLE_HIERARCHICAL_CONFIG = """
     {
         "auths": {
             "my-registry.local/namespace/user/image": {
@@ -412,8 +409,7 @@ class AuthStoreTest {
     @Test
     void testRegistryAuthFileTakesPrecedenceOverDefaults() throws Exception {
         // language=json
-        String customConfig =
-                """
+        String customConfig = """
         {
             "auths": {
                 "custom.registry.com": {
@@ -489,15 +485,13 @@ class AuthStoreTest {
         String auth = java.util.Base64.getEncoder()
                 .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {
                         "colon.registry.com": { "auth": "%s" }
                     }
                 }
-                """
-                        .formatted(auth);
+                """.formatted(auth);
         Path configFile = tempDir.resolve("colon-config.json");
         Files.writeString(configFile, config);
 
@@ -516,16 +510,14 @@ class AuthStoreTest {
         String valid = java.util.Base64.getEncoder()
                 .encodeToString("user:password".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {
                         "bad.registry.com": { "auth": "%s" },
                         "good.registry.com": { "auth": "%s" }
                     }
                 }
-                """
-                        .formatted(malformed, valid);
+                """.formatted(malformed, valid);
         Path configFile = tempDir.resolve("malformed-config.json");
         Files.writeString(configFile, config);
 
@@ -542,15 +534,13 @@ class AuthStoreTest {
         String auth =
                 java.util.Base64.getEncoder().encodeToString("user:".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {
                         "empty.registry.com": { "auth": "%s" }
                     }
                 }
-                """
-                        .formatted(auth);
+                """.formatted(auth);
         Path configFile = tempDir.resolve("empty-pass-config.json");
         Files.writeString(configFile, config);
 
@@ -569,15 +559,13 @@ class AuthStoreTest {
         String auth = java.util.Base64.getEncoder()
                 .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {
                         "any.registry.com": { "auth": "%s" }
                     }
                 }
-                """
-                        .formatted(auth);
+                """.formatted(auth);
         Path configFile = tempDir.resolve("any-char-config.json");
         Files.writeString(configFile, config);
 
@@ -593,14 +581,12 @@ class AuthStoreTest {
     void shouldRejectCredentialHelperThatEscapesPrefix() throws Exception {
         String maliciousSuffix = "../../../../../../tmp/pwn";
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {},
                     "credHelpers": { "evil.registry.com": "%s" }
                 }
-                """
-                        .formatted(maliciousSuffix);
+                """.formatted(maliciousSuffix);
         Path configFile = tempDir.resolve("evil-helper-config.json");
         Files.writeString(configFile, config);
 
@@ -614,8 +600,7 @@ class AuthStoreTest {
     @Test
     void shouldReturnValidCredentialHelperBinary() throws Exception {
         // language=json
-        String config =
-                """
+        String config = """
                 {
                     "auths": {},
                     "credHelpers": { "good.registry.com": "ecr-login" }

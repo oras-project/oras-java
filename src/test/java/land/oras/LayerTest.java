@@ -77,8 +77,7 @@ class LayerTest {
 
     @Test
     void shouldReadNullAnnotations() {
-        String json =
-                """
+        String json = """
             {
               "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
               "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
@@ -94,8 +93,7 @@ class LayerTest {
 
     @Test
     void shouldReadBlobData() {
-        String json =
-                """
+        String json = """
             {
               "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
               "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
@@ -155,14 +153,12 @@ class LayerTest {
      * @return The manifest
      */
     private String sampleLayer() {
-        return Layer.fromJson(
-                        """
+        return Layer.fromJson("""
                             {
                               "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
                               "digest": "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
                               "size": 32654
                             }
-                        """)
-                .toJson();
+                        """).toJson();
     }
 }

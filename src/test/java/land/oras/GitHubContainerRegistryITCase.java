@@ -85,17 +85,14 @@ class GitHubContainerRegistryITCase {
         Path publicKeyPath = Path.of("src/test/resources/keys/sigstore/alpine-signed.pub");
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "ghcr.io"
             insecure = false
             """;
 
         // language=json
-        Files.writeString(
-                path,
-                """
+        Files.writeString(path, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -104,8 +101,7 @@ class GitHubContainerRegistryITCase {
                     }
                   }
                 }
-                """
-                        .formatted(publicKeyPath.toAbsolutePath().toString()));
+                """.formatted(publicKeyPath.toAbsolutePath().toString()));
         ContainersPolicy policy = ContainersPolicy.newPolicy(path);
         TestUtils.createRegistriesConfFile(homeDir, config);
         TestUtils.withHome(homeDir, () -> {
@@ -120,8 +116,7 @@ class GitHubContainerRegistryITCase {
     @Execution(ExecutionMode.SAME_THREAD)
     void shouldPullIndexWithAlias(@TempDir Path homeDir) throws Exception {
         // language=toml
-        String config =
-                """
+        String config = """
                 [aliases]
                 "oras"="ghcr.io/oras-project/oras"
                 """;

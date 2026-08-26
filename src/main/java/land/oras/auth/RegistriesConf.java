@@ -329,7 +329,9 @@ public class RegistriesConf {
             @JsonProperty("short-name-mode") @Nullable ShortNameMode shortNameMode,
             @JsonProperty("registry") @Nullable List<RegistryConfig> registries,
             @JsonProperty("aliases") @Nullable Map<String, String> aliases,
-            @JsonProperty("unqualified-search-registries") @Nullable List<String> unqualifiedRegistries) {}
+
+            @JsonProperty("unqualified-search-registries") @Nullable
+            List<String> unqualifiedRegistries) {}
 
     /**
      * Get the list of unqualified registries.

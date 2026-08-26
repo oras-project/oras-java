@@ -85,8 +85,7 @@ class RegistryTest {
         // language=toml
         String config = """
                 unqualified-search-registries = ["%s"]
-                """
-                .formatted(registry.getRegistry());
+                """.formatted(registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -105,8 +104,7 @@ class RegistryTest {
         // language=toml
         String config = """
                 unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                .formatted(registry.getRegistry());
+                """.formatted(registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -128,12 +126,10 @@ class RegistryTest {
     void shouldAllowMultipleRegistriesWithDisabledEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
                 short-name-mode = "disabled"
                 unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                        .formatted(registry.getRegistry());
+                """.formatted(registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -151,12 +147,10 @@ class RegistryTest {
     void shouldEnforceMultipleRegistriesWithPermissiveEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
                 short-name-mode = "permissive"
                 unqualified-search-registries = ["%s", "localhost:5000"]
-                """
-                        .formatted(registry.getRegistry());
+                """.formatted(registry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, config);
 
@@ -191,13 +185,11 @@ class RegistryTest {
     void shouldListRepositoriesInsecure(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -290,13 +282,11 @@ class RegistryTest {
     void shouldMountWithInsecureRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -448,13 +438,11 @@ class RegistryTest {
         ExecutorService customExecutor = Executors.newSingleThreadExecutor();
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -650,13 +638,11 @@ class RegistryTest {
     void shouldPushManifestWithRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -690,16 +676,14 @@ class RegistryTest {
     void shouldPushManifestWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
 
             [aliases]
             "my-library/my-namespace"="%s/test/bar"
-            """
-                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -735,8 +719,7 @@ class RegistryTest {
         String config = """
             [aliases]
             "my-library/my-namespace"="localhost/test"
-            """
-                .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -1025,13 +1008,11 @@ class RegistryTest {
         // Use config
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -1224,16 +1205,14 @@ class RegistryTest {
     void testShouldArtifactWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
             [aliases]
             "the-target" = "%s/test/artifact-target"
 
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry(), this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         // Copy to same registry
@@ -1268,8 +1247,7 @@ class RegistryTest {
             otherRegistryContainer.start();
 
             // language=toml
-            String config =
-                    """
+            String config = """
                 [aliases]
                 "the-source" = "%s/test/artifact-source"
                 "the-target" = "%s/test/artifact-target"
@@ -1281,12 +1259,11 @@ class RegistryTest {
                 [[registry]]
                 location = "%s"
                 insecure = true
-                """
-                            .formatted(
-                                    this.unsecureRegistry.getRegistry(),
-                                    otherRegistryContainer.getRegistry(),
-                                    this.unsecureRegistry.getRegistry(),
-                                    otherRegistryContainer.getRegistry());
+                """.formatted(
+                            this.unsecureRegistry.getRegistry(),
+                            otherRegistryContainer.getRegistry(),
+                            this.unsecureRegistry.getRegistry(),
+                            otherRegistryContainer.getRegistry());
             TestUtils.createRegistriesConfFile(homeDir, config);
 
             // Copy to same registry
@@ -2207,13 +2184,11 @@ class RegistryTest {
     void shouldPushBlobChunkedFromPathViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {
@@ -2246,13 +2221,11 @@ class RegistryTest {
     void shouldPushBlobChunkedFromStreamViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(this.unsecureRegistry.getRegistry());
+            """.formatted(this.unsecureRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, config);
 
         TestUtils.withHome(homeDir, () -> {

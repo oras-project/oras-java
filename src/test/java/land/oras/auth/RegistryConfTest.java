@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -222,8 +223,7 @@ class RegistryConfTest {
     @Test
     void shouldParseMirrorsFromToml() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -362,8 +362,7 @@ class RegistryConfTest {
     @Test
     void shouldParsePullFromMirrorFromToml() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -398,8 +397,7 @@ class RegistryConfTest {
     @Test
     void shouldFilterMirrorsByPullFromMirrorForTagRef() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -430,8 +428,7 @@ class RegistryConfTest {
     @Test
     void shouldFilterMirrorsByPullFromMirrorForDigestRef() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -463,8 +460,7 @@ class RegistryConfTest {
     @Test
     void shouldApplyMirrorByDigestOnly() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -496,8 +492,7 @@ class RegistryConfTest {
     @Test
     void shouldReturnAllMirrorsWhenNoFilterConfigured() {
         // language=toml
-        String toml =
-                """
+        String toml = """
                 [[registry]]
                 prefix = "docker.io"
                 location = "docker.io"
@@ -520,7 +515,7 @@ class RegistryConfTest {
             temp.toFile().deleteOnExit();
             Files.writeString(temp, content);
             return temp;
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

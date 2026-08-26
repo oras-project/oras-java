@@ -39,6 +39,7 @@ import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -283,8 +284,7 @@ class RegistryWireMockTest {
         // WireMock server. The parent registry is configured with static basic-auth credentials — those
         // credentials must NOT be forwarded to the mirror over plaintext HTTP.
         // language=toml
-        String config =
-                """
+        String config = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -292,13 +292,11 @@ class RegistryWireMockTest {
                 [[registry.mirror]]
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirrorHost);
+                """.formatted(mirrorHost);
         TestUtils.createRegistriesConfFile(homeDir4, config);
 
         // language=json
-        String manifestJson =
-                """
+        String manifestJson = """
                 {"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "config":{"mediaType":"application/vnd.oci.empty.v1+json",\
                 "digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},\
@@ -389,13 +387,11 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(registryAsString);
+            """.formatted(registryAsString);
         TestUtils.createRegistriesConfFile(homeDir1, config);
 
         // Return data from wiremock
@@ -458,13 +454,11 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             location = "%s"
             insecure = true
-            """
-                        .formatted(registryAsString);
+            """.formatted(registryAsString);
         TestUtils.createRegistriesConfFile(homeDir2, config);
 
         // Return data from wiremock
@@ -493,13 +487,11 @@ class RegistryWireMockTest {
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // language=toml
-        String config =
-                """
+        String config = """
             [[registry]]
             prefix = "%s"
             insecure = true
-            """
-                        .formatted(registryAsString);
+            """.formatted(registryAsString);
         TestUtils.createRegistriesConfFile(homeDir3, config);
 
         // Return data from wiremock
@@ -526,8 +518,7 @@ class RegistryWireMockTest {
     void shouldListTagsWithFileStoreAuth(WireMockRuntimeInfo wmRuntimeInfo) throws IOException {
 
         // Auth file for current registry
-        String authFile =
-                """
+        String authFile = """
                 {
                         "auths": {
                                 "localhost:%d": {
@@ -535,8 +526,7 @@ class RegistryWireMockTest {
                                 }
                         }
                 }
-                """
-                        .formatted(wmRuntimeInfo.getHttpPort());
+                """.formatted(wmRuntimeInfo.getHttpPort());
 
         Files.writeString(configDir.resolve("config.json"), authFile, StandardCharsets.UTF_8);
 
@@ -1517,8 +1507,7 @@ class RegistryWireMockTest {
 
         OrasException exStream = assertThrows(
                 OrasException.class,
-                () -> registry.pushBlobChunked(
-                        refStream, new java.io.ByteArrayInputStream(content), content.length, 4L));
+                () -> registry.pushBlobChunked(refStream, new ByteArrayInputStream(content), content.length, 4L));
         assertEquals(
                 "Failed to initiate chunked blob upload: status 500",
                 exStream.getMessage(),
@@ -1579,14 +1568,12 @@ class RegistryWireMockTest {
                         .withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
 
         // Generic target: accept any manifest push and return an empty index on the follow-up read.
-        String emptyIndex =
-                """
+        String emptyIndex = """
                 {
                   "schemaVersion": 2,
                   "mediaType": "%s",
                   "manifests": []
-                }"""
-                        .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE);
+                }""".formatted(Const.DEFAULT_INDEX_MEDIA_TYPE);
         wireMock.register(WireMock.put(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
                 .willReturn(WireMock.created().withHeader(Const.DOCKER_CONTENT_DIGEST_HEADER, digestA)));
         wireMock.register(WireMock.head(WireMock.urlMatching("/v2/%s/manifests/.*".formatted(dstRepo)))
@@ -1634,8 +1621,7 @@ class RegistryWireMockTest {
                       "size": 100
                     }
                   ]
-                }"""
-                .formatted(Const.DEFAULT_INDEX_MEDIA_TYPE, Const.DEFAULT_INDEX_MEDIA_TYPE, childDigest);
+                }""".formatted(Const.DEFAULT_INDEX_MEDIA_TYPE, Const.DEFAULT_INDEX_MEDIA_TYPE, childDigest);
     }
 
     /**
@@ -1743,8 +1729,7 @@ class RegistryWireMockTest {
 
     @Test
     void shouldRejectManifestWhoseContentDoesNotMatchPinnedDigest(WireMockRuntimeInfo wmRuntimeInfo) {
-        String realManifest =
-                """
+        String realManifest = """
                 {"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "config":{"mediaType":"application/vnd.oci.empty.v1+json",\
                 "digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},\
@@ -1820,13 +1805,11 @@ class RegistryWireMockTest {
         String referrersPath = "/v2/library/artifact-text/referrers/" + digest;
 
         // Minimal referrers index JSON with one manifest entry per page
-        String page1 =
-                """
+        String page1 = """
                 {"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
                 [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1}]}""";
-        String page2 =
-                """
+        String page2 = """
                 {"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
                 [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "digest":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","size":1}]}""";
@@ -1871,8 +1854,7 @@ class RegistryWireMockTest {
         String fallbackTagPath = "/v2/library/artifact-text/manifests/"
                 + "sha256-44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
-        String fallbackIndex =
-                """
+        String fallbackIndex = """
                 {"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
                 [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,\
@@ -1912,8 +1894,7 @@ class RegistryWireMockTest {
         String fallbackTagPath = "/v2/library/artifact-text/manifests/"
                 + "sha256-44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a";
 
-        String fallbackIndex =
-                """
+        String fallbackIndex = """
                 {"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":\
                 [{"mediaType":"application/vnd.oci.image.manifest.v1+json",\
                 "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,\

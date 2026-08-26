@@ -144,13 +144,11 @@ class RegistryTlsTest {
 
         // Authoritative parent
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 location = "%s"
                 insecure = false
-                """
-                        .formatted(tlsRegistry.getRegistry());
+                """.formatted(tlsRegistry.getRegistry());
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
@@ -176,8 +174,7 @@ class RegistryTlsTest {
         String registriesConf = """
                 [[registry]]
                 location = "%s"
-                """
-                .formatted(tlsRegistry.getRegistry());
+                """.formatted(tlsRegistry.getRegistry());
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 
         Path testFile = blobDir.resolve("downgrade1.txt");
@@ -299,8 +296,7 @@ class RegistryTlsTest {
         // connection to plaintext HTTP. The HTTPS-only container would refuse a plaintext request, so
         // a successful manifest fetch proves the connection stayed on HTTPS.
         // language=toml
-        String registriesConf =
-                """
+        String registriesConf = """
                 [[registry]]
                 prefix = "localhost:59998"
                 location = "localhost:59998"
@@ -312,8 +308,7 @@ class RegistryTlsTest {
                 prefix = "%s"
                 location = "%s"
                 insecure = true
-                """
-                        .formatted(mirror, mirror, mirror);
+                """.formatted(mirror, mirror, mirror);
 
         TestUtils.createRegistriesConfFile(homeDir, registriesConf);
 

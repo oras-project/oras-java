@@ -60,8 +60,7 @@ class PublicECRITCase {
     void shouldRewriteDockerIOToPublicECR() throws Exception {
 
         // language=toml
-        String config =
-                """
+        String config = """
                 [[registry]]
                 prefix = "docker.io/library"
                 location = "public.ecr.aws/docker/library"

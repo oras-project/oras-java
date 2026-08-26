@@ -44,8 +44,7 @@ public class ZotContainer extends ZotBaseContainer<ZotContainer> {
             copyFileToContainer(authFile, "/etc/zot/auth.htpasswd");
 
             // language=JSON
-            String configJson =
-                    """
+            String configJson = """
                     {
                       "storage": { "rootDirectory": "/var/lib/registry" },
                       "http": {
@@ -59,8 +58,7 @@ public class ZotContainer extends ZotBaseContainer<ZotContainer> {
                         "search": { "enable": true }
                       }
                     }
-                    """
-                            .formatted(ZOT_PORT);
+                    """.formatted(ZOT_PORT);
             writeConfig(configJson);
 
         } catch (Exception e) {

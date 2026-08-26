@@ -166,9 +166,7 @@ class OCILayoutTest {
         Path policyPath = homeDir.resolve("policy.json");
 
         // language=json
-        Files.writeString(
-                policyPath,
-                """
+        Files.writeString(policyPath, """
                 {
                   "default": [{"type": "reject"}],
                   "transports": {
@@ -177,8 +175,7 @@ class OCILayoutTest {
                     }
                   }
                 }
-                """
-                        .formatted(registry.getRegistry(), publicKeyPath.toAbsolutePath()));
+                """.formatted(registry.getRegistry(), publicKeyPath.toAbsolutePath()));
         ContainersPolicy policy = ContainersPolicy.newPolicy(policyPath);
 
         // Pull the manifest with the policy: the attached signature is fetched and verified.
