@@ -35,10 +35,15 @@
 
   <distributionManagement>
     <repository>
+      <id>sonatype-cp</id>
+      <name>ORAS Maven Central Releases</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+    <snapshotRepository>
       <id>central-snapshots</id>
       <name>ORAS Maven Central SNAPSHOTS</name>
       <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-    </repository>
+    </snapshotRepository>
   </distributionManagement>
 
   <properties>
@@ -89,7 +94,7 @@
     <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
     <maven-release-plugin.version>3.3.1</maven-release-plugin.version>
     <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
-    <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
+    <njord.version>0.9.10</njord.version>
     <sigstore-maven-plugin.version>2.2.0</sigstore-maven-plugin.version>
     <spdx-maven-plugin.version>1.0.4</spdx-maven-plugin.version>
     <maven-license-plugin.version>2.7.1</maven-license-plugin.version>
@@ -338,6 +343,7 @@
   </repositories>
 
   <build>
+
     <pluginManagement>
       <plugins>
         <plugin>
@@ -514,22 +520,9 @@
           </executions>
         </plugin>
         <plugin>
-          <groupId>org.sonatype.central</groupId>
-          <artifactId>central-publishing-maven-plugin</artifactId>
-          <version>${central-publishing-maven-plugin.version}</version>
-          <extensions>true</extensions>
-          <configuration>
-            <publishingServerId>central</publishingServerId>
-            <autoPublish>true</autoPublish>
-            <waitUntil>published</waitUntil>
-
-            <!-- 2 hours. Default is 30 minutes which is too short -->
-            <waitMaxTime>7200</waitMaxTime>
-
-            <!-- Default is 5 seconds, which is too short and increase risk of request failing -->
-            <waitPollingInterval>30</waitPollingInterval>
-
-          </configuration>
+          <groupId>eu.maveniverse.maven.plugins</groupId>
+          <artifactId>njord</artifactId>
+          <version>${njord.version}</version>
         </plugin>
         <plugin>
           <groupId>dev.sigstore</groupId>
@@ -693,7 +686,13 @@
         <artifactId>build-helper-maven-plugin</artifactId>
       </plugin>
     </plugins>
-
+    <extensions>
+      <extension>
+        <groupId>eu.maveniverse.maven.njord</groupId>
+        <artifactId>extension3</artifactId>
+        <version>${njord.version}</version>
+      </extension>
+    </extensions>
   </build>
 
   <profiles>
@@ -733,10 +732,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-          </plugin>
-          <plugin>
-            <groupId>org.sonatype.central</groupId>
-            <artifactId>central-publishing-maven-plugin</artifactId>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
