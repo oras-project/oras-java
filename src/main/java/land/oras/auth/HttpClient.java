@@ -20,8 +20,6 @@
 
 package land.oras.auth;
 
-// spotless:off
-// Until https://github.com/diffplug/spotless/issues/3033
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
@@ -74,7 +72,6 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-// spotless:on
 
 /**
  * HTTP client for ORAS
