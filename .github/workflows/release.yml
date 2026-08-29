@@ -32,7 +32,7 @@ jobs:
           cache-enabled: true
           settings-servers: |
             [{
-                "id": "central",
+                "id": "sonatype-cp",
                 "username": "${{ secrets.CENTRAL_USERNAME }}",
                 "password": "${{ secrets.CENTRAL_PASSWORD }}"
             }]
@@ -59,7 +59,14 @@ jobs:
           ssh-private-key: ${{ secrets.RELEASE_SSH_KEY }}
 
       - name: Maven release
-        run: mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests -Darguments="-DskipTests" release:prepare release:perform
+        run: >-
+          mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests
+          -Darguments="-DskipTests -DaltDeploymentRepository=sonatype-cp::njord:
+          -Dnjord.autoPublish=true -Dnjord.publisher=sonatype-cp
+          -Dnjord.publisher.sonatype-cp.publishingType=AUTOMATIC
+          -Dnjord.publisher.sonatype-cp.waitForStates=true
+          -Dnjord.publisher.sonatype-cp.waitForStatesTimeout=PT2H"
+          release:prepare release:perform
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
