@@ -4,4 +4,9 @@ repos:
   hooks:
   - id: end-of-file-fixer
   - id: trailing-whitespace
+- repo: https://github.com/python-jsonschema/check-jsonschema
+  rev: 0.38.0
+  hooks:
+    - id: check-renovate
+      name: Check renovate schema
 exclude: ^src/test/resources/oci/
