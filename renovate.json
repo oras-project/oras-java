@@ -8,10 +8,8 @@
     ":prConcurrentLimitNone",
     "helpers:pinGitHubActionDigests",
     ":semanticCommits",
-    ":enablePreCommit"
-  ],
-  "schedule": [
-    "every day"
+    ":enablePreCommit",
+    "schedule:weekly"
   ],
   "labels": ["dependencies"],
   "rebaseWhen": "conflicted"
