@@ -64,7 +64,7 @@
     <jackson.version>3.2.2</jackson.version>
     <apache.common-compress.version>1.28.0</apache.common-compress.version>
     <zstd-jni.version>1.5.7-16</zstd-jni.version>
-    <bcprov-jdk18on.version>1.85</bcprov-jdk18on.version>
+    <bcprov-jdk18on.version>1.85.2</bcprov-jdk18on.version>
     <caffeine.version>3.2.4</caffeine.version>
     <micrometer.version>1.17.1</micrometer.version>
 
