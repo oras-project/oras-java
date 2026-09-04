@@ -1,6 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
-  ]
+    "config:recommended",
+    ":prHourlyLimitNone",
+    ":semanticCommitsDisabled",
+    ":configMigration",
+    ":prConcurrentLimitNone",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommits",
+    ":enablePreCommit"
+  ],
+  "schedule": [
+    "every day"
+  ],
+  "labels": ["dependencies"],
+  "rebaseWhen": "conflicted"
 }
