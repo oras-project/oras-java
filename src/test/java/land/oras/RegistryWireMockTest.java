@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.github.tomakehurst.wiremock.stubbing.Scenario;
@@ -1226,7 +1227,7 @@ class RegistryWireMockTest {
         String registryUrl = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
 
         // Craft a blob and build a manifest whose layer title contains a invalid sequence
-        byte[] blobContent = "malicious content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] blobContent = "malicious content".getBytes(StandardCharsets.UTF_8);
         String blobDigest = SupportedAlgorithm.SHA256.digest(blobContent);
 
         Layer maliciousLayer = Layer.fromDigest(blobDigest, blobContent.length)
@@ -1234,8 +1235,7 @@ class RegistryWireMockTest {
 
         Manifest manifest = Manifest.empty().withLayers(List.of(maliciousLayer));
         String manifestJson = JsonUtils.toJson(manifest);
-        String manifestDigest =
-                SupportedAlgorithm.SHA256.digest(manifestJson.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String manifestDigest = SupportedAlgorithm.SHA256.digest(manifestJson.getBytes(StandardCharsets.UTF_8));
 
         // Stub HEAD manifest
         wireMock.register(head(urlEqualTo("/v2/library/malicious-artifact/manifests/latest"))
@@ -1372,7 +1372,7 @@ class RegistryWireMockTest {
         wireMock.register(get(urlEqualTo("/v2/library/network-error-retry/tags/list"))
                 .inScenario("network-error-retry")
                 .whenScenarioStateIs(Scenario.STARTED)
-                .willReturn(aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER))
+                .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER))
                 .willSetStateTo("retry"));
 
         wireMock.register(get(urlEqualTo("/v2/library/network-error-retry/tags/list"))

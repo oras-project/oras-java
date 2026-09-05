@@ -191,7 +191,7 @@ public final class OCILayout extends OCI<LayoutRef> {
                         .formatted(layer.getAnnotations().get(Const.ANNOTATION_TITLE)));
             }
             if (options.isOverwrite()) {
-                Files.copy(blobPath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(blobPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
             } else {
                 Files.copy(blobPath, targetPath);
             }

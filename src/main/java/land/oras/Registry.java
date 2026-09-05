@@ -35,6 +35,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -1167,7 +1168,7 @@ public final class Registry extends OCI<ContainerRef> {
                 }
                 long rangeEnd = offset + read - 1;
                 String contentRange = "%d-%d".formatted(offset, rangeEnd);
-                final byte[] chunk = java.util.Arrays.copyOf(buffer, read);
+                final byte[] chunk = Arrays.copyOf(buffer, read);
                 URI patchUri = URI.create(location);
                 HttpClient.ResponseWrapper<String> patchResponse = client.patch(
                         patchUri,
