@@ -20,6 +20,7 @@
 
 package land.oras.auth;
 
+import java.util.Base64;
 import land.oras.ContainerRef;
 import org.jspecify.annotations.NonNull;
 
@@ -67,7 +68,7 @@ public abstract sealed class AbstractUsernamePasswordProvider implements AuthPro
     @Override
     @NonNull
     public String getAuthHeader(ContainerRef registry) {
-        return "Basic " + java.util.Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
+        return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
     }
 
     @Override

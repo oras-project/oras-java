@@ -24,8 +24,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import land.oras.ContainerRef;
 import land.oras.exception.OrasException;
@@ -482,8 +484,7 @@ class AuthStoreTest {
     void testPasswordContainingColonIsPreserved() throws Exception {
         String user = "user";
         String password = "p@ss:with:colons";
-        String auth = java.util.Base64.getEncoder()
-                .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String auth = Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8));
         // language=json
         String config = """
                 {
@@ -505,10 +506,8 @@ class AuthStoreTest {
 
     @Test
     void testMalformedEntryIsSkippedWithoutDroppingOtherCredentials() throws Exception {
-        String malformed = java.util.Base64.getEncoder()
-                .encodeToString("no-colon-here".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        String valid = java.util.Base64.getEncoder()
-                .encodeToString("user:password".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String malformed = Base64.getEncoder().encodeToString("no-colon-here".getBytes(StandardCharsets.UTF_8));
+        String valid = Base64.getEncoder().encodeToString("user:password".getBytes(StandardCharsets.UTF_8));
         // language=json
         String config = """
                 {
@@ -531,8 +530,7 @@ class AuthStoreTest {
 
     @Test
     void testEmptyPasswordIsPreserved() throws Exception {
-        String auth =
-                java.util.Base64.getEncoder().encodeToString("user:".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String auth = Base64.getEncoder().encodeToString("user:".getBytes(StandardCharsets.UTF_8));
         // language=json
         String config = """
                 {
@@ -556,8 +554,7 @@ class AuthStoreTest {
     void testPasswordWithArbitraryCharactersIsPreserved() throws Exception {
         String user = "user";
         String password = "p:ä ss\"w0rd\\:with=🔒:tail";
-        String auth = java.util.Base64.getEncoder()
-                .encodeToString((user + ":" + password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String auth = Base64.getEncoder().encodeToString((user + ":" + password).getBytes(StandardCharsets.UTF_8));
         // language=json
         String config = """
                 {

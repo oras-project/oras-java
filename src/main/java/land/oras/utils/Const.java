@@ -23,6 +23,7 @@ package land.oras.utils;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -376,7 +377,7 @@ public final class Const {
      */
     public static String currentTimestamp() {
         return Instant.now()
-                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                .truncatedTo(ChronoUnit.SECONDS)
                 .atOffset(ZoneOffset.UTC)
                 .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }

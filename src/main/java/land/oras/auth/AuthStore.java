@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -183,7 +184,7 @@ public class AuthStore {
                             "auths",
                             Map.of(
                                     "auth",
-                                    java.util.Base64.getEncoder()
+                                    Base64.getEncoder()
                                             .encodeToString(
                                                     (credential.username + ":" + credential.password).getBytes()))),
                     Map.of(),
@@ -229,8 +230,7 @@ public class AuthStore {
                 configFile.auths.forEach((host, value) -> {
                     String auth = value.get("auth");
                     if (auth != null) {
-                        String base64Decoded =
-                                new String(java.util.Base64.getDecoder().decode(auth), StandardCharsets.UTF_8);
+                        String base64Decoded = new String(Base64.getDecoder().decode(auth), StandardCharsets.UTF_8);
                         String[] parts = base64Decoded.split(":", 2);
                         if (parts.length != 2) {
                             LOG.warn(
