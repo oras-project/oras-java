@@ -95,7 +95,7 @@
     <maven-release-plugin.version>3.3.1</maven-release-plugin.version>
     <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
     <njord.version>0.9.10</njord.version>
-    <sigstore-maven-plugin.version>2.2.0</sigstore-maven-plugin.version>
+    <sigstore-maven-plugin.version>2.3.0</sigstore-maven-plugin.version>
     <spdx-maven-plugin.version>1.0.4</spdx-maven-plugin.version>
     <maven-license-plugin.version>2.7.1</maven-license-plugin.version>
 
