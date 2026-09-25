@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,6 +37,9 @@ import land.oras.LocalPath;
 import land.oras.exception.OrasException;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.AsiExtraField;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -370,6 +374,140 @@ class ArchiveUtilsTest {
 
         assertThrows(OrasException.class, () -> ArchiveUtils.untar(mtar, target));
         assertFalse(Files.exists(escapeFile), "Symlink-target escape must not create a file outside target");
+    }
+
+    /**
+     * GHSA-f7cp-5f43-6jcx: ensureSafeSymlinkTarget validates a symlink target against a purely
+     * lexical path model. A first entry "a" -> "." plants a symlink pointing back at the
+     * extraction root; a second entry "a/b" -> ".." is then lexically computed as
+     * target/a/.. (normalizes to target, in bounds) even though the real filesystem resolves
+     * it to the parent of the extraction root, because "a" is itself a symlink to the root. A
+     * third, regular-file entry "a/b/ESCAPED.txt" then writes through that chain and lands
+     * outside the extraction directory.
+     */
+    @Test
+    void shouldRejectChainedSymlinkEscapeOnUntar(@TempDir Path tmp) throws IOException {
+        if (!OsUtils.isPosixFileSystemSupported()) {
+            return;
+        }
+        Path target = tmp.resolve("extract");
+        Files.createDirectories(target);
+        Path escapeFile = tmp.resolve("ESCAPED.txt");
+        Files.deleteIfExists(escapeFile);
+
+        Path mtar = tmp.resolve("malicious-chain.tar");
+        try (TarArchiveOutputStream tout = new TarArchiveOutputStream(Files.newOutputStream(mtar))) {
+            tout.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+
+            TarArchiveEntry s1 = new TarArchiveEntry("a", TarArchiveEntry.LF_SYMLINK);
+            s1.setLinkName(".");
+            tout.putArchiveEntry(s1);
+            tout.closeArchiveEntry();
+
+            TarArchiveEntry s2 = new TarArchiveEntry("a/b", TarArchiveEntry.LF_SYMLINK);
+            s2.setLinkName("..");
+            tout.putArchiveEntry(s2);
+            tout.closeArchiveEntry();
+
+            byte[] data = "escaped-via-symlink-chain\n".getBytes(StandardCharsets.UTF_8);
+            TarArchiveEntry f = new TarArchiveEntry("a/b/ESCAPED.txt");
+            f.setSize(data.length);
+            tout.putArchiveEntry(f);
+            tout.write(data);
+            tout.closeArchiveEntry();
+        }
+
+        assertThrows(OrasException.class, () -> ArchiveUtils.untar(mtar, target));
+        assertFalse(Files.exists(escapeFile), "Chained symlink escape must not create a file outside target");
+    }
+
+    /**
+     * Two-level variant of {@link #shouldRejectChainedSymlinkEscapeOnUntar}: each additional
+     * in-bounds symlink pair climbs one more ancestor directory, confirming the guard isn't
+     * merely bounding the escape depth at one level.
+     */
+    @Test
+    void shouldRejectMultiLevelChainedSymlinkEscapeOnUntar(@TempDir Path tmp) throws IOException {
+        if (!OsUtils.isPosixFileSystemSupported()) {
+            return;
+        }
+        Path target = tmp.resolve("extract");
+        Files.createDirectories(target);
+        Path escapeFile = tmp.getParent().resolve("DEEP.txt");
+        Files.deleteIfExists(escapeFile);
+
+        Path mtar = tmp.resolve("malicious-deep-chain.tar");
+        try (TarArchiveOutputStream tout = new TarArchiveOutputStream(Files.newOutputStream(mtar))) {
+            tout.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+
+            String[][] links = {{"a", "."}, {"a/b", ".."}, {"a/b/c", "."}, {"a/b/c/d", ".."}};
+            for (String[] link : links) {
+                TarArchiveEntry s = new TarArchiveEntry(link[0], TarArchiveEntry.LF_SYMLINK);
+                s.setLinkName(link[1]);
+                tout.putArchiveEntry(s);
+                tout.closeArchiveEntry();
+            }
+
+            byte[] data = "escaped-two-levels-up\n".getBytes(StandardCharsets.UTF_8);
+            TarArchiveEntry f = new TarArchiveEntry("a/b/c/d/DEEP.txt");
+            f.setSize(data.length);
+            tout.putArchiveEntry(f);
+            tout.write(data);
+            tout.closeArchiveEntry();
+        }
+
+        assertThrows(OrasException.class, () -> ArchiveUtils.untar(mtar, target));
+        assertFalse(
+                Files.exists(escapeFile), "Multi-level chained symlink escape must not create a file outside target");
+    }
+
+    /**
+     * Same chained-symlink escape as {@link #shouldRejectChainedSymlinkEscapeOnUntar} but via
+     * the zip extraction path, which shares the same lexical ensureSafeSymlinkTarget guard.
+     */
+    @Test
+    void shouldRejectChainedSymlinkEscapeOnUnzip(@TempDir Path tmp) throws IOException {
+        if (!OsUtils.isPosixFileSystemSupported()) {
+            return;
+        }
+        Path target = tmp.resolve("extract");
+        Files.createDirectories(target);
+        Path escapeFile = tmp.resolve("ESCAPED.txt");
+        Files.deleteIfExists(escapeFile);
+
+        Path mzip = tmp.resolve("malicious-chain.zip");
+        try (ZipArchiveOutputStream zout = new ZipArchiveOutputStream(Files.newOutputStream(mzip))) {
+            // Symlink metadata must travel in an AsiExtraField (local-header extra field), not
+            // just the central-directory external attributes set by setUnixMode(): unzip() reads
+            // entries via a streaming ZipArchiveInputStream that never sees the central directory.
+            ZipArchiveEntry s1 = new ZipArchiveEntry("a");
+            AsiExtraField asi1 = new AsiExtraField();
+            asi1.setLinkedFile(".");
+            asi1.setMode(0120755);
+            s1.addExtraField(asi1);
+            s1.setSize(0);
+            zout.putArchiveEntry(s1);
+            zout.closeArchiveEntry();
+
+            ZipArchiveEntry s2 = new ZipArchiveEntry("a/b");
+            AsiExtraField asi2 = new AsiExtraField();
+            asi2.setLinkedFile("..");
+            asi2.setMode(0120755);
+            s2.addExtraField(asi2);
+            s2.setSize(0);
+            zout.putArchiveEntry(s2);
+            zout.closeArchiveEntry();
+
+            byte[] data = "escaped-via-symlink-chain\n".getBytes(StandardCharsets.UTF_8);
+            ZipArchiveEntry f = new ZipArchiveEntry("a/b/ESCAPED.txt");
+            f.setSize(data.length);
+            zout.putArchiveEntry(f);
+            zout.write(data);
+            zout.closeArchiveEntry();
+        }
+
+        assertThrows(OrasException.class, () -> ArchiveUtils.unzip(mzip, target));
+        assertFalse(Files.exists(escapeFile), "Chained symlink escape must not create a file outside target");
     }
 
     @Test

@@ -295,18 +295,52 @@ public final class ArchiveUtils {
      * Ensure that a symlink entry's link target resolves inside the extraction directory.
      * Stops an archive from planting a symlink that points outside the target tree, which
      * would otherwise let subsequent regular-file entries write outside the target dir.
+     * <p>The link target is resolved against the <em>real</em> (symlink-following) location of
+     * its parent directory rather than its lexical parent: an earlier entry in the same archive
+     * may have already planted a symlink there, so an in-bounds-looking relative target (e.g.
+     * {@code ..}) can still climb outside the extraction root once that parent is followed.</p>
      * @param outputPath The on-disk path where the symlink will be created
      * @param linkTarget The raw link target string from the archive entry
      * @param target The extraction root
      * @throws IOException if the link target escapes the extraction root
      */
     static void ensureSafeSymlinkTarget(Path outputPath, Path linkTarget, Path target) throws IOException {
-        Path normalizedTarget = target.toAbsolutePath().normalize();
-        Path resolved =
-                (linkTarget.isAbsolute() ? linkTarget : outputPath.getParent().resolve(linkTarget)).normalize();
-        if (!resolved.startsWith(normalizedTarget)) {
+        Path realTarget = target.toRealPath();
+        Path parent = outputPath.getParent();
+        Path realParent = Files.exists(parent)
+                ? parent.toRealPath()
+                : parent.toAbsolutePath().normalize();
+        Path resolved = (linkTarget.isAbsolute() ? linkTarget : realParent.resolve(linkTarget)).normalize();
+        if (!resolved.startsWith(realTarget)) {
             throw new IOException(
                     "Refusing to create symlink that escapes target dir: " + outputPath + " -> " + linkTarget);
+        }
+    }
+
+    /**
+     * Ensure that, once any symlink already materialized by an earlier entry in the same
+     * archive is followed, this entry's output path cannot resolve outside the extraction root.
+     * <p>Lexical containment ({@link #ensureSafeEntry}) is not enough: an entry name can stay
+     * syntactically under {@code target} while a previously created intermediate symlink makes
+     * its real on-disk location land elsewhere. Only path components that already exist are
+     * resolved; components not yet created cannot be symlinks and will be created fresh under
+     * an already-verified, contained parent.</p>
+     * @param target The extraction root
+     * @param outputPath The lexical output path computed for the current entry
+     * @throws IOException if an existing intermediate component resolves outside the extraction root
+     */
+    static void ensureContainedThroughExistingSymlinks(Path target, Path outputPath) throws IOException {
+        Path realTargetRoot = target.toRealPath();
+        Path relative = target.toAbsolutePath().normalize().relativize(outputPath);
+        Path probe = target;
+        for (Path component : relative) {
+            probe = probe.resolve(component);
+            if (Files.exists(probe, LinkOption.NOFOLLOW_LINKS)
+                    && !probe.toRealPath().startsWith(realTargetRoot)) {
+                throw new IOException(
+                        "Refusing to extract entry that resolves outside target dir through an existing symlink: "
+                                + outputPath);
+            }
         }
     }
 
@@ -393,6 +427,7 @@ public final class ArchiveUtils {
     static void unzip(InputStream fis, Path target) {
         // Open the zip file for reading
         try {
+            Files.createDirectories(target);
             try (BufferedInputStream bis = new BufferedInputStream(fis);
                     ZipArchiveInputStream zais = new ZipArchiveInputStream(bis)) {
                 ZipArchiveEntry entry;
@@ -405,6 +440,9 @@ public final class ArchiveUtils {
 
                     // Prevent path traversal attacks
                     Path outputPath = target.resolve(entry.getName()).normalize();
+
+                    // Prevent an earlier entry's symlink from being used to escape target
+                    ensureContainedThroughExistingSymlinks(target, outputPath);
 
                     if (entry.isDirectory()) {
                         LOG.debug("Extracting directory: {}", entry.getName());
@@ -451,6 +489,7 @@ public final class ArchiveUtils {
 
         // Open the tar.gz file for reading
         try {
+            Files.createDirectories(target);
             try (BufferedInputStream bis = new BufferedInputStream(fis);
                     TarArchiveInputStream tais = new TarArchiveInputStream(bis)) {
 
@@ -463,6 +502,9 @@ public final class ArchiveUtils {
 
                     // Prevent path traversal attacks
                     Path outputPath = target.resolve(entry.getName()).normalize();
+
+                    // Prevent an earlier entry's symlink from being used to escape target
+                    ensureContainedThroughExistingSymlinks(target, outputPath);
 
                     LOG.trace("Extracting entry: {}", entry.getName());
 
