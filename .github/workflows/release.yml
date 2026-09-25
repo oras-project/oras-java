@@ -61,7 +61,7 @@ jobs:
       - name: Maven release
         run: >-
           mvn --batch-mode --update-snapshots -Dmaven.resolver.transport=wagon -DskipTests
-          -Darguments="-DskipTests -DaltDeploymentRepository=sonatype-cp::njord:
+          -Darguments="-DskipTests -DskipITs -Dspotless.check.skip=true -DaltDeploymentRepository=sonatype-cp::njord:
           -Dnjord.autoPublish=true -Dnjord.publisher=sonatype-cp
           -Dnjord.publisher.sonatype-cp.publishingType=AUTOMATIC
           -Dnjord.publisher.sonatype-cp.waitForStates=true
