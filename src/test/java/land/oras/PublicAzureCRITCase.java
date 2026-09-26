@@ -54,10 +54,11 @@ class PublicAzureCRITCase {
         containerSource = ContainerRef.parse(
                 "mcr.microsoft.com/windows/servercore@sha256:79aa6a176b2e4f1786eb29c4facd33077769eddde4c4a650aea552f6320893c7");
         index = sourceRegistry.getIndex(containerSource);
-        assertTrue(index.getManifests().stream().anyMatch(m -> m.getPlatform()
-                .equals(Platform.windowsAmd64()
-                        .withOsVersion("10.0.26100.32370")
-                        .withOsFeatures(List.of("win32k")))));
+        assertTrue(index.getManifests().stream()
+                .anyMatch(m -> m.getPlatform()
+                        .equals(Platform.windowsAmd64()
+                                .withOsVersion("10.0.26100.32370")
+                                .withOsFeatures(List.of("win32k")))));
     }
 
     @Test

@@ -72,8 +72,9 @@ class GitHubContainerRegistryITCase {
         Referrers referrers = registry.getReferrers(containerRef, null);
         assertFalse(referrers.getManifests().isEmpty(), "Referrers must be found through the legacy tag fallback");
         assertTrue(
-                referrers.getManifests().stream().anyMatch(manifest -> "application/vnd.dev.sigstore.bundle.v0.3+json"
-                        .equals(manifest.getArtifactType())),
+                referrers.getManifests().stream()
+                        .anyMatch(manifest ->
+                                "application/vnd.dev.sigstore.bundle.v0.3+json".equals(manifest.getArtifactType())),
                 "Sigstore bundle referrer must be found");
     }
 

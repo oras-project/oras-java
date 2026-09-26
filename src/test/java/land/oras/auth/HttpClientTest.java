@@ -145,9 +145,11 @@ class HttpClientTest {
 
     @Test
     void whenCaFileDoesNotExistThenThrow() {
-        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
-                .withCaFile(Path.of("/nonexistent/ca.pem"))
-                .build());
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder()
+                        .withCaFile(Path.of("/nonexistent/ca.pem"))
+                        .build());
         assertTrue(exception.getMessage().contains("Unable to configure CA file"));
     }
 
@@ -186,9 +188,11 @@ class HttpClientTest {
 
     @Test
     void whenCaContentNotValidCertificateThenThrow() {
-        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
-                .withCaContent("not a certificate")
-                .build());
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder()
+                        .withCaContent("not a certificate")
+                        .build());
         assertTrue(exception.getMessage().contains("Unable to configure CA certificates from content"));
     }
 
@@ -196,10 +200,12 @@ class HttpClientTest {
     void whenBothCaFileAndCaContentConfiguredThenThrow(@TempDir Path tempDir) throws IOException {
         Path caFile = tempDir.resolve("ca.pem");
         Files.writeString(caFile, ROOT_CA_PEM);
-        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
-                .withCaFile(caFile)
-                .withCaContent(ROOT_CA_PEM)
-                .build());
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder()
+                        .withCaFile(caFile)
+                        .withCaContent(ROOT_CA_PEM)
+                        .build());
         assertTrue(exception.getMessage().contains("Cannot configure both a CA file and CA content"));
     }
 
@@ -207,19 +213,23 @@ class HttpClientTest {
     void whenSkipTlsVerifyAndCaFileThenThrow(@TempDir Path tempDir) throws IOException {
         Path caFile = tempDir.resolve("ca.pem");
         Files.writeString(caFile, ROOT_CA_PEM);
-        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
-                .withSkipTlsVerify(true)
-                .withCaFile(caFile)
-                .build());
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder()
+                        .withSkipTlsVerify(true)
+                        .withCaFile(caFile)
+                        .build());
         assertTrue(exception.getMessage().contains("Cannot combine skipTlsVerify"));
     }
 
     @Test
     void whenSkipTlsVerifyAndCaContentThenThrow() {
-        OrasException exception = assertThrows(OrasException.class, () -> HttpClient.Builder.builder()
-                .withSkipTlsVerify(true)
-                .withCaContent(ROOT_CA_PEM)
-                .build());
+        OrasException exception = assertThrows(
+                OrasException.class,
+                () -> HttpClient.Builder.builder()
+                        .withSkipTlsVerify(true)
+                        .withCaContent(ROOT_CA_PEM)
+                        .build());
         assertTrue(exception.getMessage().contains("Cannot combine skipTlsVerify"));
     }
 
