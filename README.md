@@ -11,7 +11,7 @@
 
 
 > [!WARNING]
-> The Oras Java SDK is currently in **alpha** state.
+> The Oras Java SDK is currently in **preview** state.
 >
 > It's configuration and APIs might change in future releases
 
