@@ -214,11 +214,10 @@ final class SigstoreVerifier {
      */
     private static boolean verifySignature(PublicKey key, byte[] content, byte[] signature) {
         // Might support other algorithm in the future
-        String algorithm =
-                switch (key.getAlgorithm()) {
-                    case Const.KEY_EC_ALGORITHM -> Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM;
-                    default -> null;
-                };
+        String algorithm = switch (key.getAlgorithm()) {
+            case Const.KEY_EC_ALGORITHM -> Const.KEY_SHA256_ECDSA_SIGNATURE_ALGORITHM;
+            default -> null;
+        };
         if (algorithm == null) {
             LOG.warn("Unsupported public key algorithm for Sigstore verification: {}", key.getAlgorithm());
             return false;
