@@ -718,13 +718,12 @@ public final class HttpClient {
         // Scopes are invariant across retries — compute once.
         ContainerRef containerRef = scopes.getContainerRef();
         LOG.debug("Scopes are adding registry scopes");
-        Scopes newScopes =
-                switch (method) {
-                    case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
-                    case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
-                    case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
-                    default -> throw new OrasException("Unsupported HTTP method: " + method);
-                };
+        Scopes newScopes = switch (method) {
+            case "GET", "HEAD" -> scopes.withAddedRegistryScopes(Scope.PULL);
+            case "POST", "PUT", "PATCH" -> scopes.withAddedRegistryScopes(Scope.PUSH);
+            case "DELETE" -> scopes.withAddedRegistryScopes(Scope.DELETE);
+            default -> throw new OrasException("Unsupported HTTP method: " + method);
+        };
         newScopes = newScopes.withIdentity(authProvider.getIdentity(containerRef));
         LOG.debug("Existing scopes: {}", scopes.getScopes());
         LOG.debug("New scopes: {}", newScopes.getScopes());
