@@ -23,10 +23,13 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ScanResult;
-import java.util.HashSet;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import land.oras.auth.HttpClient;
 import land.oras.exception.Error;
 import org.junit.jupiter.api.Test;
@@ -37,73 +40,79 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 class ClassAnnotationsTest {
 
     @Test
-    void shouldHaveAnnotationOnModel() {
-        try (ScanResult scanResult = new ClassGraph()
-                .enableClassInfo()
-                .enableAllInfo()
-                .enableAnnotationInfo()
-                .acceptPackages("land.oras")
-                .scan()) {
-            Set<Class<?>> modelClasses = new HashSet<>(scanResult
-                    .getClassesWithAnnotation(OrasModel.class.getName())
-                    .loadClasses());
+    void shouldHaveAnnotationOnModel() throws Exception {
+        Set<Class<?>> modelClasses = findAnnotatedClasses("land.oras");
 
-            // Check number of classes
-            assertEquals(43, modelClasses.size());
+        // Check number of classes
+        assertEquals(43, modelClasses.size());
 
-            // Check classes
-            assertTrue(modelClasses.contains(Annotations.class));
-            assertTrue(modelClasses.contains(ArtifactType.class));
-            assertTrue(modelClasses.contains(Config.class));
-            assertTrue(modelClasses.contains(CopyUtils.CopyOptions.class));
-            assertTrue(modelClasses.contains(Descriptor.class));
-            assertTrue(modelClasses.contains(Describable.class));
-            assertTrue(modelClasses.contains(Error.class));
-            assertTrue(modelClasses.contains(HttpClient.TokenResponse.class));
-            assertTrue(modelClasses.contains(Index.class));
-            assertTrue(modelClasses.contains(Layer.class));
-            assertTrue(modelClasses.contains(Manifest.class));
-            assertTrue(modelClasses.contains(ManifestDescriptor.class));
-            assertTrue(modelClasses.contains(OCILayout.class));
-            assertTrue(modelClasses.contains(OCI.PullOptions.class));
-            assertTrue(modelClasses.contains(OCI.PushOptions.class));
-            assertTrue(modelClasses.contains(Repositories.class));
-            assertTrue(modelClasses.contains(Subject.class));
-            assertTrue(modelClasses.contains(Tags.class));
-        }
+        // Check classes
+        assertTrue(modelClasses.contains(Annotations.class));
+        assertTrue(modelClasses.contains(ArtifactType.class));
+        assertTrue(modelClasses.contains(Config.class));
+        assertTrue(modelClasses.contains(CopyUtils.CopyOptions.class));
+        assertTrue(modelClasses.contains(Descriptor.class));
+        assertTrue(modelClasses.contains(Describable.class));
+        assertTrue(modelClasses.contains(Error.class));
+        assertTrue(modelClasses.contains(HttpClient.TokenResponse.class));
+        assertTrue(modelClasses.contains(Index.class));
+        assertTrue(modelClasses.contains(Layer.class));
+        assertTrue(modelClasses.contains(Manifest.class));
+        assertTrue(modelClasses.contains(ManifestDescriptor.class));
+        assertTrue(modelClasses.contains(OCILayout.class));
+        assertTrue(modelClasses.contains(OCI.PullOptions.class));
+        assertTrue(modelClasses.contains(OCI.PushOptions.class));
+        assertTrue(modelClasses.contains(Repositories.class));
+        assertTrue(modelClasses.contains(Subject.class));
+        assertTrue(modelClasses.contains(Tags.class));
     }
 
     @Test
-    void shouldHaveAnnotationOnAuthPackage() {
-        try (ScanResult scanResult = new ClassGraph()
-                .enableClassInfo()
-                .enableAllInfo()
-                .enableAnnotationInfo()
-                .acceptPackages("land.oras.auth")
-                .scan()) {
-            Set<Class<?>> modelClasses = new HashSet<>(scanResult
-                    .getClassesWithAnnotation(OrasModel.class.getName())
-                    .loadClasses());
+    void shouldHaveAnnotationOnAuthPackage() throws Exception {
+        Set<Class<?>> modelClasses = findAnnotatedClasses("land.oras.auth");
 
-            // Check number of classes
-            assertEquals(10, modelClasses.size());
-        }
+        // Check number of classes
+        assertEquals(10, modelClasses.size());
     }
 
     @Test
-    void shouldHaveAnnotationOnPolicyPackage() {
-        try (ScanResult scanResult = new ClassGraph()
-                .enableClassInfo()
-                .enableAllInfo()
-                .enableAnnotationInfo()
-                .acceptPackages("land.oras.policy")
-                .scan()) {
-            Set<Class<?>> modelClasses = new HashSet<>(scanResult
-                    .getClassesWithAnnotation(OrasModel.class.getName())
-                    .loadClasses());
+    void shouldHaveAnnotationOnPolicyPackage() throws Exception {
+        Set<Class<?>> modelClasses = findAnnotatedClasses("land.oras.policy");
 
-            // Check number of classes
-            assertEquals(11, modelClasses.size());
+        // Check number of classes
+        assertEquals(11, modelClasses.size());
+    }
+
+    /**
+     * Find all classes annotated with {@link OrasModel} in the given package and its sub-packages
+     * @param packageName The package name
+     * @return The annotated classes
+     */
+    private static Set<Class<?>> findAnnotatedClasses(String packageName) throws IOException, URISyntaxException {
+        Path root = Path.of(OrasModel.class
+                .getProtectionDomain()
+                .getCodeSource()
+                .getLocation()
+                .toURI());
+        Path packageDir = root.resolve(packageName.replace('.', '/'));
+        ClassLoader classLoader = ClassAnnotationsTest.class.getClassLoader();
+        try (Stream<Path> paths = Files.walk(packageDir)) {
+            return paths.filter(path -> path.toString().endsWith(".class"))
+                    .map(path -> root.relativize(path).toString())
+                    .map(name -> name.substring(0, name.length() - ".class".length())
+                            .replace('/', '.')
+                            .replace('\\', '.'))
+                    .map(name -> loadClass(name, classLoader))
+                    .filter(clazz -> clazz.isAnnotationPresent(OrasModel.class))
+                    .collect(Collectors.toSet());
+        }
+    }
+
+    private static Class<?> loadClass(String name, ClassLoader classLoader) {
+        try {
+            return Class.forName(name, false, classLoader);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(e);
         }
     }
 }

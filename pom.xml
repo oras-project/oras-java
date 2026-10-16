@@ -75,7 +75,6 @@
     <wiremock.version>3.13.2</wiremock.version>
     <mockito.version>5.24.0</mockito.version>
     <system.stubs.version>2.1.8</system.stubs.version>
-    <classgraph.version>4.8.199</classgraph.version>
     <awaitability.version>4.3.0</awaitability.version>
 
     <!-- Plugin version -->
@@ -143,11 +142,6 @@
         <groupId>com.github.luben</groupId>
         <artifactId>zstd-jni</artifactId>
         <version>${zstd-jni.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>io.github.classgraph</groupId>
-        <artifactId>classgraph</artifactId>
-        <version>${classgraph.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
@@ -263,11 +257,6 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.github.classgraph</groupId>
-      <artifactId>classgraph</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
