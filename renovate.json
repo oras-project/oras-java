@@ -12,5 +12,13 @@
     "schedule:weekly"
   ],
   "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Keep Jackson 3 on the 3.1 LTS line",
+      "matchManagers": ["maven"],
+      "matchPackageNames": ["tools.jackson:jackson-bom"],
+      "allowedVersions": "/^3\\.1\\./"
+    }
+  ],
   "rebaseWhen": "conflicted"
 }

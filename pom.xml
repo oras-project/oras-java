@@ -58,24 +58,12 @@
     <!-- Skip unit tests -->
     <skipUnitTests>@{skipTests}</skipUnitTests>
 
-    <!-- Version -->
-    <slf4j.version>2.0.20</slf4j.version>
-    <jspecify.version>1.0.1</jspecify.version>
-    <jackson.version>3.2.4</jackson.version>
-    <apache.common-compress.version>1.28.0</apache.common-compress.version>
-    <zstd-jni.version>1.5.7-25</zstd-jni.version>
-    <bcprov-jdk18on.version>1.86</bcprov-jdk18on.version>
-    <caffeine.version>3.3.1</caffeine.version>
-    <micrometer.version>1.17.2</micrometer.version>
-
-    <!-- Test dependencies version -->
+    <!-- Dependency versions -->
+    <quarkus.version>3.40.1</quarkus.version>
+    <jackson.version>3.1.1</jackson.version>
     <logback.version>1.6.6</logback.version>
-    <junit.version>6.1.3</junit.version>
-    <testcontainer.version>2.0.5</testcontainer.version>
     <wiremock.version>3.13.2</wiremock.version>
-    <mockito.version>5.24.0</mockito.version>
     <system.stubs.version>2.1.8</system.stubs.version>
-    <awaitability.version>4.3.0</awaitability.version>
 
     <!-- Plugin version -->
     <build.helper-maven-plugin.version>3.6.2</build.helper-maven-plugin.version>
@@ -108,16 +96,9 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>io.micrometer</groupId>
-        <artifactId>micrometer-bom</artifactId>
-        <version>${micrometer.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.junit</groupId>
-        <artifactId>junit-bom</artifactId>
-        <version>${junit.version}</version>
+        <groupId>io.quarkus</groupId>
+        <artifactId>quarkus-bom</artifactId>
+        <version>${quarkus.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -132,66 +113,6 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
         <version>${logback.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.github.ben-manes.caffeine</groupId>
-        <artifactId>caffeine</artifactId>
-        <version>${caffeine.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.github.luben</groupId>
-        <artifactId>zstd-jni</artifactId>
-        <version>${zstd-jni.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-compress</artifactId>
-        <version>${apache.common-compress.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.awaitility</groupId>
-        <artifactId>awaitility</artifactId>
-        <version>${awaitability.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk18on</artifactId>
-        <version>${bcprov-jdk18on.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk18on</artifactId>
-        <version>${bcprov-jdk18on.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.jspecify</groupId>
-        <artifactId>jspecify</artifactId>
-        <version>${jspecify.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.mockito</groupId>
-        <artifactId>mockito-core</artifactId>
-        <version>${mockito.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.mockito</groupId>
-        <artifactId>mockito-junit-jupiter</artifactId>
-        <version>${mockito.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
-        <version>${slf4j.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers</artifactId>
-        <version>${testcontainer.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.testcontainers</groupId>
-        <artifactId>testcontainers-junit-jupiter</artifactId>
-        <version>${testcontainer.version}</version>
       </dependency>
       <dependency>
         <groupId>org.wiremock</groupId>
