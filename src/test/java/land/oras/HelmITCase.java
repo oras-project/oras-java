@@ -20,6 +20,7 @@
 
 package land.oras;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
@@ -76,7 +77,32 @@ class HelmITCase {
         Manifest createdManifest = registry.getManifest(containerRef);
         assertNotNull(createdManifest);
 
-        // We can test pull with helm pull oci://localhost:<port>/chart --plain-http --version 0.1.0
+        // Push the same chart with pushArtifact, supplying Helm's media types and annotations.
+        ContainerRef artifactRef = ContainerRef.parse("jenkins:5.8.139");
+        Annotations artifactAnnotations = Annotations.ofManifest(annotations)
+                .withFileAnnotations(
+                        archive.getFileName().toString(), Map.of(Const.ANNOTATION_TITLE, "jenkins-chart.tgz"));
+        Manifest pushedArtifact = registry.pushArtifact(
+                artifactRef,
+                ArtifactType.from(Const.HELM_CONFIG_MEDIA_TYPE),
+                artifactAnnotations,
+                Config.empty().withMediaType(Const.HELM_CONFIG_MEDIA_TYPE),
+                LocalPath.of(archive, Const.HELM_CONTENT_MEDIA_TYPE));
+
+        Manifest pulledArtifact = registry.getManifest(artifactRef);
+        assertNotNull(pulledArtifact);
+        assertEquals(Const.HELM_CONFIG_MEDIA_TYPE, pulledArtifact.getConfig().getMediaType());
+        assertEquals(
+                Const.HELM_CONTENT_MEDIA_TYPE, pulledArtifact.getLayers().get(0).getMediaType());
+        assertEquals(
+                annotations.get(Const.ANNOTATION_DESCRIPTION),
+                pulledArtifact.getAnnotations().get(Const.ANNOTATION_DESCRIPTION));
+        assertEquals(
+                "jenkins-chart.tgz",
+                pulledArtifact.getLayers().get(0).getAnnotations().get(Const.ANNOTATION_TITLE));
+        assertNotNull(pushedArtifact);
+
+        // To pull with Helm: helm pull oci://localhost:<port>/jenkins --plain-http --version 5.8.139
 
     }
 }
