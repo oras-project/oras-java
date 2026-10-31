@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -47,6 +48,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @Testcontainers(disabledWithoutDocker = true)
 @Execution(ExecutionMode.SAME_THREAD)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistryMirrorTest {
 
     /** Working mirror — contains the test artifact. */
@@ -57,6 +59,7 @@ class RegistryMirrorTest {
     private Path homeDir;
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldFetchManifestViaMirrorWhenOriginalIsDown(@TempDir Path blobDir) throws Exception {
 
         // Push a test artifact to the working mirror
@@ -95,6 +98,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPullArtifactViaMirrorWhenOriginalIsDown(@TempDir Path blobDir, @TempDir Path pullDir) throws Exception {
 
         // Push a test artifact (with a file layer) to the working mirror
@@ -132,6 +136,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldFetchManifestViaInsecurePathPrefixedMirror(@TempDir Path blobDir) throws Exception {
 
         // Push the artifact under a path-prefixed location in the mirror
@@ -166,6 +171,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldFetchBlobViaMirrorWhenOriginalIsDown(@TempDir Path blobDir, @TempDir Path fetchDir) throws Exception {
 
         // Push a blob to the working mirror
@@ -222,6 +228,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldFetchManifestViaUnqualifiedReference(@TempDir Path blobDir) throws Exception {
 
         // Push to the mirror under the "library" namespace so it matches an unqualified pull
@@ -261,6 +268,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldResolveUnqualifiedRegistryViaFallbackWhenMirrorIsDown(@TempDir Path blobDir) throws Exception {
 
         // Push directly to the registry that will act as the (only) unqualified search registry —
@@ -304,6 +312,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldThrowWhenMirrorIsDownAndSearchRegistryLacksArtifact() throws Exception {
 
         // Nothing is pushed anywhere for this reference: the mirror is unreachable and the search
@@ -340,6 +349,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldSkipDigestOnlyMirrorWhenPullingByTag(@TempDir Path blobDir) throws Exception {
 
         // Push artifact to the working mirror
@@ -376,6 +386,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldUseDigestOnlyMirrorWhenPullingByDigest(@TempDir Path blobDir) throws Exception {
 
         // Push artifact to the working mirror
@@ -415,6 +426,7 @@ class RegistryMirrorTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldApplyMirrorByDigestOnly(@TempDir Path blobDir) throws Exception {
 
         // Push artifact to the working mirror

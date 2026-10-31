@@ -31,14 +31,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import land.oras.ContainerRef;
+import land.oras.EnvironmentLock;
 import land.oras.Registry;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 @Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistryConfTest {
 
     @TempDir
