@@ -29,15 +29,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 /**
  * Tests for {@link ContainerRef}.
  */
 @Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = EnvironmentLock.class)
 class ContainerRefTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldReadRegistriesConfig(@TempDir Path homeDir) throws Exception {
         // language=toml
         String config = """
@@ -78,6 +81,7 @@ class ContainerRefTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldDetermineFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -100,6 +104,7 @@ class ContainerRefTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldRewriteAllSubdomainToLocalProxy(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -146,6 +151,7 @@ class ContainerRefTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldDetermineEffectiveRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml

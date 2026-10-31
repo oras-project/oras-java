@@ -30,11 +30,13 @@ import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
 import land.oras.ContainerRef;
+import land.oras.EnvironmentLock;
 import land.oras.exception.OrasException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.mockito.Mockito;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.properties.SystemProperties;
@@ -42,6 +44,7 @@ import uk.org.webcompere.systemstubs.properties.SystemProperties;
 /**
  * Test class of {@link AuthStore}.
  */
+@ResourceLock(providers = EnvironmentLock.class)
 class AuthStoreTest {
 
     @TempDir
@@ -131,6 +134,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromCredentialHelperNullCheck() throws Exception {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", "not-used")
@@ -150,6 +154,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromCredentialStoreNullCheck() throws Exception {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", "not-used")
@@ -169,6 +174,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromCredentialHelperFake() throws Exception {
 
         assumeFalse(
@@ -201,6 +207,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromCredentialHelperHandleNonZeroReturnCode() throws Exception {
 
         assumeFalse(
@@ -233,6 +240,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromDockerConfig() throws Exception {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", "not-used")
@@ -264,6 +272,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldReadCredentialsFromPodManConfig() throws Exception {
         new EnvironmentVariables()
                 .set("XDG_RUNTIME_DIR", xdgRuntimeDir.toAbsolutePath().toString())
@@ -376,6 +385,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testWithoutXdgRuntimeDir() throws Exception {
         new EnvironmentVariables()
                 .remove("XDG_RUNTIME_DIR")
@@ -388,6 +398,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testRegistryAuthFileIsUsedWhenSet() throws Exception {
         Path authFile = tempDir.resolve("custom-auth.json");
         Files.writeString(authFile, SAMPLE_DOCKER_CONFIG);
@@ -409,6 +420,7 @@ class AuthStoreTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testRegistryAuthFileTakesPrecedenceOverDefaults() throws Exception {
         // language=json
         String customConfig = """

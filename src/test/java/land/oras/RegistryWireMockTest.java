@@ -69,9 +69,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 @WireMockTest
 @Execution(ExecutionMode.SAME_THREAD)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistryWireMockTest {
 
     private final UsernamePasswordProvider authProvider = new UsernamePasswordProvider("myuser", "mypass");
@@ -277,6 +279,7 @@ class RegistryWireMockTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldNotForwardParentCredentialsToInsecureMirror(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String mirrorHost = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
@@ -383,6 +386,7 @@ class RegistryWireMockTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldListTagsWithConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
@@ -450,6 +454,7 @@ class RegistryWireMockTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldListRepositoryWithLocationConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");
@@ -483,6 +488,7 @@ class RegistryWireMockTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldListRepositoryWithPrefixConfig(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
 
         String registryAsString = wmRuntimeInfo.getHttpBaseUrl().replace("http://", "");

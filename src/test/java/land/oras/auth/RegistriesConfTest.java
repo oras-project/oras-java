@@ -23,18 +23,21 @@ package land.oras.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Path;
+import land.oras.EnvironmentLock;
 import land.oras.TestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Test class of {@link RegistriesConf}.
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistriesConfTest {
 
     @TempDir
@@ -54,6 +57,7 @@ class RegistriesConfTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldReadAlias() throws Exception {
         TestUtils.withHome(homeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();
@@ -65,6 +69,7 @@ class RegistriesConfTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldReadUnqualifiedSearchRegistriesFromHome() throws Exception {
         TestUtils.withHome(homeDir, () -> {
             RegistriesConf conf = RegistriesConf.newConf();
@@ -75,6 +80,7 @@ class RegistriesConfTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldLoadDropInConfFiles(@TempDir Path dropInHomeDir) throws Exception {
         // language=toml
         TestUtils.createRegistriesConfFile(dropInHomeDir, "unqualified-search-registries = [\"docker.io\"]");
@@ -95,6 +101,7 @@ class RegistriesConfTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldLoadDropInConfFilesInAlphaNumericalOrder(@TempDir Path dropInHomeDir) throws Exception {
         TestUtils.createRegistriesConfFile(dropInHomeDir, "");
         // language=toml
@@ -116,6 +123,7 @@ class RegistriesConfTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldFallBackToGlobalPathWhenHomeIsAbsent() throws Exception {
         synchronized (TestUtils.class) {
             new EnvironmentVariables().remove("HOME").execute(() -> {

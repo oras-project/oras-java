@@ -27,18 +27,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.util.List;
+import land.oras.EnvironmentLock;
 import land.oras.TestUtils;
 import land.oras.exception.OrasException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 /**
  * Unit tests for {@link ContainersPolicy} and {@link PolicyRequirement}.
  */
 @Execution(ExecutionMode.SAME_THREAD)
+@ResourceLock(providers = EnvironmentLock.class)
 class ContainersPolicyTest {
 
     @Test
@@ -162,6 +165,7 @@ class ContainersPolicyTest {
     }
 
     @Test
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void loadsUserPolicyFromHome(@TempDir Path homeDir) throws Exception {
         // language=json
         String policyJson = """
@@ -178,6 +182,7 @@ class ContainersPolicyTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void fallsBackToAcceptAllWhenNoPolicyFileFound(@TempDir Path emptyHome) throws Exception {
         // Use a home dir that has no policy.json and ensure /etc/containers/policy.json is skipped
         // by pointing both to a dir we control (emptyHome has no policy.json)

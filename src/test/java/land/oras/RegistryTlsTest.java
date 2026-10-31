@@ -41,11 +41,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
 @Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistryTlsTest {
 
     private static final String UNRELATED_CA_PEM;
@@ -140,6 +142,7 @@ class RegistryTlsTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldDowngradeToSecureWhenConfigExplicitlyNotInsecure(@TempDir Path homeDir) throws Exception {
 
         // Authoritative parent
@@ -166,6 +169,7 @@ class RegistryTlsTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldUpgradeToSecureAllOperationsToSecureWhenConfigDefaultsToSecure(
             @TempDir Path homeDir, @TempDir Path pullDir, @TempDir Path blobDir) throws Exception {
 
@@ -276,6 +280,7 @@ class RegistryTlsTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldNotDowngradeSecureMirrorWhenRegistryLevelInsecureSetForMirrorHost(
             @TempDir Path homeDir, @TempDir Path blobDir) throws Exception {
 

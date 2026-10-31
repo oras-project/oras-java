@@ -28,16 +28,19 @@ import static org.mockito.Mockito.doReturn;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import land.oras.ContainerRef;
+import land.oras.EnvironmentLock;
 import land.oras.auth.AuthStore.Credential;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = EnvironmentLock.class)
 class AuthStoreAuthenticationProviderTest {
 
     @Mock

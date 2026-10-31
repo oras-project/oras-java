@@ -48,11 +48,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers(disabledWithoutDocker = true)
 @Execution(ExecutionMode.CONCURRENT)
+@ResourceLock(providers = EnvironmentLock.class)
 class RegistryTest {
 
     @Container
@@ -80,6 +82,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldThrowIfUnableToFindOnAnyUnQualifiedSearchRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -99,6 +102,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldEnforceMultipleRegistriesWithDefaultEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -123,6 +127,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldAllowMultipleRegistriesWithDisabledEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -144,6 +149,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldEnforceMultipleRegistriesWithPermissiveEnforcingMode(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -182,6 +188,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldListRepositoriesInsecure(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -279,6 +286,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldMountWithInsecureRegistry(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -433,6 +441,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPushPullManifestsAndBlobsByUsingConfig(@TempDir Path homeDir) throws Exception {
 
         ExecutorService customExecutor = Executors.newSingleThreadExecutor();
@@ -635,6 +644,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPushManifestWithRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -673,6 +683,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPushManifestWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -713,6 +724,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldDetermineRegistryFromAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -926,6 +938,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldListReferrers(@TempDir Path homeDir) throws Exception {
         Registry registry = Registry.Builder.builder().withInsecure(true).build();
 
@@ -1202,6 +1215,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldArtifactWithAlias(@TempDir Path homeDir) throws Exception {
 
         // language=toml
@@ -1240,6 +1254,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void testShouldCopyFromAliasToAlias(@TempDir Path homeDir) throws Exception {
 
         try (ZotUnsecureContainer otherRegistryContainer = new ZotUnsecureContainer()) {
@@ -2181,6 +2196,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPushBlobChunkedFromPathViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
@@ -2218,6 +2234,7 @@ class RegistryTest {
 
     @Test
     @Execution(ExecutionMode.SAME_THREAD)
+    @ResourceLock(EnvironmentLock.SYSTEM_ENVIRONMENT)
     void shouldPushBlobChunkedFromStreamViaInsecureRegistryConfig(@TempDir Path homeDir) throws Exception {
 
         // Insecure config
