@@ -68,9 +68,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A registry is the main entry point for interacting with a container registry
+ *
+ * <p>Use try-with-resources to shut down the default layer-transfer executor when the registry is no longer needed.
+ * Registries derived from this instance share its executor and must finish using it before this instance is closed.
  */
 @NullMarked
-public final class Registry extends OCI<ContainerRef> {
+public final class Registry extends OCI<ContainerRef> implements AutoCloseable {
 
     /**
      * Max concurrent downloads and upload for blobs
@@ -81,6 +84,8 @@ public final class Registry extends OCI<ContainerRef> {
      * The executor service for parallel operations
      */
     private ExecutorService executorService;
+
+    private boolean ownsExecutorService;
 
     /**
      * The registries configuration loaded from the environment
@@ -278,6 +283,7 @@ public final class Registry extends OCI<ContainerRef> {
      */
     private void setExecutorService(ExecutorService executorService) {
         this.executorService = executorService;
+        this.ownsExecutorService = false;
     }
 
     /**
@@ -413,6 +419,7 @@ public final class Registry extends OCI<ContainerRef> {
                 t.setDaemon(true);
                 return t;
             });
+            ownsExecutorService = true;
         }
         return this;
     }
@@ -522,6 +529,18 @@ public final class Registry extends OCI<ContainerRef> {
     @Override
     public ExecutorService getExecutorService() {
         return executorService;
+    }
+
+    /**
+     * Shut down the executor created for this registry, allowing submitted tasks to finish without waiting for them.
+     * Executors supplied via {@link Builder#withExecutorService(ExecutorService)} or shared from another registry
+     * are not shut down. Calling this method more than once is safe.
+     */
+    @Override
+    public void close() {
+        if (ownsExecutorService) {
+            executorService.shutdown();
+        }
     }
 
     @Override
@@ -1906,6 +1925,8 @@ public final class Registry extends OCI<ContainerRef> {
 
         /**
          * Return a new builder with the same configuration as the given registry
+         * <p>The executor is shared and remains managed by its original owner. Closing the new registry does not
+         * shut down the shared executor.
          * @param registry The registry to copy the configuration from
          * @return The builder
          */
@@ -2033,6 +2054,7 @@ public final class Registry extends OCI<ContainerRef> {
         /**
          * Set the executor service to use for parallel uploads/downloads. By default it uses a parallelism level given by withParallelism() and a fixed thread pool.
          * Only uses for layers upload/download, not for manifest or index upload/download.
+         * The caller remains responsible for shutting down the supplied executor; closing the registry does not shut it down.
          * @param executorService The executor service
          * @return The builder
          */
