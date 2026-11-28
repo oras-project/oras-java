@@ -26,12 +26,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
@@ -53,6 +53,12 @@ import org.jspecify.annotations.Nullable;
 })
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class Config extends Descriptor {
+
+    /**
+     * Layer media types whose content digest annotation can be used as diff ID in an image config
+     */
+    private static final Set<String> TAR_LAYER_MEDIA_TYPES =
+            Set.of(Const.DEFAULT_BLOB_MEDIA_TYPE, Const.DEFAULT_BLOB_DIR_MEDIA_TYPE, Const.BLOB_DIR_ZSTD_MEDIA_TYPE);
 
     /**
      * The data, base64 encoded
@@ -180,13 +186,11 @@ public final class Config extends Descriptor {
     }
 
     /**
-     * Create an OCI image config for the given layers.
-     * <p>Container runtimes like containerd or CRI-O only mount content as an image volume when the manifest config
-     * is an OCI image config whose {@code rootfs.diff_ids} lists the digest of every uncompressed layer. Directories
-     * pushed with {@code pushArtifact} as {@code tar}, {@code tar+gzip} or {@code tar+zstd} layers carry this digest in
-     * the {@value Const#ANNOTATION_ORAS_CONTENT_DIGEST} annotation, and uncompressed
-     * {@value Const#DEFAULT_BLOB_MEDIA_TYPE} layers are their own diff ID. Push the config and a manifest
-     * referencing it and the same layers to make the artifact mountable.</p>
+     * Create an OCI image config whose {@code rootfs.diff_ids} lists the uncompressed digest of each layer.
+     * <p>Only the layer descriptors are read, so their media types and annotations are trusted. Supported layers are
+     * {@code tar}, {@code tar+gzip} or {@code tar+zstd} directories with {@value Const#ANNOTATION_ORAS_UNPACK} set to
+     * {@code true}, whose diff ID is their {@value Const#ANNOTATION_ORAS_CONTENT_DIGEST} annotation, and uncompressed
+     * {@value Const#DEFAULT_BLOB_MEDIA_TYPE} layers, which must be actual tar archives.</p>
      * @param platform The platform of the image. Its os and architecture are required by the image config
      * @param layers The layers of the manifest, in order
      * @return The config, with its data set inline
@@ -196,10 +200,7 @@ public final class Config extends Descriptor {
         if (layers.isEmpty()) {
             throw new OrasException("At least one layer is required to create an image config");
         }
-        List<String> diffIds = new ArrayList<>(layers.size());
-        for (Layer layer : layers) {
-            diffIds.add(diffId(layer));
-        }
+        List<String> diffIds = layers.stream().map(Config::diffId).toList();
         Map<String, Object> rootfs = new LinkedHashMap<>();
         rootfs.put("type", "layers");
         rootfs.put("diff_ids", diffIds);
@@ -227,22 +228,20 @@ public final class Config extends Descriptor {
                 Annotations.empty());
     }
 
-    /**
-     * Get the digest of the uncompressed content of a layer
-     * @param layer The layer
-     * @return The diff ID
-     */
     private static String diffId(Layer layer) {
-        String contentDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
-        if (contentDigest != null) {
+        String mediaType = layer.getMediaType();
+        Map<String, String> layerAnnotations = layer.getAnnotations();
+        String contentDigest = layerAnnotations.get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
+        boolean unpack = Boolean.parseBoolean(layerAnnotations.getOrDefault(Const.ANNOTATION_ORAS_UNPACK, "false"));
+        if (contentDigest != null && unpack && TAR_LAYER_MEDIA_TYPES.contains(mediaType)) {
             return contentDigest;
         }
-        if (Const.DEFAULT_BLOB_MEDIA_TYPE.equals(layer.getMediaType())) {
+        if (Const.DEFAULT_BLOB_MEDIA_TYPE.equals(mediaType)) {
             return layer.getDigest();
         }
         throw new OrasException(("Unable to determine the diff ID of layer '%s' with media type '%s'. "
-                        + "Push it as a directory or as an uncompressed '%s' layer")
-                .formatted(layer.getDigest(), layer.getMediaType(), Const.DEFAULT_BLOB_MEDIA_TYPE));
+                        + "Push it as a tar, tar+gzip or tar+zstd directory or as an uncompressed '%s' layer")
+                .formatted(layer.getDigest(), mediaType, Const.DEFAULT_BLOB_MEDIA_TYPE));
     }
 
     @Override

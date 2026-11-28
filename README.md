@@ -193,6 +193,8 @@ Config config = registry.pushConfig(ref, Config.ofImage(Platform.linuxAmd64(), m
 registry.pushManifest(ref, Manifest.empty().withConfig(config).withLayers(manifest.getLayers()));
 ```
 
+`Config.ofImage` only reads the layer descriptors, so you are responsible for supplying layers that are actual tar archives. A plain file pushed with `LocalPath.of(Path)` gets the `application/vnd.oci.image.layer.v1.tar` media type but keeps its raw bytes, so it won't mount as an image volume.
+
 ### Copy between registries
 
 Copies the manifest and all its blobs:

@@ -32,6 +32,8 @@ import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @Execution(ExecutionMode.CONCURRENT)
 class ConfigTest {
@@ -132,6 +134,23 @@ class ConfigTest {
         assertNull(config.getAnnotations(), "Annotations should be null");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {Const.DEFAULT_BLOB_DIR_MEDIA_TYPE, Const.BLOB_DIR_ZSTD_MEDIA_TYPE})
+    void shouldCreateImageConfigFromCompressedDirectoryLayer(String mediaType) {
+        Layer directory = Layer.fromDigest("sha256:aaaa", 10)
+                .withMediaType(mediaType)
+                .withAnnotations(Map.of(
+                        Const.ANNOTATION_TITLE, "dir",
+                        Const.ANNOTATION_ORAS_CONTENT_DIGEST, "sha256:bbbb",
+                        Const.ANNOTATION_ORAS_UNPACK, "true"));
+
+        Config config = Config.ofImage(Platform.linuxAmd64(), List.of(directory));
+
+        assertEquals(
+                "{\"architecture\":\"amd64\",\"os\":\"linux\",\"rootfs\":{\"type\":\"layers\",\"diff_ids\":[\"sha256:bbbb\"]}}",
+                new String(config.getDataBytes(), StandardCharsets.UTF_8));
+    }
+
     @Test
     void shouldCreateImageConfigWithPlatformDetails() {
         Layer tar = Layer.fromDigest("sha256:cccc", 20).withMediaType(Const.DEFAULT_BLOB_MEDIA_TYPE);
@@ -158,5 +177,30 @@ class ConfigTest {
                 .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "dir.zip", Const.ANNOTATION_ORAS_UNPACK, "false"));
         OrasException e = assertThrows(OrasException.class, () -> Config.ofImage(Platform.linuxAmd64(), List.of(zip)));
         assertTrue(e.getMessage().contains("sha256:dddd"), "Message should contain the layer digest");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {Const.ZIP_MEDIA_TYPE, Const.DEFAULT_DESCRIPTOR_MEDIA_TYPE})
+    void shouldFailToCreateImageConfigWithAnnotatedNonTarLayer(String mediaType) {
+        Layer layer = Layer.fromDigest("sha256:dddd", 30)
+                .withMediaType(mediaType)
+                .withAnnotations(Map.of(
+                        Const.ANNOTATION_TITLE, "content",
+                        Const.ANNOTATION_ORAS_CONTENT_DIGEST, "sha256:eeee",
+                        Const.ANNOTATION_ORAS_UNPACK, "true"));
+        OrasException e =
+                assertThrows(OrasException.class, () -> Config.ofImage(Platform.linuxAmd64(), List.of(layer)));
+        assertTrue(e.getMessage().contains(mediaType), "Message should contain the layer media type");
+    }
+
+    @Test
+    void shouldFailToCreateImageConfigWithDirectoryLayerNotUnpacked() {
+        Layer directory = Layer.fromDigest("sha256:aaaa", 10)
+                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                .withAnnotations(Map.of(
+                        Const.ANNOTATION_TITLE, "dir.gz",
+                        Const.ANNOTATION_ORAS_CONTENT_DIGEST, "sha256:bbbb",
+                        Const.ANNOTATION_ORAS_UNPACK, "false"));
+        assertThrows(OrasException.class, () -> Config.ofImage(Platform.linuxAmd64(), List.of(directory)));
     }
 }
