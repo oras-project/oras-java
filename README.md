@@ -180,6 +180,21 @@ Manifest manifest = Manifest.empty()
 registry.pushManifest(ref, manifest);
 ```
 
+### Mount an artifact as an image volume
+
+containerd and CRI-O only mount an artifact as a Kubernetes [image volume](https://kubernetes.io/docs/tasks/configure-pod-container/image-volumes/) when its manifest has an OCI image config listing the uncompressed digest (diff ID) of each layer in `rootfs.diff_ids`. `Config.ofImage` builds this config from directory layers (`tar`, `tar+gzip` or `tar+zstd`) and from uncompressed `application/vnd.oci.image.layer.v1.tar` layers:
+
+```java
+Registry registry = Registry.builder().insecure().build();
+ContainerRef ref = ContainerRef.parse("localhost:5000/my-models:v1");
+
+Manifest manifest = registry.pushArtifact(ref, LocalPath.of(Path.of("models")));
+Config config = registry.pushConfig(ref, Config.ofImage(Platform.linuxAmd64(), manifest.getLayers()));
+registry.pushManifest(ref, Manifest.empty().withConfig(config).withLayers(manifest.getLayers()));
+```
+
+`Config.ofImage` only reads the layer descriptors, so you are responsible for supplying layers that are actual tar archives. A plain file pushed with `LocalPath.of(Path)` gets the `application/vnd.oci.image.layer.v1.tar` media type but keeps its raw bytes, so it won't mount as an image volume.
+
 ### Copy between registries
 
 Copies the manifest and all its blobs:
