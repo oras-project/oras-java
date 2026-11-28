@@ -23,7 +23,12 @@ package land.oras;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import land.oras.exception.OrasException;
+import land.oras.utils.Const;
+import land.oras.utils.SupportedAlgorithm;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -103,5 +108,55 @@ class ConfigTest {
         assertEquals(
                 "{\"mediaType\":\"application/vnd.oci.empty.v1+json\",\"digest\":\"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a\",\"size\":2}",
                 config.toString());
+    }
+
+    @Test
+    void shouldCreateImageConfigFromLayers() {
+        Layer directory = Layer.fromDigest("sha256:aaaa", 10)
+                .withMediaType(Const.DEFAULT_BLOB_DIR_MEDIA_TYPE)
+                .withAnnotations(Map.of(
+                        Const.ANNOTATION_TITLE, "dir",
+                        Const.ANNOTATION_ORAS_CONTENT_DIGEST, "sha256:bbbb",
+                        Const.ANNOTATION_ORAS_UNPACK, "true"));
+        Layer tar = Layer.fromDigest("sha256:cccc", 20).withMediaType(Const.DEFAULT_BLOB_MEDIA_TYPE);
+
+        Config config = Config.ofImage(Platform.linuxAmd64(), List.of(directory, tar));
+
+        String expectedData =
+                "{\"architecture\":\"amd64\",\"os\":\"linux\",\"rootfs\":{\"type\":\"layers\",\"diff_ids\":[\"sha256:bbbb\",\"sha256:cccc\"]}}";
+        byte[] expectedBytes = expectedData.getBytes(StandardCharsets.UTF_8);
+        assertEquals(Const.CONFIG_RUNNING_CONTAINER_MEDIA_TYPE, config.getMediaType());
+        assertEquals(expectedData, new String(config.getDataBytes(), StandardCharsets.UTF_8));
+        assertEquals(SupportedAlgorithm.SHA256.digest(expectedBytes), config.getDigest());
+        assertEquals(expectedBytes.length, config.getSize());
+        assertNull(config.getAnnotations(), "Annotations should be null");
+    }
+
+    @Test
+    void shouldCreateImageConfigWithPlatformDetails() {
+        Layer tar = Layer.fromDigest("sha256:cccc", 20).withMediaType(Const.DEFAULT_BLOB_MEDIA_TYPE);
+        Platform platform = Platform.of(Const.PLATFORM_WINDOWS, Const.PLATFORM_ARCHITECTURE_ARM64, Const.VARIANT_V8)
+                .withOsVersion("10.0.17763.1040")
+                .withOsFeatures(List.of("win32k"));
+
+        Config config = Config.ofImage(platform, List.of(tar));
+
+        assertEquals(
+                "{\"architecture\":\"arm64\",\"os\":\"windows\",\"os.version\":\"10.0.17763.1040\",\"os.features\":[\"win32k\"],\"variant\":\"v8\",\"rootfs\":{\"type\":\"layers\",\"diff_ids\":[\"sha256:cccc\"]}}",
+                new String(config.getDataBytes(), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void shouldFailToCreateImageConfigWithoutLayers() {
+        assertThrows(OrasException.class, () -> Config.ofImage(Platform.linuxAmd64(), List.of()));
+    }
+
+    @Test
+    void shouldFailToCreateImageConfigWithUnknownDiffId() {
+        Layer zip = Layer.fromDigest("sha256:dddd", 30)
+                .withMediaType(Const.ZIP_MEDIA_TYPE)
+                .withAnnotations(Map.of(Const.ANNOTATION_TITLE, "dir.zip", Const.ANNOTATION_ORAS_UNPACK, "false"));
+        OrasException e = assertThrows(OrasException.class, () -> Config.ofImage(Platform.linuxAmd64(), List.of(zip)));
+        assertTrue(e.getMessage().contains("sha256:dddd"), "Message should contain the layer digest");
     }
 }

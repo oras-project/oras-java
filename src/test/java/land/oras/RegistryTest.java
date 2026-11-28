@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPInputStream;
 import land.oras.auth.RegistriesConf;
 import land.oras.exception.OrasException;
 import land.oras.policy.ContainersPolicy;
@@ -1749,6 +1750,42 @@ class RegistryTest {
         assertEquals("foobar", Files.readString(extractedDir.resolve("file1.txt")));
         assertEquals("test1234", Files.readString(extractedDir.resolve("file2.txt")));
         assertEquals("barfoo", Files.readString(extractedDir.resolve("file3.txt")));
+    }
+
+    @Test
+    void shouldPushDirectoryWithImageConfig() throws IOException {
+
+        Registry registry = Registry.Builder.builder()
+                .defaults("myuser", "mypass")
+                .withInsecure(true)
+                .build();
+        ContainerRef containerRef =
+                ContainerRef.parse("%s/library/artifact-image-config".formatted(this.registry.getRegistry()));
+
+        Files.writeString(blobDir.resolve("file1.txt"), "foobar");
+
+        // Push the directory, then replace the config by an image config
+        Manifest manifest = registry.pushArtifact(containerRef, LocalPath.of(blobDir));
+        Config config = registry.pushConfig(containerRef, Config.ofImage(Platform.linuxAmd64(), manifest.getLayers()));
+        registry.pushManifest(containerRef, Manifest.empty().withConfig(config).withLayers(manifest.getLayers()));
+
+        // Assert config
+        Manifest pushedManifest = registry.getManifest(containerRef);
+        assertEquals(
+                Const.CONFIG_RUNNING_CONTAINER_MEDIA_TYPE,
+                pushedManifest.getConfig().getMediaType());
+        assertEquals(config.getDigest(), pushedManifest.getConfig().getDigest());
+        String configJson =
+                new String(registry.getBlob(containerRef.withDigest(config.getDigest())), StandardCharsets.UTF_8);
+        assertEquals(new String(config.getDataBytes(), StandardCharsets.UTF_8), configJson);
+
+        // The diff ID is the digest of the uncompressed layer
+        Layer layer = pushedManifest.getLayers().get(0);
+        String diffId;
+        try (InputStream is = new GZIPInputStream(registry.fetchBlob(containerRef.withDigest(layer.getDigest())))) {
+            diffId = SupportedAlgorithm.SHA256.digest(is);
+        }
+        assertTrue(configJson.contains("\"diff_ids\":[\"%s\"]".formatted(diffId)), configJson);
     }
 
     @Test

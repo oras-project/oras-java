@@ -26,11 +26,16 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import land.oras.exception.OrasException;
 import land.oras.utils.Const;
 import land.oras.utils.JsonUtils;
+import land.oras.utils.SupportedAlgorithm;
 import org.jspecify.annotations.NullUnmarked;
 import org.jspecify.annotations.Nullable;
 
@@ -172,6 +177,72 @@ public final class Config extends Descriptor {
      */
     public static Config fromBlob(String mediaType, Layer layer) {
         return new Config(mediaType, layer.getDigest(), layer.getSize(), null, Annotations.empty());
+    }
+
+    /**
+     * Create an OCI image config for the given layers.
+     * <p>Container runtimes like containerd or CRI-O only mount content as an image volume when the manifest config
+     * is an OCI image config whose {@code rootfs.diff_ids} lists the digest of every uncompressed layer. Directories
+     * pushed with {@code pushArtifact} as {@code tar}, {@code tar+gzip} or {@code tar+zstd} layers carry this digest in
+     * the {@value Const#ANNOTATION_ORAS_CONTENT_DIGEST} annotation, and uncompressed
+     * {@value Const#DEFAULT_BLOB_MEDIA_TYPE} layers are their own diff ID. Push the config and a manifest
+     * referencing it and the same layers to make the artifact mountable.</p>
+     * @param platform The platform of the image. Its os and architecture are required by the image config
+     * @param layers The layers of the manifest, in order
+     * @return The config, with its data set inline
+     * @throws OrasException if no layer is given or the diff ID of a layer cannot be determined
+     */
+    public static Config ofImage(Platform platform, List<Layer> layers) {
+        if (layers.isEmpty()) {
+            throw new OrasException("At least one layer is required to create an image config");
+        }
+        List<String> diffIds = new ArrayList<>(layers.size());
+        for (Layer layer : layers) {
+            diffIds.add(diffId(layer));
+        }
+        Map<String, Object> rootfs = new LinkedHashMap<>();
+        rootfs.put("type", "layers");
+        rootfs.put("diff_ids", diffIds);
+
+        Map<String, Object> image = new LinkedHashMap<>();
+        image.put(Const.PLATFORM_ARCHITECTURE, platform.architecture());
+        image.put(Const.PLATFORM_OS, platform.os());
+        if (platform.osVersion() != null) {
+            image.put(Const.PLATFORM_OS_VERSION, platform.osVersion());
+        }
+        if (platform.osFeatures() != null && !platform.osFeatures().isEmpty()) {
+            image.put(Const.PLATFORM_OS_FEATURES, platform.osFeatures());
+        }
+        if (platform.variant() != null) {
+            image.put(Const.PLATFORM_VARIANT, platform.variant());
+        }
+        image.put("rootfs", rootfs);
+
+        byte[] data = JsonUtils.toJson(image).getBytes(StandardCharsets.UTF_8);
+        return new Config(
+                Const.CONFIG_RUNNING_CONTAINER_MEDIA_TYPE,
+                SupportedAlgorithm.getDefault().digest(data),
+                data.length,
+                Base64.getEncoder().encodeToString(data),
+                Annotations.empty());
+    }
+
+    /**
+     * Get the digest of the uncompressed content of a layer
+     * @param layer The layer
+     * @return The diff ID
+     */
+    private static String diffId(Layer layer) {
+        String contentDigest = layer.getAnnotations().get(Const.ANNOTATION_ORAS_CONTENT_DIGEST);
+        if (contentDigest != null) {
+            return contentDigest;
+        }
+        if (Const.DEFAULT_BLOB_MEDIA_TYPE.equals(layer.getMediaType())) {
+            return layer.getDigest();
+        }
+        throw new OrasException(("Unable to determine the diff ID of layer '%s' with media type '%s'. "
+                        + "Push it as a directory or as an uncompressed '%s' layer")
+                .formatted(layer.getDigest(), layer.getMediaType(), Const.DEFAULT_BLOB_MEDIA_TYPE));
     }
 
     @Override
